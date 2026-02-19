@@ -145,9 +145,53 @@ HybridSearch(query)
 - With threads but wrong versions: "go_busy_timeout signature mismatch"
 
 ### What's next
-1. Implement Embedder (Voyage API or Ollama)
-2. Wire embedder into agent
+1. ~~Implement Embedder~~ ✓
+2. ~~Wire embedder into agent~~ ✓
 3. Domain router - smarter recall
-4. Test semantic search end-to-end
+4. Test semantic search end-to-end (needs Ollama running)
+
+---
+
+## 2026-02-19: Embedder Implementation
+
+### What was built
+
+- **Embedder package** (`internal/embedder/`)
+  - `Embedder` interface (defined in koramem)
+  - `ollama.go` - HTTP client for Ollama API
+  - Config-driven provider selection
+
+- **Config updates** (`internal/config/`)
+  - Added `EmbedderConfig` with Provider, BaseURL, Model
+  - Env vars: `EMBEDDER_PROVIDER`, `EMBEDDER_URL`, `EMBEDDER_MODEL`
+
+- **Main wiring** (`cmd/kora/main.go`)
+  - Creates embedder from config
+  - Sets embedder on memory store via `memory.SetEmbedder(emb)`
+  - Logs embedder provider on startup
+
+### Architecture
+```
+Kubernetes cluster:
+├── kora (deployment)
+│   ├── single binary with koramem embedded
+│   ├── calls ollama via HTTP for embeddings
+│   └── sqlite-vec for vector storage
+└── ollama (deployment)
+    └── nomic-embed-text model (768 dims, 274MB)
+```
+
+### Environment variables
+```bash
+EMBEDDER_PROVIDER=ollama
+EMBEDDER_URL=http://ollama:11434  # k8s service name
+EMBEDDER_MODEL=nomic-embed-text
+```
+
+### What's next
+1. Domain router - smarter recall (not all 14 domains)
+2. Test semantic search end-to-end
+3. k8s manifests for ollama deployment
+4. Fact deduplication
 
 ---

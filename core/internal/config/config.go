@@ -26,6 +26,8 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	embedderConfig := loadEmbedderConfig()
+
 	botConfig, err := loadBotConfig()
 	if err != nil {
 		return nil, err
@@ -36,8 +38,17 @@ func Load() (*Config, error) {
 		MemoryPath:  memoryPath,
 		LLM:         llmConfig,
 		Extractor:   extractorConfig,
+		Embedder:    embedderConfig,
 		Bot:         botConfig,
 	}, nil
+}
+
+func loadEmbedderConfig() EmbedderConfig {
+	return EmbedderConfig{
+		Provider: os.Getenv("EMBEDDER_PROVIDER"),
+		BaseURL:  os.Getenv("EMBEDDER_URL"),
+		Model:    os.Getenv("EMBEDDER_MODEL"),
+	}
 }
 
 func loadBotConfig() (BotConfig, error) {

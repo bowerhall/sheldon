@@ -14,6 +14,9 @@ picoclaw
 .env
 .env.local
 
+# Kubernetes secrets
+deploy/k8s/secrets.yaml
+
 # Personal data
 **/IDENTITY.md
 

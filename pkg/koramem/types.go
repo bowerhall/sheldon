@@ -15,6 +15,19 @@ type Store struct {
 	embedder Embedder
 }
 
+type DecayConfig struct {
+	MaxAge          time.Duration
+	MaxAccessCount  int
+	MaxConfidence   float64
+	DomainOverrides map[int]time.Duration
+}
+
+var DefaultDecayConfig = DecayConfig{
+	MaxAge:         180 * 24 * time.Hour, // 6 months
+	MaxAccessCount: 1,
+	MaxConfidence:  0.5,
+}
+
 type Domain struct {
 	ID    int
 	Name  string

@@ -5,12 +5,19 @@ type Config struct {
 	MemoryPath  string
 	LLM         LLMConfig
 	Extractor   LLMConfig
+	Embedder    EmbedderConfig
 	Bot         BotConfig
 }
 
 type LLMConfig struct {
 	Provider string
 	APIKey   string
+	Model    string
+}
+
+type EmbedderConfig struct {
+	Provider string
+	BaseURL  string
 	Model    string
 }
 

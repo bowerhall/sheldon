@@ -10,10 +10,31 @@ type Config struct {
 }
 
 type Message struct {
-	Role    string
-	Content string
+	Role       string
+	Content    string
+	ToolCalls  []ToolCall
+	ToolCallID string
+}
+
+type Tool struct {
+	Name        string
+	Description string
+	Parameters  map[string]any
+}
+
+type ToolCall struct {
+	ID        string
+	Name      string
+	Arguments string
+}
+
+type ChatResponse struct {
+	Content   string
+	ToolCalls []ToolCall
+	StopReason string
 }
 
 type LLM interface {
 	Chat(ctx context.Context, systemPrompt string, messages []Message) (string, error)
+	ChatWithTools(ctx context.Context, systemPrompt string, messages []Message, tools []Tool) (*ChatResponse, error)
 }

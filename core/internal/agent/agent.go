@@ -2,25 +2,30 @@ package agent
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/kadet/kora/internal/llm"
 	"github.com/kadet/kora/internal/logger"
 	"github.com/kadet/kora/internal/session"
+	"github.com/kadet/kora/internal/tools"
 	"github.com/kadet/koramem"
 )
 
+const maxToolIterations = 5
+
 func New(model, extractor llm.LLM, memory *koramem.Store, essencePath string) *Agent {
 	systemPrompt := loadSystemPrompt(essencePath)
+
+	registry := tools.NewRegistry()
+	tools.RegisterMemoryTools(registry, memory)
 
 	return &Agent{
 		llm:          model,
 		extractor:    extractor,
 		memory:       memory,
 		sessions:     session.NewStore(),
+		tools:        registry,
 		systemPrompt: systemPrompt,
 	}
 }
@@ -39,70 +44,52 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 	logger.Debug("message received", "session", sessionID)
 
 	sess := a.sessions.Get(sessionID)
-	sess.AddMessage("user", userMessage)
+	sess.AddMessage("user", userMessage, nil, "")
 
-	prompt := a.buildPrompt(userMessage)
-
-	logger.Debug("calling llm", "messages", len(sess.Messages()))
-	response, err := a.llm.Chat(ctx, prompt, sess.Messages())
+	response, err := a.runAgentLoop(ctx, sess)
 	if err != nil {
-		logger.Error("llm failed", "error", err)
+		logger.Error("agent loop failed", "error", err)
 		return "", err
 	}
-
-	logger.Debug("llm response", "chars", len(response))
-	sess.AddMessage("assistant", response)
 
 	go a.remember(ctx, sessionID, sess.Messages())
 
 	return response, nil
 }
 
-func (a *Agent) buildPrompt(userMessage string) string {
-	facts := a.recall(userMessage)
+func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string, error) {
+	availableTools := a.tools.Tools()
 
-	if len(facts) == 0 {
-		logger.Debug("no facts recalled")
-		return a.systemPrompt
-	}
+	for i := range maxToolIterations {
+		logger.Debug("agent loop iteration", "iteration", i, "messages", len(sess.Messages()))
 
-	logger.Debug("facts recalled", "count", len(facts))
-
-	var sb strings.Builder
-	sb.WriteString(a.systemPrompt)
-	sb.WriteString("\n\n## Recalled Memory\n")
-
-	for _, f := range facts {
-		fmt.Fprintf(&sb, "- %s: %s\n", f.Field, f.Value)
-	}
-
-	return sb.String()
-}
-
-func (a *Agent) recall(message string) []*koramem.Fact {
-	allDomains := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
-
-	words := strings.Fields(message)
-	var allFacts []*koramem.Fact
-	seen := make(map[int64]bool)
-
-	for _, word := range words {
-		if len(word) < 3 {
-			continue
-		}
-
-		facts, err := a.memory.SearchFacts(word, allDomains)
+		resp, err := a.llm.ChatWithTools(ctx, a.systemPrompt, sess.Messages(), availableTools)
 		if err != nil {
-			continue
+			return "", err
 		}
 
-		for _, f := range facts {
-			if !seen[f.ID] {
-				seen[f.ID] = true
-				allFacts = append(allFacts, f)
+		if len(resp.ToolCalls) == 0 {
+			logger.Debug("llm response (final)", "chars", len(resp.Content))
+			sess.AddMessage("assistant", resp.Content, nil, "")
+			return resp.Content, nil
+		}
+
+		logger.Debug("llm requested tools", "count", len(resp.ToolCalls))
+		sess.AddMessage("assistant", resp.Content, resp.ToolCalls, "")
+
+		for _, tc := range resp.ToolCalls {
+			logger.Debug("executing tool", "name", tc.Name, "id", tc.ID)
+
+			result, err := a.tools.Execute(ctx, tc.Name, tc.Arguments)
+			if err != nil {
+				result = "Error: " + err.Error()
 			}
+
+			logger.Debug("tool result", "name", tc.Name, "chars", len(result))
+			sess.AddMessage("tool", result, nil, tc.ID)
 		}
 	}
 
-	return allFacts
+	logger.Warn("agent loop hit max iterations", "max", maxToolIterations)
+	return "I apologize, but I'm having trouble completing this request. Please try again.", nil
 }

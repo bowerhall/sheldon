@@ -7,11 +7,13 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/kadet/kora/internal/agent"
 	"github.com/kadet/kora/internal/bot"
 	"github.com/kadet/kora/internal/config"
+	"github.com/kadet/kora/internal/embedder"
 	"github.com/kadet/kora/internal/llm"
 	"github.com/kadet/kora/internal/logger"
 	"github.com/kadet/koramem"
@@ -78,6 +80,20 @@ func main() {
 
 	defer memory.Close()
 
+	emb, err := embedder.New(embedder.Config{
+		Provider: cfg.Embedder.Provider,
+		BaseURL:  cfg.Embedder.BaseURL,
+		Model:    cfg.Embedder.Model,
+	})
+	if err != nil {
+		logger.Fatal("failed to create embedder", "error", err)
+	}
+
+	if emb != nil {
+		memory.SetEmbedder(emb)
+		logger.Debug("embedder configured", "provider", cfg.Embedder.Provider)
+	}
+
 	if err := healthCheck(memory, cfg.EssencePath); err != nil {
 		logger.Fatal("health check failed", "error", err)
 	}
@@ -99,9 +115,26 @@ func main() {
 
 	go b.Start(ctx)
 
+	go func() {
+		for range time.Tick(24 * time.Hour) {
+			deleted, err := memory.Decay(koramem.DefaultDecayConfig)
+			if err != nil {
+				logger.Error("decay failed", "error", err)
+			} else if deleted > 0 {
+				logger.Info("decay completed", "deleted", deleted)
+			}
+		}
+	}()
+
+	embedderProvider := cfg.Embedder.Provider
+	if embedderProvider == "" {
+		embedderProvider = "none"
+	}
+
 	logger.Info("kora started",
 		"bot", cfg.Bot.Provider,
 		"llm", cfg.LLM.Provider,
+		"embedder", embedderProvider,
 		"essence", cfg.EssencePath,
 		"memory", cfg.MemoryPath,
 	)

@@ -1,6 +1,6 @@
 package koramem
 
-const VectorDimensions = 1536
+const VectorDimensions = 768
 
 const schema = `
 CREATE TABLE IF NOT EXISTS domains (
@@ -59,6 +59,6 @@ CREATE INDEX IF NOT EXISTS idx_edges_relation ON edges(relation);
 const vecSchema = `
 CREATE VIRTUAL TABLE IF NOT EXISTS vec_facts USING vec0(
     fact_id INTEGER PRIMARY KEY,
-    embedding FLOAT[1536]
+    embedding FLOAT[768]
 );
 `

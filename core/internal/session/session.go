@@ -2,10 +2,15 @@ package session
 
 import "github.com/kadet/kora/internal/llm"
 
-func (s *Session) AddMessage(role, content string) {
+func (s *Session) AddMessage(role, content string, toolCalls []llm.ToolCall, toolCallID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.messages = append(s.messages, llm.Message{Role: role, Content: content})
+	s.messages = append(s.messages, llm.Message{
+		Role:       role,
+		Content:    content,
+		ToolCalls:  toolCalls,
+		ToolCallID: toolCallID,
+	})
 }
 
 func (s *Session) Messages() []llm.Message {

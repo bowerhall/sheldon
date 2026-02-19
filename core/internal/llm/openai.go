@@ -16,20 +16,45 @@ type openaiCompatible struct {
 }
 
 type openaiRequest struct {
-	Model    string          `json:"model"`
-	Messages []openaiMessage `json:"messages"`
+	Model    string             `json:"model"`
+	Messages []openaiMessage    `json:"messages"`
+	Tools    []openaiTool       `json:"tools,omitempty"`
 }
 
 type openaiMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role       string           `json:"role"`
+	Content    string           `json:"content,omitempty"`
+	ToolCalls  []openaiToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string           `json:"tool_call_id,omitempty"`
+}
+
+type openaiTool struct {
+	Type     string         `json:"type"`
+	Function openaiFunction `json:"function"`
+}
+
+type openaiFunction struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Parameters  map[string]any `json:"parameters"`
+}
+
+type openaiToolCall struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Function struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	} `json:"function"`
 }
 
 type openaiResponse struct {
 	Choices []struct {
 		Message struct {
-			Content string `json:"content"`
+			Content   string           `json:"content"`
+			ToolCalls []openaiToolCall `json:"tool_calls,omitempty"`
 		} `json:"message"`
+		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Error *struct {
 		Message string `json:"message"`
@@ -45,6 +70,14 @@ func newOpenAICompatible(apiKey, baseURL, model string) LLM {
 }
 
 func (o *openaiCompatible) Chat(ctx context.Context, systemPrompt string, messages []Message) (string, error) {
+	resp, err := o.ChatWithTools(ctx, systemPrompt, messages, nil)
+	if err != nil {
+		return "", err
+	}
+	return resp.Content, nil
+}
+
+func (o *openaiCompatible) ChatWithTools(ctx context.Context, systemPrompt string, messages []Message, tools []Tool) (*ChatResponse, error) {
 	var oaiMessages []openaiMessage
 
 	if systemPrompt != "" {
@@ -52,7 +85,27 @@ func (o *openaiCompatible) Chat(ctx context.Context, systemPrompt string, messag
 	}
 
 	for _, msg := range messages {
-		oaiMessages = append(oaiMessages, openaiMessage{Role: msg.Role, Content: msg.Content})
+		oaiMsg := openaiMessage{
+			Role:       msg.Role,
+			Content:    msg.Content,
+			ToolCallID: msg.ToolCallID,
+		}
+
+		for _, tc := range msg.ToolCalls {
+			oaiMsg.ToolCalls = append(oaiMsg.ToolCalls, openaiToolCall{
+				ID:   tc.ID,
+				Type: "function",
+				Function: struct {
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+				}{
+					Name:      tc.Name,
+					Arguments: tc.Arguments,
+				},
+			})
+		}
+
+		oaiMessages = append(oaiMessages, oaiMsg)
 	}
 
 	reqBody := openaiRequest{
@@ -60,14 +113,18 @@ func (o *openaiCompatible) Chat(ctx context.Context, systemPrompt string, messag
 		Messages: oaiMessages,
 	}
 
+	if len(tools) > 0 {
+		reqBody.Tools = o.convertTools(tools)
+	}
+
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", o.baseURL+"/chat/completions", bytes.NewReader(jsonBody))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -75,33 +132,69 @@ func (o *openaiCompatible) Chat(ctx context.Context, systemPrompt string, messag
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var oaiResp openaiResponse
 
 	if err := json.Unmarshal(body, &oaiResp); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("api error (status %d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("api error (status %d): %s", resp.StatusCode, string(body))
 	}
 
 	if oaiResp.Error != nil {
-		return "", fmt.Errorf("api error: %s", oaiResp.Error.Message)
+		return nil, fmt.Errorf("api error: %s", oaiResp.Error.Message)
 	}
 
 	if len(oaiResp.Choices) == 0 {
-		return "", fmt.Errorf("no choices in response")
+		return nil, fmt.Errorf("no choices in response")
 	}
 
-	return oaiResp.Choices[0].Message.Content, nil
+	choice := oaiResp.Choices[0]
+	result := &ChatResponse{
+		Content:    choice.Message.Content,
+		StopReason: choice.FinishReason,
+	}
+
+	for _, tc := range choice.Message.ToolCalls {
+		result.ToolCalls = append(result.ToolCalls, ToolCall{
+			ID:        tc.ID,
+			Name:      tc.Function.Name,
+			Arguments: tc.Function.Arguments,
+		})
+	}
+
+	return result, nil
+}
+
+func (o *openaiCompatible) convertTools(tools []Tool) []openaiTool {
+	result := make([]openaiTool, len(tools))
+
+	for i, tool := range tools {
+		params := tool.Parameters
+		if params == nil {
+			params = map[string]any{"type": "object", "properties": map[string]any{}}
+		}
+
+		result[i] = openaiTool{
+			Type: "function",
+			Function: openaiFunction{
+				Name:        tool.Name,
+				Description: tool.Description,
+				Parameters:  params,
+			},
+		}
+	}
+
+	return result
 }

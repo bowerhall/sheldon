@@ -163,3 +163,120 @@ func TestSqliteVecVersion(t *testing.T) {
 
 	t.Logf("sqlite-vec version: %s", vecVersion)
 }
+
+func TestTraverse(t *testing.T) {
+	store, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("failed to open store: %v", err)
+	}
+	defer store.Close()
+
+	// Create entities
+	kadet, _ := store.CreateEntity("Kadet", "person", 1, "")
+	sarah, _ := store.CreateEntity("Sarah", "person", 6, "")
+	mike, _ := store.CreateEntity("Mike", "person", 6, "")
+
+	// Add facts
+	store.AddFact(&kadet.ID, 1, "occupation", "engineer", 0.9)
+	store.AddFact(&sarah.ID, 6, "relationship", "wife", 0.95)
+	store.AddFact(&sarah.ID, 2, "birthday", "March 15", 0.9)
+	store.AddFact(&mike.ID, 6, "relationship", "friend", 0.8)
+
+	// Create edges
+	store.AddEdge(kadet.ID, sarah.ID, "married_to", 1.0, "")
+	store.AddEdge(kadet.ID, mike.ID, "friends_with", 0.8, "")
+
+	// Traverse from Kadet with depth 1
+	results, err := store.Traverse(kadet.ID, 1)
+	if err != nil {
+		t.Fatalf("failed to traverse: %v", err)
+	}
+
+	// Should have 3 entities: Kadet, Sarah, Mike
+	if len(results) != 3 {
+		t.Errorf("expected 3 traversal results, got %d", len(results))
+	}
+
+	// First should be Kadet (depth 0)
+	if results[0].Entity.Name != "Kadet" {
+		t.Errorf("expected first entity to be Kadet, got %s", results[0].Entity.Name)
+	}
+	if results[0].Depth != 0 {
+		t.Errorf("expected depth 0, got %d", results[0].Depth)
+	}
+
+	// Check that Sarah has facts
+	var sarahResult *TraversalResult
+	for _, r := range results {
+		if r.Entity.Name == "Sarah" {
+			sarahResult = r
+			break
+		}
+	}
+
+	if sarahResult == nil {
+		t.Fatal("Sarah not found in traversal")
+	}
+
+	if len(sarahResult.Facts) != 2 {
+		t.Errorf("expected Sarah to have 2 facts, got %d", len(sarahResult.Facts))
+	}
+}
+
+func TestSearchEntities(t *testing.T) {
+	store, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("failed to open store: %v", err)
+	}
+	defer store.Close()
+
+	store.CreateEntity("Sarah Johnson", "person", 6, "")
+	store.CreateEntity("Sarah Smith", "person", 6, "")
+	store.CreateEntity("Mike Brown", "person", 6, "")
+
+	results, err := store.SearchEntities("Sarah")
+	if err != nil {
+		t.Fatalf("failed to search entities: %v", err)
+	}
+
+	if len(results) != 2 {
+		t.Errorf("expected 2 results for 'Sarah', got %d", len(results))
+	}
+}
+
+func TestDecay(t *testing.T) {
+	store, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("failed to open store: %v", err)
+	}
+	defer store.Close()
+
+	entity, _ := store.CreateEntity("Test", "person", 1, "")
+
+	// Add facts with varying confidence
+	store.AddFact(&entity.ID, 1, "low_conf", "value1", 0.3)
+	store.AddFact(&entity.ID, 1, "high_conf", "value2", 0.9)
+
+	// Manually backdate the low confidence fact
+	store.DB().Exec(`UPDATE facts SET created_at = datetime('now', '-1 year') WHERE field = 'low_conf'`)
+
+	// Run decay with default config
+	deleted, err := store.Decay(DefaultDecayConfig)
+	if err != nil {
+		t.Fatalf("decay failed: %v", err)
+	}
+
+	if deleted != 1 {
+		t.Errorf("expected 1 deleted, got %d", deleted)
+	}
+
+	// High confidence fact should remain
+	facts, _ := store.GetFactsByEntity(entity.ID)
+	if len(facts) != 1 {
+		t.Errorf("expected 1 remaining fact, got %d", len(facts))
+	}
+
+	if facts[0].Field != "high_conf" {
+		t.Errorf("expected high_conf to remain, got %s", facts[0].Field)
+	}
+}
