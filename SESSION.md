@@ -189,9 +189,81 @@ EMBEDDER_MODEL=nomic-embed-text
 ```
 
 ### What's next
-1. Domain router - smarter recall (not all 14 domains)
-2. Test semantic search end-to-end
-3. k8s manifests for ollama deployment
+1. ~~Domain router - smarter recall~~ (replaced by tool calling)
+2. ~~Test semantic search end-to-end~~ ✓
+3. ~~k8s manifests for ollama deployment~~ ✓
 4. Fact deduplication
+
+---
+
+## 2026-02-19: Tool Calling + Graph Traversal + Decay
+
+### What was built
+
+- **Tool calling infrastructure** (`internal/llm/`, `internal/tools/`)
+  - Added `ChatWithTools()` to LLM interface
+  - Implemented for both Claude and OpenAI-compatible providers
+  - `tools.Registry` for registering and executing tools
+  - `recall_memory` tool - LLM decides when to search memory
+
+- **Agent loop refactor** (`internal/agent/agent.go`)
+  - `runAgentLoop()` iterates until LLM stops calling tools
+  - Max 5 iterations to prevent infinite loops
+  - Session tracks tool calls and results
+
+- **Entity graph traversal** (`pkg/koramem/`)
+  - `SearchEntities(query)` - fuzzy search entities by name
+  - `Traverse(entityID, maxDepth)` - walk graph, collect connected entities + facts
+  - `Recall(ctx, query, domains, limit)` - combines hybrid search + traversal
+
+- **Recency weighting** (`pkg/koramem/queries.go`)
+  - Read-time decay: older/unaccessed facts rank lower
+  - Formula: `score = (confidence * 0.7) + (recency * 0.3)`
+
+- **Memory decay** (`pkg/koramem/decay.go`)
+  - `DecayConfig` struct - configurable thresholds
+  - `DefaultDecayConfig` - 6 months, access ≤1, confidence ≤0.5
+  - `Decay(cfg)` - hard deletes stale facts + embeddings
+  - Domain-specific overrides supported for open source flexibility
+  - Go ticker in main.go runs decay daily
+
+- **Kubernetes deployment** (`deploy/k8s/`)
+  - Full manifests: namespace, ollama, kora, config, secrets, essence
+  - Ollama with initContainer to pull nomic-embed-text model
+  - PVCs for persistence
+  - Tested locally with Docker Desktop Kubernetes
+
+- **Project structure cleanup**
+  - Removed unused `router/` package (tool calling replaced it)
+  - Moved Dockerfile into `core/` for multi-app monorepo pattern
+
+### How tool calling works
+```
+User: "What's Sarah's birthday?"
+         ↓
+Agent: llm.ChatWithTools(messages, [recall_memory])
+         ↓
+LLM returns: tool_use("recall_memory", {query: "Sarah birthday"})
+         ↓
+Agent: tools.Execute("recall_memory", args)
+         ├── memory.Recall() → hybrid search + entity traversal
+         └── Returns facts + related entities
+         ↓
+Agent: llm.ChatWithTools(messages + tool_result, [recall_memory])
+         ↓
+LLM returns: "Sarah's birthday is March 15th"
+```
+
+### Tested
+- Ollama deployed to local k8s ✓
+- Embeddings API working ✓
+- Graph traversal tests pass ✓
+- Decay tests pass ✓
+
+### What's next
+1. Deploy full stack (Kora + Ollama) to k8s
+2. Test tool calling end-to-end via Telegram
+3. Fact deduplication
+4. Skills framework (user-invoked commands)
 
 ---
