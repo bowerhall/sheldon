@@ -17,3 +17,6 @@ data:
 
   HEARTBEAT_ENABLED: "true"
   HEARTBEAT_INTERVAL: "1"
+
+  # Coder (uses Claude Code CLI)
+  CODER_SANDBOX: "/data/sandbox"

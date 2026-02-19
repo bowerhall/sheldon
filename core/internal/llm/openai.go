@@ -16,9 +16,9 @@ type openaiCompatible struct {
 }
 
 type openaiRequest struct {
-	Model    string             `json:"model"`
-	Messages []openaiMessage    `json:"messages"`
-	Tools    []openaiTool       `json:"tools,omitempty"`
+	Model    string          `json:"model"`
+	Messages []openaiMessage `json:"messages"`
+	Tools    []openaiTool    `json:"tools,omitempty"`
 }
 
 type openaiMessage struct {

@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kora
+  namespace: kora
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kora-deployer
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces", "services", "configmaps", "secrets", "pods", "pods/log"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kora-deployer
+subjects:
+  - kind: ServiceAccount
+    name: kora
+    namespace: kora
+roleRef:
+  kind: ClusterRole
+  name: kora-deployer
+  apiGroup: rbac.authorization.k8s.io

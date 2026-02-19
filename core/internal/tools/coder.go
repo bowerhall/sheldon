@@ -50,6 +50,13 @@ func RegisterCoderTool(registry *Registry, bridge *coder.Bridge, memory *koramem
 			complexity = coder.ComplexityStandard
 		}
 
+		// notify user that coding has started
+		taskSummary := params.Task
+		if len(taskSummary) > 50 {
+			taskSummary = taskSummary[:50] + "..."
+		}
+		registry.Notify(ctx, fmt.Sprintf("🔨 Working on: %s", taskSummary))
+
 		memCtx := buildMemoryContext(ctx, memory)
 
 		task := coder.Task{
@@ -59,12 +66,64 @@ func RegisterCoderTool(registry *Registry, bridge *coder.Bridge, memory *koramem
 			Context:    memCtx,
 		}
 
-		result, err := bridge.Execute(ctx, task)
+		// use streaming for real-time progress
+		onProgress := func(event coder.StreamEvent) {
+			switch event.Type {
+			case "thinking":
+				registry.Notify(ctx, "💭 Thinking...")
+			case "tool_use":
+				registry.Notify(ctx, fmt.Sprintf("🔧 Using: %s", event.Tool))
+			}
+		}
+
+		result, err := bridge.ExecuteWithProgress(ctx, task, onProgress)
+		if err != nil {
+			registry.Notify(ctx, fmt.Sprintf("❌ Code task failed: %v", err))
+			return "", err
+		}
+
+		// notify completion
+		registry.Notify(ctx, fmt.Sprintf("✅ Code complete: %d files created", len(result.Files)))
+
+		return formatResult(result), nil
+	})
+
+	// cleanup workspaces tool
+	cleanupTool := llm.Tool{
+		Name:        "cleanup_workspaces",
+		Description: "Remove old code workspaces to free up disk space. Removes workspaces older than the specified hours (default: 24).",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"max_age_hours": map[string]any{
+					"type":        "integer",
+					"description": "Remove workspaces older than this many hours (default: 24)",
+				},
+			},
+		},
+	}
+
+	registry.Register(cleanupTool, func(ctx context.Context, args string) (string, error) {
+		var params struct {
+			MaxAgeHours int `json:"max_age_hours"`
+		}
+		json.Unmarshal([]byte(args), &params)
+
+		if params.MaxAgeHours <= 0 {
+			params.MaxAgeHours = 24
+		}
+
+		maxAge := time.Duration(params.MaxAgeHours) * time.Hour
+		count, err := bridge.CleanupWorkspaces(maxAge)
 		if err != nil {
 			return "", err
 		}
 
-		return formatResult(result), nil
+		if count == 0 {
+			return "No old workspaces to clean up", nil
+		}
+
+		return fmt.Sprintf("Cleaned up %d workspaces older than %d hours", count, params.MaxAgeHours), nil
 	})
 }
 
@@ -105,6 +164,10 @@ func formatResult(result *coder.Result) string {
 
 	if result.Error != "" {
 		fmt.Fprintf(&sb, "Error: %s\n\n", result.Error)
+	}
+
+	if result.WorkspacePath != "" {
+		fmt.Fprintf(&sb, "Workspace: %s\n\n", result.WorkspacePath)
 	}
 
 	if len(result.Files) > 0 {

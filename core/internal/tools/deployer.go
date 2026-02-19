@@ -61,10 +61,15 @@ func RegisterDeployerTools(registry *Registry, builder *deployer.Builder, deploy
 			tag = "latest"
 		}
 
+		registry.Notify(ctx, fmt.Sprintf("🐳 Building image: %s:%s", params.ImageName, tag))
+
 		result, err := builder.Build(ctx, params.ContextDir, params.ImageName, tag)
 		if err != nil {
+			registry.Notify(ctx, fmt.Sprintf("❌ Build failed: %v", err))
 			return "", err
 		}
+
+		registry.Notify(ctx, fmt.Sprintf("✅ Image built: %s:%s (%s)", result.ImageName, result.ImageTag, result.Duration))
 
 		return fmt.Sprintf("Image built and imported: %s:%s (%d bytes, %s)",
 			result.ImageName, result.ImageTag, result.Size, result.Duration), nil
@@ -100,10 +105,15 @@ func RegisterDeployerTools(registry *Registry, builder *deployer.Builder, deploy
 			d = deployer.NewDeployer(params.Namespace)
 		}
 
+		registry.Notify(ctx, fmt.Sprintf("🚀 Deploying to %s...", d.Namespace()))
+
 		result, err := d.Deploy(ctx, params.ManifestDir)
 		if err != nil {
+			registry.Notify(ctx, fmt.Sprintf("❌ Deploy failed: %v", err))
 			return "", err
 		}
+
+		registry.Notify(ctx, fmt.Sprintf("✅ Deployed: %s", strings.Join(result.Resources, ", ")))
 
 		return fmt.Sprintf("Deployed to %s: %s\nStatus: %s",
 			result.Namespace, strings.Join(result.Resources, ", "), result.Status), nil
@@ -188,7 +198,7 @@ func RegisterDeployerTools(registry *Registry, builder *deployer.Builder, deploy
 		Name:        "cleanup_images",
 		Description: "Remove unused container images from the cluster to free up disk space. Run this periodically or when storage is low.",
 		Parameters: map[string]any{
-			"type": "object",
+			"type":       "object",
 			"properties": map[string]any{},
 		},
 	}

@@ -39,16 +39,18 @@ type Fact struct {
 }
 
 type Result struct {
-	Output      string
-	Files       []string
-	TurnsUsed   int
-	Duration    time.Duration
-	Warnings    []string
-	Sanitized   bool
-	Error       string
+	Output        string
+	Files         []string
+	WorkspacePath string
+	TurnsUsed     int
+	Duration      time.Duration
+	Warnings      []string
+	Sanitized     bool
+	Error         string
 }
 
 type StreamEvent struct {
 	Type    string
 	Content string
+	Tool    string
 }

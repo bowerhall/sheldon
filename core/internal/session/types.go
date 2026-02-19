@@ -7,8 +7,9 @@ import (
 )
 
 type Session struct {
-	mu       sync.Mutex
-	messages []llm.Message
+	mu         sync.Mutex
+	messages   []llm.Message
+	processing sync.Mutex
 }
 
 type Store struct {

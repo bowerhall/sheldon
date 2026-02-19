@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type Sandbox struct {
@@ -135,4 +136,69 @@ func (s *Sandbox) CollectFiles(ws *Workspace) ([]string, error) {
 	})
 
 	return files, err
+}
+
+// CleanupOld removes workspaces older than maxAge and returns count of removed
+func (s *Sandbox) CleanupOld(maxAge time.Duration) (int, error) {
+	entries, err := os.ReadDir(s.baseDir)
+	if err != nil {
+		return 0, err
+	}
+
+	cutoff := time.Now().Add(-maxAge)
+	removed := 0
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+
+		if info.ModTime().Before(cutoff) {
+			path := filepath.Join(s.baseDir, entry.Name())
+			if err := os.RemoveAll(path); err == nil {
+				removed++
+			}
+		}
+	}
+
+	return removed, nil
+}
+
+// ListWorkspaces returns all workspace directories
+func (s *Sandbox) ListWorkspaces() ([]WorkspaceInfo, error) {
+	entries, err := os.ReadDir(s.baseDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var workspaces []WorkspaceInfo
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+
+		workspaces = append(workspaces, WorkspaceInfo{
+			TaskID:  entry.Name(),
+			Path:    filepath.Join(s.baseDir, entry.Name()),
+			ModTime: info.ModTime(),
+		})
+	}
+
+	return workspaces, nil
+}
+
+type WorkspaceInfo struct {
+	TaskID  string
+	Path    string
+	ModTime time.Time
 }

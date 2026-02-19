@@ -13,7 +13,7 @@ func TestBuilder_Build(t *testing.T) {
 		t.Skip("Skipping integration test. Set INTEGRATION_TEST=1 to run.")
 	}
 
-	// Find testdata relative to this test file
+	// find testdata relative to this test file
 	testdataDir := filepath.Join("..", "..", "testdata", "sample-app")
 	if _, err := os.Stat(testdataDir); err != nil {
 		t.Fatalf("testdata not found: %v", err)
@@ -74,12 +74,12 @@ func TestDeployer_Deploy(t *testing.T) {
 
 	t.Logf("Deployed to %s: %v (status: %s)", result.Namespace, result.Resources, result.Status)
 
-	// Cleanup
+	// cleanup
 	t.Cleanup(func() {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		// Delete the test namespace
+		// delete the test namespace
 		cleanup := NewDeployer("kora-test")
 		_ = cleanup.deleteNamespace(cleanupCtx)
 	})
@@ -108,12 +108,12 @@ func TestBuilder_HasDockerfile(t *testing.T) {
 	tmpDir := t.TempDir()
 	builder, _ := NewBuilder(tmpDir)
 
-	// No Dockerfile
+	// no Dockerfile
 	if builder.hasDockerfile(tmpDir) {
 		t.Error("Expected hasDockerfile to return false for empty dir")
 	}
 
-	// Create Dockerfile
+	// create Dockerfile
 	if err := os.WriteFile(filepath.Join(tmpDir, "Dockerfile"), []byte("FROM alpine"), 0644); err != nil {
 		t.Fatal(err)
 	}

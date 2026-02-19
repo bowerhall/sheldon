@@ -12,6 +12,11 @@ import (
 	"github.com/kadet/kora/internal/logger"
 )
 
+// CleanupWorkspaces removes workspaces older than maxAge
+func (b *Bridge) CleanupWorkspaces(maxAge time.Duration) (int, error) {
+	return b.sandbox.CleanupOld(maxAge)
+}
+
 type Bridge struct {
 	sandbox *Sandbox
 }
@@ -42,7 +47,8 @@ func (b *Bridge) Execute(ctx context.Context, task Task) (*Result, error) {
 		return nil, fmt.Errorf("create workspace: %w", err)
 	}
 
-	defer b.sandbox.Cleanup(ws)
+	// don't cleanup - workspace persists for build_image/deploy
+	// cleanup happens via periodic cleanup or cleanup_images tool
 
 	if err := b.sandbox.WriteContext(ws, task.Context); err != nil {
 		return nil, fmt.Errorf("write context: %w", err)
@@ -64,6 +70,7 @@ func (b *Bridge) Execute(ctx context.Context, task Task) (*Result, error) {
 
 	files, _ := b.sandbox.CollectFiles(ws)
 	result.Files = files
+	result.WorkspacePath = ws.Path
 
 	logger.Debug("claude code complete",
 		"task", task.ID,
@@ -145,7 +152,8 @@ func (b *Bridge) ExecuteWithProgress(ctx context.Context, task Task, onProgress 
 	if err != nil {
 		return nil, fmt.Errorf("create workspace: %w", err)
 	}
-	defer b.sandbox.Cleanup(ws)
+
+	// don't cleanup - workspace persists for build_image/deploy
 
 	if err := b.sandbox.WriteContext(ws, task.Context); err != nil {
 		return nil, fmt.Errorf("write context: %w", err)
@@ -167,6 +175,7 @@ func (b *Bridge) ExecuteWithProgress(ctx context.Context, task Task, onProgress 
 
 	files, _ := b.sandbox.CollectFiles(ws)
 	result.Files = files
+	result.WorkspacePath = ws.Path
 
 	return result, nil
 }
@@ -215,6 +224,12 @@ func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt stri
 						if block, ok := c.(map[string]any); ok {
 							if text, ok := block["text"].(string); ok {
 								output.WriteString(text)
+							}
+							// detect tool use
+							if blockType, ok := block["type"].(string); ok && blockType == "tool_use" {
+								if toolName, ok := block["name"].(string); ok && onProgress != nil {
+									onProgress(StreamEvent{Type: "tool_use", Tool: toolName})
+								}
 							}
 						}
 					}

@@ -23,6 +23,17 @@ func (s *Session) Messages() []llm.Message {
 	return copied
 }
 
+// TryAcquire attempts to acquire the processing lock.
+// Returns true if acquired, false if already processing.
+func (s *Session) TryAcquire() bool {
+	return s.processing.TryLock()
+}
+
+// Release releases the processing lock.
+func (s *Session) Release() {
+	s.processing.Unlock()
+}
+
 func NewStore() *Store {
 	return &Store{sessions: make(map[string]*Session)}
 }

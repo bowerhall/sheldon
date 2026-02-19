@@ -3,8 +3,8 @@ package bot
 import (
 	"context"
 
-	"github.com/kadet/kora/internal/agent"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/kadet/kora/internal/agent"
 )
 
 type Bot interface {

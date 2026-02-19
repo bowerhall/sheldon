@@ -7,7 +7,7 @@ type Config struct {
 	LLM         LLMConfig
 	Extractor   LLMConfig
 	Embedder    EmbedderConfig
-	Coder  CoderConfig
+	Coder       CoderConfig
 	Bot         BotConfig
 	Bots        MultiBot
 	Heartbeat   HeartbeatConfig
@@ -50,8 +50,8 @@ type BotInstance struct {
 
 type HeartbeatConfig struct {
 	Enabled  bool
-	Interval int    // hours
-	ChatID   int64  // telegram chat ID to send proactive messages
+	Interval int   // hours
+	ChatID   int64 // telegram chat ID to send proactive messages
 }
 
 type BudgetConfig struct {

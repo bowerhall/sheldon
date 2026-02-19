@@ -113,7 +113,31 @@ func (d *Deployer) applyManifest(ctx context.Context, path string) error {
 	}
 
 	logger.Debug("manifest applied", "file", filepath.Base(path), "namespace", d.namespace)
+
+	// patch deployments to use local images (imagePullPolicy: Never)
+	d.patchImagePullPolicy(ctx)
+
 	return nil
+}
+
+func (d *Deployer) patchImagePullPolicy(ctx context.Context) {
+	// get all deployments in namespace
+	listCmd := exec.CommandContext(ctx, "kubectl", "get", "deployments", "-n", d.namespace, "-o", "name")
+	output, err := listCmd.CombinedOutput()
+	if err != nil {
+		return
+	}
+
+	deployments := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, dep := range deployments {
+		if dep == "" {
+			continue
+		}
+		// patch each deployment's imagePullPolicy to Never
+		patchCmd := exec.CommandContext(ctx, "kubectl", "patch", dep, "-n", d.namespace,
+			"--type=json", "-p", `[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"Never"}]`)
+		patchCmd.Run() // ignore errors - some deployments may not need patching
+	}
 }
 
 func (d *Deployer) Rollback(ctx context.Context, deploymentName string) error {

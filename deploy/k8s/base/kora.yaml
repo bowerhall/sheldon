@@ -25,6 +25,20 @@ spec:
       labels:
         app: kora
     spec:
+      serviceAccountName: kora
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+        - name: fix-permissions
+          image: alpine:3.19
+          command: ["sh", "-c", "chown -R 1000:1000 /data && chmod 666 /var/run/docker.sock"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: memory
+              mountPath: /data
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
       containers:
         - name: kora
           image: kora:latest
@@ -47,6 +61,10 @@ spec:
             - name: essence
               mountPath: /essence
               readOnly: true
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
+            - name: sandbox
+              mountPath: /tmp/kora-sandbox
       volumes:
         - name: memory
           persistentVolumeClaim:
@@ -54,3 +72,9 @@ spec:
         - name: essence
           configMap:
             name: kora-essence
+        - name: docker-socket
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        - name: sandbox
+          emptyDir: {}

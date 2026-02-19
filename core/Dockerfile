@@ -17,10 +17,18 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /kora ./cmd/kora
 
 FROM alpine:3.19
 
-RUN apk add --no-cache ca-certificates tzdata nodejs npm && \
+RUN apk update && \
+    apk add --no-cache ca-certificates tzdata nodejs npm docker-cli kubectl && \
     npm install -g @anthropic-ai/claude-code && \
-    npm cache clean --force
+    npm cache clean --force && \
+    adduser -D -u 1000 kora && \
+    addgroup kora docker 2>/dev/null || true && \
+    mkdir -p /data /tmp/kora-sandbox && \
+    chown -R kora:kora /data /tmp/kora-sandbox
 
 COPY --from=builder /kora /usr/local/bin/kora
+
+USER kora
+WORKDIR /home/kora
 
 ENTRYPOINT ["/usr/local/bin/kora"]

@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kadet/kora/internal/alerts"
@@ -15,7 +17,7 @@ import (
 	"github.com/kadet/koramem"
 )
 
-const maxToolIterations = 5
+const maxToolIterations = 10
 
 func New(model, extractor llm.LLM, memory *koramem.Store, essencePath, timezone string) *Agent {
 	systemPrompt := loadSystemPrompt(essencePath)
@@ -42,6 +44,8 @@ func New(model, extractor llm.LLM, memory *koramem.Store, essencePath, timezone 
 
 func (a *Agent) SetNotifyFunc(fn NotifyFunc) {
 	a.notify = fn
+	// also wire up notifications to tool registry
+	a.tools.SetNotify(tools.NotifyFunc(fn))
 }
 
 func (a *Agent) SetBudget(b *budget.Tracker) {
@@ -75,12 +79,23 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 
 	sess := a.sessions.Get(sessionID)
 
+	// prevent concurrent processing of same session
+	if !sess.TryAcquire() {
+		logger.Debug("session busy, queueing message", "session", sessionID)
+		return "I'm still working on your previous request. I'll get to this once I'm done!", nil
+	}
+	defer sess.Release()
+
 	if len(sess.Messages()) == 0 && a.isNewUser(sessionID) {
 		logger.Info("new user detected, triggering interview", "session", sessionID)
 		sess.AddMessage("system", "[This is a new user with no stored memory. Start with a warm welcome and begin the setup interview to get to know them. Follow the interview guide in your instructions.]", nil, "")
 	}
 
 	sess.AddMessage("user", userMessage, nil, "")
+
+	// add chatID to context for tool notifications
+	chatID := a.parseChatID(sessionID)
+	ctx = context.WithValue(ctx, tools.ChatIDKey, chatID)
 
 	response, err := a.runAgentLoop(ctx, sess)
 	if err != nil {
@@ -91,6 +106,16 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 	go a.remember(ctx, sessionID, sess.Messages())
 
 	return response, nil
+}
+
+func (a *Agent) parseChatID(sessionID string) int64 {
+	// format: "telegram:123456" or "discord:123456"
+	parts := strings.Split(sessionID, ":")
+	if len(parts) != 2 {
+		return 0
+	}
+	id, _ := strconv.ParseInt(parts[1], 10, 64)
+	return id
 }
 
 func (a *Agent) isNewUser(sessionID string) bool {

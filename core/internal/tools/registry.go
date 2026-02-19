@@ -28,3 +28,17 @@ func (r *Registry) Execute(ctx context.Context, name, args string) (string, erro
 	}
 	return handler(ctx, args)
 }
+
+func (r *Registry) SetNotify(fn NotifyFunc) {
+	r.notify = fn
+}
+
+func (r *Registry) Notify(ctx context.Context, message string) {
+	if r.notify == nil {
+		return
+	}
+	chatID := ChatIDFromContext(ctx)
+	if chatID != 0 {
+		r.notify(chatID, message)
+	}
+}
