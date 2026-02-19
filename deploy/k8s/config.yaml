@@ -26,3 +26,8 @@ data:
 
   # Debug (set to "false" in prod)
   KORA_DEBUG: "true"
+
+  # Heartbeat (proactive check-ins)
+  HEARTBEAT_ENABLED: "false"
+  HEARTBEAT_INTERVAL: "3"  # hours
+  # HEARTBEAT_CHAT_ID: "your-telegram-chat-id"  # get from logs

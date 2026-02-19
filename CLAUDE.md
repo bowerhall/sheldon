@@ -106,7 +106,7 @@ After each session, update SESSION.md:
 
 ## Code Style
 
-- No unnecessary comments. Code should be self-documenting.
+- No unnecessary comments. Code should be self-documenting. Use all lowercase if you have to make comments.
 - No emojis in code or comments.
 - Each package has `types.go` for structs, main logic in other files.
 - Small, focused functions.

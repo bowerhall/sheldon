@@ -57,6 +57,17 @@ func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 	}
 }
 
+func (t *telegram) Send(chatID int64, message string) error {
+	msg := tgbotapi.NewMessage(chatID, message)
+	_, err := t.api.Send(msg)
+	if err != nil {
+		logger.Error("proactive send failed", "error", err, "chatID", chatID)
+	} else {
+		logger.Info("proactive message sent", "chatID", chatID, "chars", len(message))
+	}
+	return err
+}
+
 func truncate(s string, max int) string {
 	if len(s) <= max {
 		return s

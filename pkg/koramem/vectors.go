@@ -7,6 +7,10 @@ import (
 	sqlite_vec "github.com/asg017/sqlite-vec-go-bindings/ncruces"
 )
 
+func serializeEmbedding(embedding []float32) ([]byte, error) {
+	return sqlite_vec.SerializeFloat32(embedding)
+}
+
 func (s *Store) EmbedFact(ctx context.Context, factID int64, text string) error {
 	if s.embedder == nil {
 		return nil

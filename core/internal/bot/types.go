@@ -9,6 +9,7 @@ import (
 
 type Bot interface {
 	Start(ctx context.Context) error
+	Send(chatID int64, message string) error
 }
 
 type Config struct {

@@ -100,21 +100,38 @@ func main() {
 
 	agentLoop := agent.New(model, extractor, memory, cfg.EssencePath)
 
-	botCfg := bot.Config{
-		Provider: cfg.Bot.Provider,
-		Token:    cfg.Bot.Token,
-	}
-
-	b, err := bot.New(botCfg, agentLoop)
-	if err != nil {
-		logger.Fatal("failed to create bot", "error", err)
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go b.Start(ctx)
+	// Start enabled bots
+	var bots []bot.Bot
+	var enabledProviders []string
 
+	if cfg.Bots.Telegram.Enabled {
+		b, err := bot.NewTelegram(cfg.Bots.Telegram.Token, agentLoop)
+		if err != nil {
+			logger.Fatal("failed to create telegram bot", "error", err)
+		}
+		bots = append(bots, b)
+		enabledProviders = append(enabledProviders, "telegram")
+		go b.Start(ctx)
+	}
+
+	if cfg.Bots.Discord.Enabled {
+		b, err := bot.NewDiscord(cfg.Bots.Discord.Token, agentLoop)
+		if err != nil {
+			logger.Fatal("failed to create discord bot", "error", err)
+		}
+		bots = append(bots, b)
+		enabledProviders = append(enabledProviders, "discord")
+		go b.Start(ctx)
+	}
+
+	if len(bots) == 0 {
+		logger.Fatal("no bot providers enabled, set TELEGRAM_TOKEN or DISCORD_TOKEN")
+	}
+
+	// Decay cron (daily)
 	go func() {
 		for range time.Tick(24 * time.Hour) {
 			deleted, err := memory.Decay(koramem.DefaultDecayConfig)
@@ -126,13 +143,34 @@ func main() {
 		}
 	}()
 
+	// Heartbeat cron (proactive check-ins) - uses first enabled bot
+	if cfg.Heartbeat.Enabled && cfg.Heartbeat.ChatID != 0 && len(bots) > 0 {
+		heartbeatBot := bots[0]
+		provider := enabledProviders[0]
+		sessionID := fmt.Sprintf("%s:%d", provider, cfg.Heartbeat.ChatID)
+		interval := time.Duration(cfg.Heartbeat.Interval) * time.Hour
+
+		go func() {
+			for range time.Tick(interval) {
+				message, err := agentLoop.Heartbeat(ctx, sessionID)
+				if err != nil {
+					logger.Error("heartbeat failed", "error", err)
+					continue
+				}
+				heartbeatBot.Send(cfg.Heartbeat.ChatID, message)
+			}
+		}()
+
+		logger.Info("heartbeat enabled", "interval", cfg.Heartbeat.Interval, "chatID", cfg.Heartbeat.ChatID, "provider", provider)
+	}
+
 	embedderProvider := cfg.Embedder.Provider
 	if embedderProvider == "" {
 		embedderProvider = "none"
 	}
 
 	logger.Info("kora started",
-		"bot", cfg.Bot.Provider,
+		"bots", enabledProviders,
 		"llm", cfg.LLM.Provider,
 		"embedder", embedderProvider,
 		"essence", cfg.EssencePath,

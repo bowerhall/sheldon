@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 )
 
 func Load() (*Config, error) {
@@ -33,6 +34,9 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	heartbeatConfig := loadHeartbeatConfig()
+	multiBot := loadMultiBotConfig()
+
 	return &Config{
 		EssencePath: essencePath,
 		MemoryPath:  memoryPath,
@@ -40,7 +44,45 @@ func Load() (*Config, error) {
 		Extractor:   extractorConfig,
 		Embedder:    embedderConfig,
 		Bot:         botConfig,
+		Bots:        multiBot,
+		Heartbeat:   heartbeatConfig,
 	}, nil
+}
+
+func loadMultiBotConfig() MultiBot {
+	telegramToken := os.Getenv("TELEGRAM_TOKEN")
+	discordToken := os.Getenv("DISCORD_TOKEN")
+
+	return MultiBot{
+		Telegram: BotInstance{
+			Enabled: telegramToken != "",
+			Token:   telegramToken,
+		},
+		Discord: BotInstance{
+			Enabled: discordToken != "",
+			Token:   discordToken,
+		},
+	}
+}
+
+func loadHeartbeatConfig() HeartbeatConfig {
+	enabled := os.Getenv("HEARTBEAT_ENABLED") == "true"
+
+	interval := 3 // default 3 hours
+	if i, err := strconv.Atoi(os.Getenv("HEARTBEAT_INTERVAL")); err == nil && i > 0 {
+		interval = i
+	}
+
+	var chatID int64
+	if id, err := strconv.ParseInt(os.Getenv("HEARTBEAT_CHAT_ID"), 10, 64); err == nil {
+		chatID = id
+	}
+
+	return HeartbeatConfig{
+		Enabled:  enabled,
+		Interval: interval,
+		ChatID:   chatID,
+	}
 }
 
 func loadEmbedderConfig() EmbedderConfig {

@@ -6,7 +6,9 @@ type Config struct {
 	LLM         LLMConfig
 	Extractor   LLMConfig
 	Embedder    EmbedderConfig
-	Bot         BotConfig
+	Bot         BotConfig   // legacy single-provider
+	Bots        MultiBot    // multi-provider
+	Heartbeat   HeartbeatConfig
 }
 
 type LLMConfig struct {
@@ -24,4 +26,20 @@ type EmbedderConfig struct {
 type BotConfig struct {
 	Provider string
 	Token    string
+}
+
+type MultiBot struct {
+	Telegram BotInstance
+	Discord  BotInstance
+}
+
+type BotInstance struct {
+	Enabled bool
+	Token   string
+}
+
+type HeartbeatConfig struct {
+	Enabled  bool
+	Interval int    // hours
+	ChatID   int64  // telegram chat ID to send proactive messages
 }

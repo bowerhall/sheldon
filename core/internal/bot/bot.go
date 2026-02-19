@@ -9,10 +9,18 @@ import (
 func New(cfg Config, agent *agent.Agent) (Bot, error) {
 	switch cfg.Provider {
 	case "telegram":
-		return newTelegram(cfg.Token, agent)
+		return NewTelegram(cfg.Token, agent)
 	case "discord":
-		return nil, fmt.Errorf("discord provider not implemented")
+		return NewDiscord(cfg.Token, agent)
 	default:
 		return nil, fmt.Errorf("unknown bot provider: %s", cfg.Provider)
 	}
+}
+
+func NewTelegram(token string, agent *agent.Agent) (Bot, error) {
+	return newTelegram(token, agent)
+}
+
+func NewDiscord(token string, agent *agent.Agent) (Bot, error) {
+	return newDiscord(token, agent)
 }
