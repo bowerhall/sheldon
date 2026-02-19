@@ -1,0 +1,49 @@
+# Phase 1: Daily Driver
+
+**Timeline: 3-5 days**
+**Depends on: Phase 0**
+**Goal: Proactive assistant you actually use every day**
+
+## Tasks
+
+### 1. Morning Briefing (Day 1)
+- HEARTBEAT.md entry: "Every morning at 8am, koramem.Recall for D10 (Goals) + D12 (Rhythms)"
+- Summarize upcoming deadlines and today's priorities
+- PicoClaw's heartbeat spawns subagent
+
+### 2. Setup Interview (Day 1)
+- Structured conversation to seed initial facts across all 14 domains
+- koramem.Remember handles extraction automatically
+- No engineering — just a conversation
+
+### 3. Budget Tracker (Day 2)
+- Log Claude API token counts per response
+- Track daily running total in workspace JSON
+- Warn at 80%, hard stop at 100%
+- Cron resets daily
+
+### 4. Memory Review Flow (Day 2-3)
+- `/review` command: query koramem for facts added in last 24 hours
+- Display with domain labels: "[Career] Current role: ..."
+- Inline keyboard: [Approve All] [Review Each] [Delete All]
+- Individual: [Keep] [Delete] per fact
+- Custom tool in PicoClaw ToolRegistry
+
+### 5. Contradiction Alerts (Day 3)
+- koramem.Remember returns contradiction info when superseding
+- Alert: "You previously said X, but now mentioned Y. Which is correct?"
+- Inline keyboard: [Keep old] [Accept new]
+
+### 6. Error Alerting (Day 3-4)
+- Telegram notification: SQLite errors, critical failures, budget breach
+- Cooldown: max 1 alert per type per hour
+
+### 7. Goal Tracking Cron (Day 4)
+- Weekly cron: koramem.Recall D10, prompt for progress updates
+- "You set a goal to finish OMSCS application by March. How's it going?"
+
+## Success Criteria
+- [ ] Morning briefing fires at 8am
+- [ ] Budget tracker enforces daily limit
+- [ ] `/review` shows recent facts with approve/delete
+- [ ] You message Kora 10+ times/day
