@@ -27,7 +27,8 @@ spec:
     spec:
       containers:
         - name: kora
-          image: ghcr.io/kadet/kora:latest
+          image: kora:local
+          imagePullPolicy: Never
           envFrom:
             - configMapRef:
                 name: kora-config

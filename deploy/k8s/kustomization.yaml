@@ -9,5 +9,4 @@ resources:
   - kora.yaml
   - config.yaml
   - essence.yaml
-  # Create secrets.yaml from secrets.yaml.example (gitignored)
-  # - secrets.yaml
+  - secrets.yaml
