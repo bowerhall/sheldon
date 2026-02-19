@@ -17,6 +17,11 @@ func Load() (*Config, error) {
 		memoryPath = "kora.db"
 	}
 
+	timezone := os.Getenv("KORA_TIMEZONE")
+	if timezone == "" {
+		timezone = "UTC"
+	}
+
 	llmConfig, err := loadLLMConfig()
 	if err != nil {
 		return nil, err
@@ -36,17 +41,40 @@ func Load() (*Config, error) {
 
 	heartbeatConfig := loadHeartbeatConfig()
 	multiBot := loadMultiBotConfig()
+	budgetConfig := loadBudgetConfig()
 
 	return &Config{
 		EssencePath: essencePath,
 		MemoryPath:  memoryPath,
+		Timezone:    timezone,
 		LLM:         llmConfig,
 		Extractor:   extractorConfig,
 		Embedder:    embedderConfig,
 		Bot:         botConfig,
 		Bots:        multiBot,
 		Heartbeat:   heartbeatConfig,
+		Budget:      budgetConfig,
 	}, nil
+}
+
+func loadBudgetConfig() BudgetConfig {
+	enabled := os.Getenv("BUDGET_ENABLED") == "true"
+
+	dailyLimit := 100000 // default 100k tokens
+	if limit, err := strconv.Atoi(os.Getenv("BUDGET_DAILY_LIMIT")); err == nil && limit > 0 {
+		dailyLimit = limit
+	}
+
+	warnAt := 0.8 // default 80%
+	if warn, err := strconv.ParseFloat(os.Getenv("BUDGET_WARN_AT"), 64); err == nil && warn > 0 && warn < 1 {
+		warnAt = warn
+	}
+
+	return BudgetConfig{
+		Enabled:    enabled,
+		DailyLimit: dailyLimit,
+		WarnAt:     warnAt,
+	}
 }
 
 func loadMultiBotConfig() MultiBot {

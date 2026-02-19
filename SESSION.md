@@ -261,9 +261,87 @@ LLM returns: "Sarah's birthday is March 15th"
 - Decay tests pass ✓
 
 ### What's next
-1. Deploy full stack (Kora + Ollama) to k8s
-2. Test tool calling end-to-end via Telegram
-3. Fact deduplication
+1. ~~Deploy full stack (Kora + Ollama) to k8s~~ ✓
+2. ~~Test tool calling end-to-end via Telegram~~ ✓
+3. ~~Fact deduplication~~ ✓
 4. Skills framework (user-invoked commands)
+
+---
+
+## 2026-02-19: Full Stack + Proactive Messaging
+
+### What was built
+
+- **Fact deduplication** (`pkg/koramem/facts.go`)
+  - Semantic dedup at write-time using embeddings
+  - Similarity threshold: 0.15 cosine distance
+  - If similar fact exists: touch `last_accessed` or supersede if newer
+  - Prevents duplicate facts from accumulating
+
+- **Full stack K8s deployment**
+  - Kora + Ollama running on local Docker Desktop Kubernetes
+  - Tool calling verified end-to-end via Telegram
+  - Fixed image tag mismatch (`kora:local` → `kora:latest`)
+  - Go version fix in Dockerfile (1.22 → 1.24)
+
+- **Heartbeat system** (`internal/agent/heartbeat.go`)
+  - Proactive check-ins based on stored context
+  - Recalls goals (D10), routines (D12), events (D13)
+  - LLM crafts contextual message (1-2 sentences)
+  - Fires immediately on startup (10s delay), then every N hours
+  - Config: `HEARTBEAT_ENABLED`, `HEARTBEAT_INTERVAL`, `HEARTBEAT_CHAT_ID`
+
+- **Discord support** (`internal/bot/discord.go`)
+  - Full implementation using discordgo
+  - Same interface as Telegram: `Start()`, `Send()`
+  - Session IDs: `discord:<channel_id>`
+
+- **Multi-provider bots** (`internal/bot/`, `internal/config/`)
+  - Both Telegram and Discord can run simultaneously
+  - Auto-detected by token presence (`TELEGRAM_TOKEN`, `DISCORD_TOKEN`)
+  - Shared memory across platforms
+  - Separate sessions per channel
+
+- **Logging improvements**
+  - Added session ID to telegram message log
+  - Proactive message logging in `Send()` methods
+
+### How heartbeat works
+```
+Startup
+   ↓
+go func() { time.Sleep(10s); sendHeartbeat(); time.Tick(interval)... }
+   ↓
+Heartbeat()
+   ├── memory.Recall("goals tasks events", [10,12,13], 10)
+   ├── llm.Chat() with context → "Hey, how's the project going?"
+   └── session.AddMessage() for conversation continuity
+   ↓
+bot.Send(chatID, message)
+```
+
+### How multi-provider works
+```
+main.go
+   ├── if TELEGRAM_TOKEN → NewTelegram() → go bot.Start()
+   ├── if DISCORD_TOKEN → NewDiscord() → go bot.Start()
+   └── heartbeat uses bots[0] (first enabled)
+
+All bots share:
+   - Same agent loop
+   - Same koramem (long-term memory)
+   - Different sessions (telegram:123 vs discord:456)
+```
+
+### Tested
+- Semantic dedup verified via access_count increments ✓
+- Tool calling end-to-end via Telegram ✓
+- Heartbeat message received on Telegram ✓
+- Multi-provider startup with `bots=[telegram]` ✓
+
+### What's next
+1. Deploy to Hetzner (production)
+2. Add Discord token for multi-platform
+3. Phase 2 features (voice, deeper integrations)
 
 ---

@@ -39,7 +39,7 @@ func (t *telegram) Start(ctx context.Context) error {
 
 func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 	sessionID := fmt.Sprintf("telegram:%d", msg.Chat.ID)
-	logger.Info("message received", "from", msg.From.UserName, "text", truncate(msg.Text, 50))
+	logger.Info("message received", "session", sessionID, "from", msg.From.UserName, "text", truncate(msg.Text, 50))
 
 	response, err := t.agent.Process(ctx, sessionID, msg.Text)
 	if err != nil {

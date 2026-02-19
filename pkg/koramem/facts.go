@@ -2,11 +2,11 @@ package koramem
 
 import "context"
 
-func (s *Store) AddFact(entityID *int64, domainID int, field, value string, confidence float64) (*Fact, error) {
+func (s *Store) AddFact(entityID *int64, domainID int, field, value string, confidence float64) (*FactResult, error) {
 	return s.AddFactWithContext(context.Background(), entityID, domainID, field, value, confidence)
 }
 
-func (s *Store) AddFactWithContext(ctx context.Context, entityID *int64, domainID int, field, value string, confidence float64) (*Fact, error) {
+func (s *Store) AddFactWithContext(ctx context.Context, entityID *int64, domainID int, field, value string, confidence float64) (*FactResult, error) {
 	// 1. Check exact field match first
 	var existingID int64
 	var existingValue string
@@ -15,17 +15,23 @@ func (s *Store) AddFactWithContext(ctx context.Context, entityID *int64, domainI
 
 	if err == nil && existingValue != value {
 		// Same field, different value → supersede
+		superseded := &Fact{ID: existingID, EntityID: entityID, DomainID: domainID, Field: field, Value: existingValue}
+
 		_, err = s.db.Exec(queryDeactivateFact, existingID)
 		if err != nil {
 			return nil, err
 		}
 
 		s.DeleteFactEmbedding(existingID)
-		return s.insertFact(ctx, entityID, domainID, field, value, confidence, &existingID)
+		fact, err := s.insertFact(ctx, entityID, domainID, field, value, confidence, &existingID)
+		if err != nil {
+			return nil, err
+		}
+		return &FactResult{Fact: fact, Superseded: superseded}, nil
 	} else if err == nil {
 		// Same field, same value → touch
 		_, err = s.db.Exec(queryTouchFact, existingID)
-		return &Fact{ID: existingID, EntityID: entityID, DomainID: domainID, Field: field, Value: value}, err
+		return &FactResult{Fact: &Fact{ID: existingID, EntityID: entityID, DomainID: domainID, Field: field, Value: value}}, err
 	}
 
 	// 2. Check semantic similarity (different field, same meaning)
@@ -35,20 +41,30 @@ func (s *Store) AddFactWithContext(ctx context.Context, entityID *int64, domainI
 			if similar.Value == value {
 				// Same meaning, same value → touch existing
 				_, err = s.db.Exec(queryTouchFact, similar.ID)
-				return similar, err
+				return &FactResult{Fact: similar}, err
 			}
 			// Same meaning, different value → supersede
+			superseded := &Fact{ID: similar.ID, EntityID: similar.EntityID, DomainID: similar.DomainID, Field: similar.Field, Value: similar.Value}
+
 			_, err = s.db.Exec(queryDeactivateFact, similar.ID)
 			if err != nil {
 				return nil, err
 			}
 			s.DeleteFactEmbedding(similar.ID)
-			return s.insertFact(ctx, entityID, domainID, field, value, confidence, &similar.ID)
+			fact, err := s.insertFact(ctx, entityID, domainID, field, value, confidence, &similar.ID)
+			if err != nil {
+				return nil, err
+			}
+			return &FactResult{Fact: fact, Superseded: superseded}, nil
 		}
 	}
 
 	// 3. No match → insert new
-	return s.insertFact(ctx, entityID, domainID, field, value, confidence, nil)
+	fact, err := s.insertFact(ctx, entityID, domainID, field, value, confidence, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &FactResult{Fact: fact}, nil
 }
 
 func (s *Store) insertFact(ctx context.Context, entityID *int64, domainID int, field, value string, confidence float64, supersedes *int64) (*Fact, error) {

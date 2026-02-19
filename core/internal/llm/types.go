@@ -29,9 +29,16 @@ type ToolCall struct {
 }
 
 type ChatResponse struct {
-	Content   string
-	ToolCalls []ToolCall
+	Content    string
+	ToolCalls  []ToolCall
 	StopReason string
+	Usage      *Usage
+}
+
+type Usage struct {
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
 }
 
 type LLM interface {

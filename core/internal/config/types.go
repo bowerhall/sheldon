@@ -3,12 +3,14 @@ package config
 type Config struct {
 	EssencePath string
 	MemoryPath  string
+	Timezone    string // IANA timezone (e.g., "Africa/Lagos", "America/New_York")
 	LLM         LLMConfig
 	Extractor   LLMConfig
 	Embedder    EmbedderConfig
 	Bot         BotConfig   // legacy single-provider
 	Bots        MultiBot    // multi-provider
 	Heartbeat   HeartbeatConfig
+	Budget      BudgetConfig
 }
 
 type LLMConfig struct {
@@ -42,4 +44,10 @@ type HeartbeatConfig struct {
 	Enabled  bool
 	Interval int    // hours
 	ChatID   int64  // telegram chat ID to send proactive messages
+}
+
+type BudgetConfig struct {
+	Enabled    bool
+	DailyLimit int     // max tokens per day (0 = unlimited)
+	WarnAt     float64 // warn at this percentage (0.8 = 80%)
 }

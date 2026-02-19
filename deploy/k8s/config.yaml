@@ -27,7 +27,9 @@ data:
   # Debug (set to "false" in prod)
   KORA_DEBUG: "true"
 
+  # Timezone: set KORA_TIMEZONE in secrets.yaml (e.g., "America/New_York")
+
   # Heartbeat (proactive check-ins)
-  HEARTBEAT_ENABLED: "false"
-  HEARTBEAT_INTERVAL: "3"  # hours
-  # HEARTBEAT_CHAT_ID: "your-telegram-chat-id"  # get from logs
+  HEARTBEAT_ENABLED: "true"
+  HEARTBEAT_INTERVAL: "1"  # hours (1 for testing, 3+ for prod)
+  HEARTBEAT_CHAT_ID: "791255925"

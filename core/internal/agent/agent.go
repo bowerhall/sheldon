@@ -4,7 +4,10 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/kadet/kora/internal/alerts"
+	"github.com/kadet/kora/internal/budget"
 	"github.com/kadet/kora/internal/llm"
 	"github.com/kadet/kora/internal/logger"
 	"github.com/kadet/kora/internal/session"
@@ -14,11 +17,17 @@ import (
 
 const maxToolIterations = 5
 
-func New(model, extractor llm.LLM, memory *koramem.Store, essencePath string) *Agent {
+func New(model, extractor llm.LLM, memory *koramem.Store, essencePath, timezone string) *Agent {
 	systemPrompt := loadSystemPrompt(essencePath)
 
 	registry := tools.NewRegistry()
 	tools.RegisterMemoryTools(registry, memory)
+
+	loc, err := time.LoadLocation(timezone)
+	if err != nil {
+		logger.Warn("invalid timezone, using UTC", "timezone", timezone, "error", err)
+		loc = time.UTC
+	}
 
 	return &Agent{
 		llm:          model,
@@ -27,7 +36,20 @@ func New(model, extractor llm.LLM, memory *koramem.Store, essencePath string) *A
 		sessions:     session.NewStore(),
 		tools:        registry,
 		systemPrompt: systemPrompt,
+		timezone:     loc,
 	}
+}
+
+func (a *Agent) SetNotifyFunc(fn NotifyFunc) {
+	a.notify = fn
+}
+
+func (a *Agent) SetBudget(b *budget.Tracker) {
+	a.budget = b
+}
+
+func (a *Agent) SetAlerter(alerter *alerts.Alerter) {
+	a.alerts = alerter
 }
 
 func loadSystemPrompt(essencePath string) string {
@@ -44,6 +66,12 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 	logger.Debug("message received", "session", sessionID)
 
 	sess := a.sessions.Get(sessionID)
+
+	if len(sess.Messages()) == 0 && a.isNewUser(sessionID) {
+		logger.Info("new user detected, triggering interview", "session", sessionID)
+		sess.AddMessage("system", "[This is a new user with no stored memory. Start with a warm welcome and begin the setup interview to get to know them. Follow the interview guide in your instructions.]", nil, "")
+	}
+
 	sess.AddMessage("user", userMessage, nil, "")
 
 	response, err := a.runAgentLoop(ctx, sess)
@@ -57,6 +85,16 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 	return response, nil
 }
 
+func (a *Agent) isNewUser(sessionID string) bool {
+	entityID := a.getOrCreateUserEntity(sessionID)
+	if entityID == 0 {
+		return true
+	}
+
+	facts, err := a.memory.GetFactsByEntity(entityID)
+	return err != nil || len(facts) == 0
+}
+
 func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string, error) {
 	availableTools := a.tools.Tools()
 
@@ -65,7 +103,16 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 
 		resp, err := a.llm.ChatWithTools(ctx, a.systemPrompt, sess.Messages(), availableTools)
 		if err != nil {
+			if a.alerts != nil {
+				a.alerts.Critical("llm", "Chat request failed", err)
+			}
 			return "", err
+		}
+
+		if resp.Usage != nil && a.budget != nil {
+			if !a.budget.Add(resp.Usage.TotalTokens) {
+				return "I've reached my daily API limit. Please try again tomorrow!", nil
+			}
 		}
 
 		if len(resp.ToolCalls) == 0 {

@@ -68,3 +68,9 @@ type Edge struct {
 	Metadata  string
 	CreatedAt time.Time
 }
+
+// FactResult contains the stored fact and any contradiction info
+type FactResult struct {
+	Fact       *Fact
+	Superseded *Fact // non-nil if this fact replaced an older one
+}

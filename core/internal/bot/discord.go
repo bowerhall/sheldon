@@ -54,13 +54,9 @@ func (d *discord) Send(chatID int64, message string) error {
 }
 
 func (d *discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
-	// Ignore bot's own messages
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-
-	// Ignore messages not mentioning the bot (optional: remove for DM-style)
-	// For now, respond to all messages in channels the bot can see
 
 	sessionID := fmt.Sprintf("discord:%s", m.ChannelID)
 	logger.Info("message received", "from", m.Author.Username, "text", truncate(m.Content, 50))

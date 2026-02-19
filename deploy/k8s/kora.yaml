@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: kora
-          image: kora:local
+          image: kora:latest
           imagePullPolicy: Never
           envFrom:
             - configMapRef:

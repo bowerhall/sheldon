@@ -4,14 +4,19 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/kadet/kora/internal/llm"
 	"github.com/kadet/kora/internal/logger"
 )
 
-const heartbeatPrompt = `You are Kora, a personal AI assistant. Based on the user's stored context below, craft a brief, natural check-in message.
+const heartbeatPrompt = `You are Kora, a personal AI assistant. Based on the user's stored context and current time, craft a brief, natural check-in message.
+
+Current time: %s
 
 Guidelines:
+- Adapt your message to the time of day (morning greeting vs evening check-in)
+- If it's morning and you know their wake time, consider a brief summary of today's priorities
 - If there are active goals or tasks, ask about progress on the most relevant one
 - If nothing urgent, just say a casual hi or ask what they're up to
 - Keep it short (1-2 sentences)
@@ -26,15 +31,13 @@ Craft your check-in message:`
 func (a *Agent) Heartbeat(ctx context.Context, sessionID string) (string, error) {
 	logger.Debug("heartbeat triggered", "session", sessionID)
 
-	// Recall goals (D10), routines (D12), recent events (D13)
-	relevantDomains := []int{10, 12, 13}
-	result, err := a.memory.Recall(ctx, "active goals current tasks recent events", relevantDomains, 10)
+	relevantDomains := []int{10, 12, 13} // goals, routines, events
+	result, err := a.memory.Recall(ctx, "active goals current tasks recent events sleep wake schedule", relevantDomains, 10)
 	if err != nil {
 		logger.Error("heartbeat recall failed", "error", err)
 		return "", err
 	}
 
-	// Format context
 	var contextBuilder strings.Builder
 	if len(result.Facts) > 0 {
 		for _, f := range result.Facts {
@@ -44,9 +47,9 @@ func (a *Agent) Heartbeat(ctx context.Context, sessionID string) (string, error)
 		contextBuilder.WriteString("(No stored context yet)")
 	}
 
-	prompt := fmt.Sprintf(heartbeatPrompt, contextBuilder.String())
+	currentTime := time.Now().In(a.timezone).Format("Monday, January 2, 2006 3:04 PM")
+	prompt := fmt.Sprintf(heartbeatPrompt, currentTime, contextBuilder.String())
 
-	// Generate check-in message
 	response, err := a.llm.Chat(ctx, a.systemPrompt, []llm.Message{
 		{Role: "user", Content: prompt},
 	})
@@ -57,7 +60,6 @@ func (a *Agent) Heartbeat(ctx context.Context, sessionID string) (string, error)
 
 	logger.Debug("heartbeat generated", "chars", len(response))
 
-	// Add to session so conversation flows naturally
 	sess := a.sessions.Get(sessionID)
 	sess.AddMessage("assistant", response, nil, "")
 

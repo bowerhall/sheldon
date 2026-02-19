@@ -56,6 +56,11 @@ type openaiResponse struct {
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
+	Usage *struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage,omitempty"`
 	Error *struct {
 		Message string `json:"message"`
 	} `json:"error,omitempty"`
@@ -164,6 +169,14 @@ func (o *openaiCompatible) ChatWithTools(ctx context.Context, systemPrompt strin
 	result := &ChatResponse{
 		Content:    choice.Message.Content,
 		StopReason: choice.FinishReason,
+	}
+
+	if oaiResp.Usage != nil {
+		result.Usage = &Usage{
+			PromptTokens:     oaiResp.Usage.PromptTokens,
+			CompletionTokens: oaiResp.Usage.CompletionTokens,
+			TotalTokens:      oaiResp.Usage.TotalTokens,
+		}
 	}
 
 	for _, tc := range choice.Message.ToolCalls {

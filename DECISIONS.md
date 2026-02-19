@@ -4,6 +4,50 @@
 
 ---
 
+## 2026-02-19: Single Heartbeat System
+
+### One proactive system instead of multiple crons
+**Decision**: Use a single heartbeat system that adapts based on context, rather than separate crons for morning briefing, goal tracking, etc.
+
+**Why**: The LLM + koramem can determine what's relevant. If heartbeat fires in the morning, it naturally includes briefing-style content. If it knows sleep patterns (from conversations), it times messages appropriately. One system, contextually aware.
+
+**Tradeoff**: Less predictable than hardcoded "8am briefing". Acceptable because the goal is natural conversation, not rigid schedules.
+
+---
+
+## 2026-02-19: Immediate Heartbeat on Startup
+
+### Fire first heartbeat after 10s delay
+**Decision**: Heartbeat fires immediately after startup (10s delay for bot init), then continues at configured interval.
+
+**Why**: Useful for testing and makes sense in production — Kora checks in shortly after coming online. The 10s delay ensures the Telegram/Discord bot is fully connected.
+
+**Tradeoff**: Users get a message every time Kora restarts. Acceptable; restarts are rare and the check-in is contextual.
+
+---
+
+## 2026-02-19: Multi-Provider by Token Presence
+
+### Auto-detect enabled bots from environment
+**Decision**: If `TELEGRAM_TOKEN` is set, Telegram bot starts. If `DISCORD_TOKEN` is set, Discord bot starts. Both can run simultaneously.
+
+**Why**: Simple configuration, no explicit "enable" flags needed. Users just set the tokens for platforms they want.
+
+**Tradeoff**: Can't disable a platform without removing its token. Fine for our use case.
+
+---
+
+## 2026-02-19: Semantic Deduplication at Write-Time
+
+### Check similarity before inserting new facts
+**Decision**: When adding a fact, check if a semantically similar fact already exists (0.15 cosine distance threshold). If found, touch `last_accessed` or supersede.
+
+**Why**: Read-time filters (recency weighting) don't prevent duplicate facts from accumulating. Over time, "user likes coffee" could appear 50 times. Write-time dedup keeps the store clean.
+
+**Tradeoff**: Extra embedding + search on every write. Acceptable cost for data quality. Also catches cross-field duplicates ("favorite drink" vs "morning beverage").
+
+---
+
 ## 2026-02-19: Tool Calling over Domain Router
 
 ### LLM-driven recall instead of routing layer

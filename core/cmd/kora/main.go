@@ -11,7 +11,9 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/kadet/kora/internal/agent"
+	"github.com/kadet/kora/internal/alerts"
 	"github.com/kadet/kora/internal/bot"
+	"github.com/kadet/kora/internal/budget"
 	"github.com/kadet/kora/internal/config"
 	"github.com/kadet/kora/internal/embedder"
 	"github.com/kadet/kora/internal/llm"
@@ -98,12 +100,11 @@ func main() {
 		logger.Fatal("health check failed", "error", err)
 	}
 
-	agentLoop := agent.New(model, extractor, memory, cfg.EssencePath)
+	agentLoop := agent.New(model, extractor, memory, cfg.EssencePath, cfg.Timezone)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Start enabled bots
 	var bots []bot.Bot
 	var enabledProviders []string
 
@@ -112,8 +113,10 @@ func main() {
 		if err != nil {
 			logger.Fatal("failed to create telegram bot", "error", err)
 		}
+
 		bots = append(bots, b)
 		enabledProviders = append(enabledProviders, "telegram")
+
 		go b.Start(ctx)
 	}
 
@@ -122,8 +125,10 @@ func main() {
 		if err != nil {
 			logger.Fatal("failed to create discord bot", "error", err)
 		}
+
 		bots = append(bots, b)
 		enabledProviders = append(enabledProviders, "discord")
+
 		go b.Start(ctx)
 	}
 
@@ -131,7 +136,59 @@ func main() {
 		logger.Fatal("no bot providers enabled, set TELEGRAM_TOKEN or DISCORD_TOKEN")
 	}
 
-	// Decay cron (daily)
+	notifyBot := bots[0]
+	agentLoop.SetNotifyFunc(func(chatID int64, message string) {
+		if err := notifyBot.Send(chatID, message); err != nil {
+			logger.Error("notification failed", "error", err, "chatID", chatID)
+		}
+	})
+
+	if cfg.Budget.Enabled {
+		tz, _ := time.LoadLocation(cfg.Timezone)
+
+		tracker := budget.NewTracker(
+			budget.Config{
+				DailyLimit: cfg.Budget.DailyLimit,
+				WarnAt:     cfg.Budget.WarnAt,
+				Timezone:   tz,
+			},
+
+			func(used, limit int) {
+				msg := fmt.Sprintf("Budget warning: %d/%d tokens used (%.0f%%). Approaching daily limit.", used, limit, float64(used)/float64(limit)*100)
+
+				if cfg.Heartbeat.ChatID != 0 {
+					notifyBot.Send(cfg.Heartbeat.ChatID, msg)
+				}
+
+				logger.Warn("budget warning", "used", used, "limit", limit)
+			},
+
+			func(used, limit int) {
+				msg := fmt.Sprintf("Budget exceeded: %d/%d tokens. Responses disabled until tomorrow.", used, limit)
+
+				if cfg.Heartbeat.ChatID != 0 {
+					notifyBot.Send(cfg.Heartbeat.ChatID, msg)
+				}
+
+				logger.Error("budget exceeded", "used", used, "limit", limit)
+			},
+		)
+
+		agentLoop.SetBudget(tracker)
+		logger.Info("budget tracking enabled", "limit", cfg.Budget.DailyLimit, "warnAt", cfg.Budget.WarnAt)
+	}
+
+	if cfg.Heartbeat.ChatID != 0 {
+		alerter := alerts.New(
+			func(message string) {
+				notifyBot.Send(cfg.Heartbeat.ChatID, message)
+			},
+			time.Hour,
+		)
+		agentLoop.SetAlerter(alerter)
+		logger.Info("error alerting enabled", "chatID", cfg.Heartbeat.ChatID)
+	}
+
 	go func() {
 		for range time.Tick(24 * time.Hour) {
 			deleted, err := memory.Decay(koramem.DefaultDecayConfig)
@@ -143,7 +200,6 @@ func main() {
 		}
 	}()
 
-	// Heartbeat cron (proactive check-ins) - uses first enabled bot
 	if cfg.Heartbeat.Enabled && cfg.Heartbeat.ChatID != 0 && len(bots) > 0 {
 		heartbeatBot := bots[0]
 		provider := enabledProviders[0]
@@ -151,13 +207,18 @@ func main() {
 		interval := time.Duration(cfg.Heartbeat.Interval) * time.Hour
 
 		go func() {
-			for range time.Tick(interval) {
+			time.Sleep(10 * time.Second)
+			sendHeartbeat := func() {
 				message, err := agentLoop.Heartbeat(ctx, sessionID)
 				if err != nil {
 					logger.Error("heartbeat failed", "error", err)
-					continue
+					return
 				}
 				heartbeatBot.Send(cfg.Heartbeat.ChatID, message)
+			}
+			sendHeartbeat() // immediate first heartbeat
+			for range time.Tick(interval) {
+				sendHeartbeat()
 			}
 		}()
 
