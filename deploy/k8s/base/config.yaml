@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kora-config
+data:
+  BOT_PROVIDER: "telegram"
+
+  LLM_PROVIDER: "kimi"
+  LLM_MODEL: "kimi-k2-0711-preview"
+
+  EXTRACTOR_PROVIDER: "kimi"
+  EXTRACTOR_MODEL: "kimi-k2-0711-preview"
+
+  KORA_ESSENCE: "/essence"
+  KORA_MEMORY: "/data/kora.db"
+  KORA_DEBUG: "true"
+
+  HEARTBEAT_ENABLED: "true"
+  HEARTBEAT_INTERVAL: "1"

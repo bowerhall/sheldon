@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kora-config
+data:
+  EMBEDDER_PROVIDER: "ollama"
+  EMBEDDER_URL: "http://your-homelab:11434"
+  EMBEDDER_MODEL: "nomic-embed-text"
+
+  CODER_BASE_URL: "http://your-homelab:11434"

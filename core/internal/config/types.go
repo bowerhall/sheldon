@@ -3,14 +3,22 @@ package config
 type Config struct {
 	EssencePath string
 	MemoryPath  string
-	Timezone    string // IANA timezone (e.g., "Africa/Lagos", "America/New_York")
+	Timezone    string
 	LLM         LLMConfig
 	Extractor   LLMConfig
 	Embedder    EmbedderConfig
-	Bot         BotConfig   // legacy single-provider
-	Bots        MultiBot    // multi-provider
+	Coder  CoderConfig
+	Bot         BotConfig
+	Bots        MultiBot
 	Heartbeat   HeartbeatConfig
 	Budget      BudgetConfig
+}
+
+type CoderConfig struct {
+	Enabled    bool
+	APIKey     string
+	BaseURL    string
+	SandboxDir string
 }
 
 type LLMConfig struct {

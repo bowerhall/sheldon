@@ -17,7 +17,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /kora ./cmd/kora
 
 FROM alpine:3.19
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata nodejs npm && \
+    npm install -g @anthropic-ai/claude-code && \
+    npm cache clean --force
 
 COPY --from=builder /kora /usr/local/bin/kora
 

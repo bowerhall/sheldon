@@ -14,10 +14,13 @@ import (
 	"github.com/kadet/kora/internal/alerts"
 	"github.com/kadet/kora/internal/bot"
 	"github.com/kadet/kora/internal/budget"
+	"github.com/kadet/kora/internal/coder"
 	"github.com/kadet/kora/internal/config"
+	"github.com/kadet/kora/internal/deployer"
 	"github.com/kadet/kora/internal/embedder"
 	"github.com/kadet/kora/internal/llm"
 	"github.com/kadet/kora/internal/logger"
+	"github.com/kadet/kora/internal/tools"
 	"github.com/kadet/koramem"
 )
 
@@ -101,6 +104,30 @@ func main() {
 	}
 
 	agentLoop := agent.New(model, extractor, memory, cfg.EssencePath, cfg.Timezone)
+
+	if cfg.Coder.Enabled {
+		bridge, err := coder.NewBridge(cfg.Coder.SandboxDir, cfg.Coder.APIKey, cfg.Coder.BaseURL)
+		if err != nil {
+			logger.Fatal("failed to create coder bridge", "error", err)
+		}
+
+		tools.RegisterCoderTool(agentLoop.Registry(), bridge, memory)
+
+		builder, err := deployer.NewBuilder(cfg.Coder.SandboxDir + "/builds")
+		if err != nil {
+			logger.Fatal("failed to create builder", "error", err)
+		}
+
+		deploy := deployer.NewDeployer("kora-apps")
+		tools.RegisterDeployerTools(agentLoop.Registry(), builder, deploy)
+
+		provider := "anthropic"
+		if cfg.Coder.BaseURL != "" {
+			provider = cfg.Coder.BaseURL
+		}
+
+		logger.Info("coder enabled", "provider", provider, "sandbox", cfg.Coder.SandboxDir)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

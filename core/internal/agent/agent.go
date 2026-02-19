@@ -52,6 +52,14 @@ func (a *Agent) SetAlerter(alerter *alerts.Alerter) {
 	a.alerts = alerter
 }
 
+func (a *Agent) Registry() *tools.Registry {
+	return a.tools
+}
+
+func (a *Agent) Memory() *koramem.Store {
+	return a.memory
+}
+
 func loadSystemPrompt(essencePath string) string {
 	soulPath := filepath.Join(essencePath, "SOUL.md")
 	soul, err := os.ReadFile(soulPath)

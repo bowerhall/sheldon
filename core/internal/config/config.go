@@ -42,6 +42,7 @@ func Load() (*Config, error) {
 	heartbeatConfig := loadHeartbeatConfig()
 	multiBot := loadMultiBotConfig()
 	budgetConfig := loadBudgetConfig()
+	coderConfig := loadCoderConfig()
 
 	return &Config{
 		EssencePath: essencePath,
@@ -50,11 +51,33 @@ func Load() (*Config, error) {
 		LLM:         llmConfig,
 		Extractor:   extractorConfig,
 		Embedder:    embedderConfig,
+		Coder:       coderConfig,
 		Bot:         botConfig,
 		Bots:        multiBot,
 		Heartbeat:   heartbeatConfig,
 		Budget:      budgetConfig,
 	}, nil
+}
+
+func loadCoderConfig() CoderConfig {
+	apiKey := os.Getenv("CODER_API_KEY")
+	if apiKey == "" {
+		apiKey = os.Getenv("ANTHROPIC_API_KEY")
+	}
+
+	baseURL := os.Getenv("CODER_BASE_URL")
+
+	sandboxDir := os.Getenv("CODER_SANDBOX")
+	if sandboxDir == "" {
+		sandboxDir = "/tmp/kora-sandbox"
+	}
+
+	return CoderConfig{
+		Enabled:    apiKey != "" || baseURL != "",
+		APIKey:     apiKey,
+		BaseURL:    baseURL,
+		SandboxDir: sandboxDir,
+	}
 }
 
 func loadBudgetConfig() BudgetConfig {
