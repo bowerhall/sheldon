@@ -59,8 +59,8 @@ spec:
               mountPath: /skills
       containers:
         - name: kora
-          image: kora:latest
-          imagePullPolicy: Never
+          image: kadetxx/kora:latest
+          imagePullPolicy: Always
           envFrom:
             - configMapRef:
                 name: kora-config
@@ -101,8 +101,8 @@ spec:
             type: Socket
         - name: sandbox
           emptyDir: {}
-        # for local dev, use emptyDir. for production with k8s jobs, use pvc
         - name: coder-artifacts
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: kora-coder-artifacts
         - name: skills
           emptyDir: {}

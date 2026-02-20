@@ -24,8 +24,6 @@ data:
   # skills repo - cloned at startup, you can update anytime
   CODER_SKILLS_REPO: ""  # e.g., https://github.com/youruser/kora-skills.git
   # ephemeral k8s jobs for claude code (more secure)
-  # disabled for local testing due to docker desktop storage provisioner issues
-  # enable on production: CODER_USE_K8S_JOBS: "true"
-  CODER_USE_K8S_JOBS: "false"
-  CODER_K8S_IMAGE: "kora-claude-code:latest"
+  CODER_USE_K8S_JOBS: "true"
+  CODER_K8S_IMAGE: "kadetxx/kora-claude-code:latest"
   CODER_ARTIFACTS_PVC: "kora-coder-artifacts"

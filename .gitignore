@@ -43,3 +43,4 @@ coverage.out
 tmp/
 *.tmp
 *.log
+deploy/k8s/base/secrets.yaml

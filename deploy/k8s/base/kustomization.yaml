@@ -7,9 +7,9 @@ resources:
   - rbac.yaml
   - network-policy.yaml
   - kora-apps-network-policy.yaml
-  # - minio.yaml  # disabled for local dev (storage provisioner issues)
+  # - minio.yaml  # disabled for now
   # - backup.yaml  # depends on minio
-  # - coder-artifacts.yaml  # only needed with k8s Jobs mode
+  - coder-artifacts.yaml  # needed for k8s Jobs mode
   - kora.yaml
   - config.yaml
   - essence.yaml
