@@ -1,0 +1,56 @@
+# minimal resource allocations for small vps
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kora
+  namespace: kora
+spec:
+  template:
+    spec:
+      containers:
+        - name: kora
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: kora
+spec:
+  template:
+    spec:
+      containers:
+        - name: minio
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-data
+  namespace: kora
+spec:
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kora-memory
+  namespace: kora
+spec:
+  resources:
+    requests:
+      storage: 1Gi

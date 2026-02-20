@@ -1,0 +1,13 @@
+# pvc for ephemeral claude code job artifacts
+# jobs write output here, kora reads for build/deploy
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kora-coder-artifacts
+  namespace: kora
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi

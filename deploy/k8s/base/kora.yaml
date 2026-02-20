@@ -39,6 +39,24 @@ spec:
               mountPath: /data
             - name: docker-socket
               mountPath: /var/run/docker.sock
+        - name: clone-skills
+          image: alpine/git:latest
+          command:
+            - sh
+            - -c
+            - |
+              if [ -n "$CODER_SKILLS_REPO" ]; then
+                git clone --depth 1 "$CODER_SKILLS_REPO" /skills
+              else
+                echo "no skills repo configured, skipping"
+                mkdir -p /skills
+              fi
+          envFrom:
+            - configMapRef:
+                name: kora-config
+          volumeMounts:
+            - name: skills
+              mountPath: /skills
       containers:
         - name: kora
           image: kora:latest
@@ -65,6 +83,11 @@ spec:
               mountPath: /var/run/docker.sock
             - name: sandbox
               mountPath: /tmp/kora-sandbox
+            - name: coder-artifacts
+              mountPath: /tmp/kora-artifacts
+            - name: skills
+              mountPath: /skills
+              readOnly: true
       volumes:
         - name: memory
           persistentVolumeClaim:
@@ -77,4 +100,9 @@ spec:
             path: /var/run/docker.sock
             type: Socket
         - name: sandbox
+          emptyDir: {}
+        # for local dev, use emptyDir. for production with k8s jobs, use pvc
+        - name: coder-artifacts
+          emptyDir: {}
+        - name: skills
           emptyDir: {}

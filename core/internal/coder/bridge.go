@@ -14,30 +14,134 @@ import (
 
 // CleanupWorkspaces removes workspaces older than maxAge
 func (b *Bridge) CleanupWorkspaces(maxAge time.Duration) (int, error) {
+	if b.jobRunner != nil {
+		// in k8s mode, cleanup is handled differently
+		return 0, nil
+	}
 	return b.sandbox.CleanupOld(maxAge)
 }
 
 type Bridge struct {
-	sandbox *Sandbox
+	sandbox   *Sandbox
+	jobRunner *JobRunner
+	skills    *Skills
+	useJobs   bool
+}
+
+// BridgeConfig holds configuration for the Bridge
+type BridgeConfig struct {
+	SandboxDir   string
+	APIKey       string
+	BaseURL      string
+	SkillsDir    string // directory with skill templates
+	UseK8sJobs   bool   // use k8s Jobs instead of subprocess
+	K8sNamespace string // namespace for Jobs
+	K8sImage     string // Claude Code container image
+	ArtifactsPVC string // PVC for artifacts
+	SecretName   string // secret containing CODER_API_KEY
 }
 
 func NewBridge(sandboxDir, apiKey, baseURL string) (*Bridge, error) {
-	sandbox, err := NewSandbox(sandboxDir, apiKey, baseURL)
-	if err != nil {
-		return nil, err
+	return NewBridgeWithConfig(BridgeConfig{
+		SandboxDir: sandboxDir,
+		APIKey:     apiKey,
+		BaseURL:    baseURL,
+		UseK8sJobs: false,
+	})
+}
+
+// NewBridgeWithConfig creates a Bridge with full configuration
+func NewBridgeWithConfig(cfg BridgeConfig) (*Bridge, error) {
+	b := &Bridge{useJobs: cfg.UseK8sJobs}
+
+	// load skills if directory is configured
+	if cfg.SkillsDir != "" {
+		b.skills = NewSkills(cfg.SkillsDir)
 	}
 
-	return &Bridge{sandbox: sandbox}, nil
+	if cfg.UseK8sJobs {
+		b.jobRunner = NewJobRunner(cfg.K8sNamespace, cfg.K8sImage, cfg.ArtifactsPVC, cfg.SecretName)
+		logger.Info("claude code bridge using k8s jobs", "namespace", cfg.K8sNamespace)
+	} else {
+		sandbox, err := NewSandbox(cfg.SandboxDir, cfg.APIKey, cfg.BaseURL)
+		if err != nil {
+			return nil, err
+		}
+		b.sandbox = sandbox
+		logger.Info("claude code bridge using subprocess")
+	}
+
+	return b, nil
 }
 
 func (b *Bridge) Execute(ctx context.Context, task Task) (*Result, error) {
-	start := time.Now()
-	result := &Result{}
-
 	cfg, ok := complexityConfig[task.Complexity]
 	if !ok {
 		cfg = complexityConfig[ComplexityStandard]
 	}
+
+	// enrich prompt with relevant skills
+	task.Prompt = b.enrichPrompt(task.Prompt)
+
+	// use k8s Jobs if configured
+	if b.useJobs && b.jobRunner != nil {
+		return b.executeWithJob(ctx, task, cfg)
+	}
+
+	return b.executeWithSubprocess(ctx, task, cfg)
+}
+
+// enrichPrompt adds relevant skill patterns to the prompt
+func (b *Bridge) enrichPrompt(prompt string) string {
+	if b.skills == nil {
+		return prompt
+	}
+
+	skills := b.skills.FormatForPrompt(prompt)
+	if skills == "" {
+		return prompt
+	}
+
+	return prompt + skills
+}
+
+func (b *Bridge) executeWithJob(ctx context.Context, task Task, cfg struct {
+	MaxTurns int
+	Timeout  time.Duration
+}) (*Result, error) {
+	logger.Debug("claude code starting via job", "task", task.ID, "complexity", task.Complexity)
+
+	taskCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
+	defer cancel()
+
+	result, err := b.jobRunner.RunJob(taskCtx, JobConfig{
+		TaskID:   task.ID,
+		Prompt:   task.Prompt,
+		MaxTurns: cfg.MaxTurns,
+		Timeout:  cfg.Timeout,
+		Context:  task.Context,
+	})
+
+	if err != nil {
+		logger.Error("claude code job failed", "error", err, "task", task.ID)
+	} else {
+		logger.Debug("claude code job complete",
+			"task", task.ID,
+			"duration", result.Duration,
+			"files", len(result.Files),
+			"sanitized", result.Sanitized,
+		)
+	}
+
+	return result, err
+}
+
+func (b *Bridge) executeWithSubprocess(ctx context.Context, task Task, cfg struct {
+	MaxTurns int
+	Timeout  time.Duration
+}) (*Result, error) {
+	start := time.Now()
+	result := &Result{}
 
 	taskCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
@@ -95,7 +199,11 @@ func (b *Bridge) run(ctx context.Context, ws *Workspace, prompt string, maxTurns
 	cmd.Dir = ws.Path
 	cmd.Env = b.sandbox.CleanEnv()
 
+	logger.Debug("claude command", "dir", ws.Path, "args", args)
+
 	var output strings.Builder
+	var stderrBuf strings.Builder
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return "", fmt.Errorf("stdout pipe: %w", err)
@@ -110,10 +218,14 @@ func (b *Bridge) run(ctx context.Context, ws *Workspace, prompt string, maxTurns
 		return "", fmt.Errorf("start: %w", err)
 	}
 
+	// capture stderr
 	go func() {
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
-			logger.Debug("claude stderr", "line", scanner.Text())
+			line := scanner.Text()
+			stderrBuf.WriteString(line)
+			stderrBuf.WriteString("\n")
+			logger.Debug("claude stderr", "line", line)
 		}
 	}()
 
@@ -130,6 +242,10 @@ func (b *Bridge) run(ctx context.Context, ws *Workspace, prompt string, maxTurns
 		if ctx.Err() == context.DeadlineExceeded {
 			return output.String(), fmt.Errorf("timeout exceeded")
 		}
+		// log stderr on error
+		if stderrBuf.Len() > 0 {
+			logger.Error("claude stderr output", "stderr", stderrBuf.String())
+		}
 		return output.String(), fmt.Errorf("exit: %w", err)
 	}
 
@@ -137,13 +253,59 @@ func (b *Bridge) run(ctx context.Context, ws *Workspace, prompt string, maxTurns
 }
 
 func (b *Bridge) ExecuteWithProgress(ctx context.Context, task Task, onProgress func(StreamEvent)) (*Result, error) {
-	start := time.Now()
-	result := &Result{}
-
 	cfg, ok := complexityConfig[task.Complexity]
 	if !ok {
 		cfg = complexityConfig[ComplexityStandard]
 	}
+
+	// enrich prompt with relevant skills
+	task.Prompt = b.enrichPrompt(task.Prompt)
+
+	// use k8s Jobs if configured
+	if b.useJobs && b.jobRunner != nil {
+		return b.executeWithJobProgress(ctx, task, cfg, onProgress)
+	}
+
+	return b.executeWithSubprocessProgress(ctx, task, cfg, onProgress)
+}
+
+func (b *Bridge) executeWithJobProgress(ctx context.Context, task Task, cfg struct {
+	MaxTurns int
+	Timeout  time.Duration
+}, onProgress func(StreamEvent)) (*Result, error) {
+	logger.Debug("claude code starting via job", "task", task.ID, "complexity", task.Complexity)
+
+	taskCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
+	defer cancel()
+
+	result, err := b.jobRunner.RunJob(taskCtx, JobConfig{
+		TaskID:     task.ID,
+		Prompt:     task.Prompt,
+		MaxTurns:   cfg.MaxTurns,
+		Timeout:    cfg.Timeout,
+		Context:    task.Context,
+		OnProgress: onProgress,
+	})
+
+	if err != nil {
+		logger.Error("claude code job failed", "error", err, "task", task.ID)
+	} else {
+		logger.Debug("claude code job complete",
+			"task", task.ID,
+			"duration", result.Duration,
+			"files", len(result.Files),
+		)
+	}
+
+	return result, err
+}
+
+func (b *Bridge) executeWithSubprocessProgress(ctx context.Context, task Task, cfg struct {
+	MaxTurns int
+	Timeout  time.Duration
+}, onProgress func(StreamEvent)) (*Result, error) {
+	start := time.Now()
+	result := &Result{}
 
 	taskCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
@@ -183,6 +345,7 @@ func (b *Bridge) ExecuteWithProgress(ctx context.Context, task Task, onProgress 
 func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt string, maxTurns int, onProgress func(StreamEvent)) (string, error) {
 	args := []string{
 		"--print",
+		"--verbose",
 		"--output-format", "stream-json",
 		"--max-turns", fmt.Sprintf("%d", maxTurns),
 		"--dangerously-skip-permissions",
@@ -193,15 +356,34 @@ func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt stri
 	cmd.Dir = ws.Path
 	cmd.Env = b.sandbox.CleanEnv()
 
+	logger.Debug("claude command (progress)", "dir", ws.Path, "prompt_len", len(prompt))
+
 	var output strings.Builder
+	var stderrBuf strings.Builder
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return "", fmt.Errorf("stdout pipe: %w", err)
 	}
 
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return "", fmt.Errorf("stderr pipe: %w", err)
+	}
+
 	if err := cmd.Start(); err != nil {
 		return "", fmt.Errorf("start: %w", err)
 	}
+
+	// capture stderr in background
+	go func() {
+		stderrScanner := bufio.NewScanner(stderr)
+		for stderrScanner.Scan() {
+			line := stderrScanner.Text()
+			stderrBuf.WriteString(line)
+			stderrBuf.WriteString("\n")
+		}
+	}()
 
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
@@ -251,9 +433,46 @@ func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt stri
 		if ctx.Err() == context.DeadlineExceeded {
 			return output.String(), fmt.Errorf("timeout exceeded")
 		}
-
+		// log stderr on error
+		if stderrBuf.Len() > 0 {
+			logger.Error("claude stderr output", "stderr", stderrBuf.String())
+		}
 		return output.String(), fmt.Errorf("exit: %w", err)
 	}
 
 	return output.String(), nil
+}
+
+// GetLocalWorkspacePath returns the local filesystem path for artifacts.
+// For subprocess mode, this is the direct sandbox path.
+// For k8s mode, this copies artifacts from PVC to local temp dir.
+func (b *Bridge) GetLocalWorkspacePath(ctx context.Context, taskID string) (string, error) {
+	if !b.useJobs || b.jobRunner == nil {
+		// subprocess mode - path is already local
+		return b.sandbox.baseDir + "/" + taskID, nil
+	}
+
+	// k8s mode - copy artifacts to local temp
+	localDir := "/tmp/kora-artifacts/" + taskID
+	if err := b.jobRunner.CopyArtifacts(ctx, taskID, localDir); err != nil {
+		return "", fmt.Errorf("copy artifacts: %w", err)
+	}
+
+	return localDir, nil
+}
+
+// CleanupTask removes artifacts for a completed task
+func (b *Bridge) CleanupTask(ctx context.Context, taskID string) error {
+	if !b.useJobs || b.jobRunner == nil {
+		// subprocess mode - use sandbox cleanup
+		return b.sandbox.Cleanup(&Workspace{TaskID: taskID, Path: b.sandbox.baseDir + "/" + taskID})
+	}
+
+	// k8s mode - cleanup PVC artifacts
+	return b.jobRunner.CleanupArtifacts(ctx, taskID)
+}
+
+// IsUsingK8sJobs returns true if the bridge is configured to use k8s Jobs
+func (b *Bridge) IsUsingK8sJobs() bool {
+	return b.useJobs
 }

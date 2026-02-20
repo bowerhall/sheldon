@@ -30,4 +30,9 @@ type Agent struct {
 	notify       NotifyFunc
 	budget       *budget.Tracker
 	alerts       *alerts.Alerter
+	skillsDir    string
+}
+
+func (a *Agent) SetSkillsDir(dir string) {
+	a.skillsDir = dir
 }

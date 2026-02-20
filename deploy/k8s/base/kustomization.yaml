@@ -1,11 +1,17 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: kora
-
 resources:
   - namespace.yaml
+  - kora-apps-namespace.yaml
+  - rbac.yaml
+  - network-policy.yaml
+  - kora-apps-network-policy.yaml
+  # - minio.yaml  # disabled for local dev (storage provisioner issues)
+  # - backup.yaml  # depends on minio
+  # - coder-artifacts.yaml  # only needed with k8s Jobs mode
   - kora.yaml
   - config.yaml
   - essence.yaml
   - secrets.yaml
+  # skills.yaml removed - using git repo instead (CODER_SKILLS_REPO)

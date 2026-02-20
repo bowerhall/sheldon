@@ -14,9 +14,9 @@ var complexityConfig = map[Complexity]struct {
 	MaxTurns int
 	Timeout  time.Duration
 }{
-	ComplexitySimple:   {MaxTurns: 10, Timeout: 5 * time.Minute},
-	ComplexityStandard: {MaxTurns: 25, Timeout: 10 * time.Minute},
-	ComplexityComplex:  {MaxTurns: 50, Timeout: 20 * time.Minute},
+	ComplexitySimple:   {MaxTurns: 20, Timeout: 5 * time.Minute},
+	ComplexityStandard: {MaxTurns: 50, Timeout: 10 * time.Minute},
+	ComplexityComplex:  {MaxTurns: 100, Timeout: 20 * time.Minute},
 }
 
 type Task struct {

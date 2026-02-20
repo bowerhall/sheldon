@@ -162,73 +162,137 @@ The CLAUDE.md carries the heavy context; the system prompt carries behavioral di
 
 ## Sandboxing
 
-Every Claude Code invocation runs in an isolated workspace. The sandbox enforces security boundaries that prevent the code agent from accessing Kora's own secrets or infrastructure.
+**UPDATE (2026-02-20):** Claude Code now runs in ephemeral k8s Jobs, not inside the Kora pod. This provides complete isolation.
 
-### Workspace Isolation
+### Ephemeral Container Architecture
 
-```go
-type Sandbox struct {
-    BaseDir     string // /workspace/sandbox/
-    MaxDiskMB   int    // 500MB per task
-}
-
-type Workspace struct {
-    Path    string // /workspace/sandbox/<task-id>/
-    TaskID  string
-    Created time.Time
-}
-
-func (s *Sandbox) Create(taskID string) (*Workspace, error) {
-    path := filepath.Join(s.BaseDir, taskID)
-    if err := os.MkdirAll(path, 0755); err != nil {
-        return nil, err
-    }
-    return &Workspace{Path: path, TaskID: taskID, Created: time.Now()}, nil
-}
-
-func (s *Sandbox) Cleanup(ws *Workspace) {
-    // Copy artifacts to persistent storage first if needed
-    os.RemoveAll(ws.Path)
-}
 ```
+┌─────────────┐                  ┌──────────────────────────┐
+│    KORA     │    spawn Job     │   Ephemeral k8s Job      │
+│             │─────────────────▶│  ┌────────────────────┐  │
+│             │                  │  │ Claude Code        │  │
+│             │                  │  │ - Own API key      │  │
+│             │                  │  │ - Isolated FS      │  │
+│             │                  │  │ - No kora.db       │  │
+│             │◀─────────────────│  │ - No secrets       │  │
+│             │   artifacts      │  └────────────────────┘  │
+└─────────────┘   (shared PVC)   │  /output volume          │
+                                 └──────────────────────────┘
+                                            │
+                                       auto-delete
+```
+
+### Why Ephemeral Containers
+
+Previous approach (subprocess in Kora pod) had vulnerabilities:
+- Claude Code could read `/data/kora.db`
+- Claude Code could access Kora's environment variables
+- Malicious skills could instruct data exfiltration
+
+New approach benefits:
+- **Complete filesystem isolation**: Job only sees its workspace + output volume
+- **Separate API key**: CODER_API_KEY rotatable without affecting Kora
+- **No secrets exposure**: Kora's ANTHROPIC_API_KEY, TELEGRAM_TOKEN not accessible
+- **Clean slate**: Container deleted after task, no persistent compromise
+- **Network isolation**: Job has own NetworkPolicy (egress to API only)
+
+### Job Specification
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: claude-code-<task-id>
+  namespace: kora
+spec:
+  ttlSecondsAfterFinished: 60  # auto-delete after completion
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: claude-code
+          image: kora-claude-code:latest
+          env:
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: coder-credentials
+                  key: api-key
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: output
+              mountPath: /output
+          resources:
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+      volumes:
+        - name: workspace
+          emptyDir: {}
+        - name: output
+          persistentVolumeClaim:
+            claimName: kora-coder-output
+```
+
+### Workflow
+
+1. Kora receives code task
+2. Creates Job with task context in ConfigMap
+3. Job runs Claude Code, writes artifacts to /output
+4. Kora polls Job status, waits for completion
+5. Kora reads artifacts from shared PVC
+6. Job auto-deletes (ttlSecondsAfterFinished)
+7. Kora deploys artifacts to kora-apps if applicable
 
 ### Environment Stripping
 
-```go
-func (s *Sandbox) CleanEnv() map[string]string {
-    // Start from empty — NOT os.Environ()
-    return map[string]string{
-        "HOME":     "/tmp",
-        "PATH":     "/usr/local/bin:/usr/bin:/bin",
-        "LANG":     "en_US.UTF-8",
-        "TERM":     "dumb",
-        // Claude Code needs its own API key — mounted separately
-        // NOT Kora's ANTHROPIC_API_KEY
-        "ANTHROPIC_API_KEY": s.codeApiKey,
-    }
-}
+The Job container starts clean:
+```yaml
+env:
+  - name: HOME
+    value: "/tmp"
+  - name: ANTHROPIC_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: coder-credentials  # NOT kora-secrets
+        key: api-key
 ```
 
-### Tool Restrictions
+No access to:
+- Kora's ANTHROPIC_API_KEY
+- TELEGRAM_TOKEN
+- LLM_API_KEY
+- MINIO_CREDENTIALS
+- /data/kora.db
 
-```go
-func (s *Sandbox) AllowedTools() []string {
-    return []string{
-        "Read",
-        "Write",
-        "Edit",
-        "Bash",     // restricted to workspace dir via CLAUDE.md instruction
-        "Grep",
-        "Glob",
-        // NOT: WebSearch, WebFetch (no network except API)
-        // NOT: any MCP servers (no access to Kora's internal tools)
-    }
-}
+### Network Policy
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: claude-code-job-policy
+  namespace: kora
+spec:
+  podSelector:
+    matchLabels:
+      job-type: claude-code
+  policyTypes:
+    - Egress
+  egress:
+    # DNS
+    - ports:
+        - protocol: UDP
+          port: 53
+    # Anthropic API only
+    - ports:
+        - protocol: TCP
+          port: 443
+      to:
+        - ipBlock:
+            cidr: 0.0.0.0/0  # Allow HTTPS, API enforces endpoint
 ```
-
-### Network Enforcement
-
-In k3s, the sandbox runs within Kora's pod but with restricted capabilities. Network access for the Claude Code subprocess is limited to the Anthropic API endpoint. This is enforced at the Kubernetes NetworkPolicy level (kora-system namespace allows outbound HTTPS) — the subprocess inherits this. If tighter isolation is needed, use a sidecar container with its own restrictive NetworkPolicy.
 
 ## Complexity Tiers
 
@@ -453,12 +517,20 @@ This adds ~150MB to the container image. Trade-off is acceptable given Claude Co
 | Disk space exhaustion | Workspace | Cleanup oldest sandboxes, retry |
 | Subprocess crash | SDK transport | Return error, Kora retries once with same prompt |
 
+## Resolved Questions
+
+1. **API key sharing**: ✅ RESOLVED - Separate key (CODER_API_KEY). Stored in `coder-credentials` secret, rotatable independently. Better security isolation.
+
+2. **Streaming to user**: ✅ RESOLVED - Implemented via `ExecuteWithProgress`. Sends notifications: "🔨 Working on...", "💭 Thinking...", "🔧 Using: <tool>", "✅ Complete".
+
+3. **Go SDK choice**: ✅ RESOLVED - Using Claude Code CLI directly via subprocess with `--output-format stream-json`. No external SDK dependency.
+
+4. **Model passthrough**: ✅ RESOLVED - Claude Code uses its own default model. Kora doesn't override.
+
 ## Open Questions
 
-1. **API key sharing**: Should Claude Code use the same API key as Kora's main agent, or a separate key with its own rate limits? Separate key gives better cost tracking but adds credential management complexity.
+1. **Job startup latency**: Ephemeral containers add ~3-5 sec startup. Acceptable for code tasks, but monitor if it impacts UX.
 
-2. **Streaming to user**: Should Kora stream Claude Code's progress to the user in real-time via Telegram ("writing backend... running tests... fixing error..."), or wait for completion? Streaming is better UX for long tasks but adds complexity.
+2. **Artifact size limits**: What's the max artifact size to copy from Job output volume? Need to prevent disk exhaustion.
 
-3. **Go SDK choice**: Multiple community Go SDKs exist (unofficial ports of the Python SDK). Need to evaluate for stability, maintenance activity, and feature completeness before committing. Alternatively, PicoClaw may already have a TypeScript-based bridge we can adapt.
-
-4. **Model passthrough**: Should the model be set by Kora's router (Sonnet for code, Opus for complex architecture) or let Claude Code use its own default? Router control is better for cost management but may miss cases where Claude Code benefits from model escalation mid-task.
+3. **Concurrent jobs**: Should we limit concurrent Claude Code jobs? Risk of resource exhaustion with multiple parallel requests.

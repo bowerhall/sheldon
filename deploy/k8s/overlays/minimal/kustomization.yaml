@@ -1,9 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# lite overlay - for medium vps (4 vcpu, 8gb ram)
-# e.g., hetzner cx32 (~€8/mo)
-# uses external llm api + local ollama embedder
+# minimal overlay - for small vps (2 vcpu, 4gb ram)
+# e.g., hetzner cx21 (~€4/mo)
+# uses external apis only (no local models)
 
 resources:
   - ../../base

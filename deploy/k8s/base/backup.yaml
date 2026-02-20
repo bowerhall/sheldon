@@ -1,0 +1,106 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kora-backup
+  namespace: kora
+spec:
+  schedule: "0 3 * * *"  # daily at 3am UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: minio/mc:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+
+                  # configure minio client
+                  mc alias set kora http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+
+                  # ensure bucket exists
+                  mc mb --ignore-existing kora/backups
+
+                  # create backup filename with timestamp
+                  BACKUP_NAME="kora-$(date +%Y%m%d-%H%M%S).db"
+
+                  # copy database (SQLite is safe to copy when using WAL mode)
+                  cp /data/kora.db /tmp/$BACKUP_NAME
+
+                  # upload to minio
+                  mc cp /tmp/$BACKUP_NAME kora/backups/
+
+                  # cleanup old backups (keep last 7 daily + 4 weekly)
+                  mc ls kora/backups/ | sort -r | tail -n +12 | awk '{print $5}' | while read file; do
+                    mc rm kora/backups/$file
+                  done
+
+                  echo "backup complete: $BACKUP_NAME"
+              env:
+                - name: MINIO_ROOT_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-credentials
+                      key: root-user
+                - name: MINIO_ROOT_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: minio-credentials
+                      key: root-password
+              volumeMounts:
+                - name: memory
+                  mountPath: /data
+                  readOnly: true
+          volumes:
+            - name: memory
+              persistentVolumeClaim:
+                claimName: kora-memory
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kora-backup-init
+  namespace: kora
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init-buckets
+          image: minio/mc:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              # wait for minio to be ready
+              until mc alias set kora http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD; do
+                echo "waiting for minio..."
+                sleep 5
+              done
+
+              # create buckets
+              mc mb --ignore-existing kora/backups
+              mc mb --ignore-existing kora/artifacts
+              mc mb --ignore-existing kora/skills
+
+              echo "buckets initialized"
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: root-user
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-credentials
+                  key: root-password

@@ -55,6 +55,7 @@ func (s *Sandbox) CleanEnv() []string {
 		"PATH=/usr/local/bin:/usr/bin:/bin",
 		"LANG=en_US.UTF-8",
 		"TERM=dumb",
+		"SHELL=/bin/sh",
 	}
 
 	if s.baseURL != "" {

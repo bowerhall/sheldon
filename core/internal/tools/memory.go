@@ -13,6 +13,7 @@ import (
 type RecallArgs struct {
 	Query   string `json:"query"`
 	Domains []int  `json:"domains,omitempty"`
+	Depth   int    `json:"depth,omitempty"`
 }
 
 func RegisterMemoryTools(registry *Registry, memory *koramem.Store) {
@@ -31,6 +32,10 @@ func RegisterMemoryTools(registry *Registry, memory *koramem.Store) {
 					"items":       map[string]any{"type": "integer"},
 					"description": "Optional domain IDs to search (1=Identity, 2=Health, 3=Emotions, 4=Beliefs, 5=Skills, 6=Relationships, 7=Work, 8=Finances, 9=Location, 10=Goals, 11=Preferences, 12=Routines, 13=Events, 14=Patterns). Omit to search all.",
 				},
+				"depth": map[string]any{
+					"type":        "integer",
+					"description": "Graph traversal depth (1=direct connections, 2=friends of friends, 3=deeper). Use higher depth when exploring relationships or need broader context. Default: 1.",
+				},
 			},
 			"required": []string{"query"},
 		},
@@ -47,7 +52,13 @@ func RegisterMemoryTools(registry *Registry, memory *koramem.Store) {
 			domains = []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
 		}
 
-		result, err := memory.Recall(ctx, params.Query, domains, 10)
+		depth := params.Depth
+		if depth < 1 {
+			depth = 1
+		}
+
+		opts := koramem.RecallOptions{Depth: depth}
+		result, err := memory.RecallWithOptions(ctx, params.Query, domains, 10, opts)
 		if err != nil {
 			return "", err
 		}
@@ -69,7 +80,7 @@ func RegisterMemoryTools(registry *Registry, memory *koramem.Store) {
 			sb.WriteString("\nRelated entities:\n")
 			for _, t := range result.Entities {
 				if t.Relation != "" {
-					fmt.Fprintf(&sb, "- %s (%s, via %s)\n", t.Entity.Name, t.Entity.EntityType, t.Relation)
+					fmt.Fprintf(&sb, "- %s (%s, via %s, depth %d)\n", t.Entity.Name, t.Entity.EntityType, t.Relation, t.Depth)
 				} else {
 					fmt.Fprintf(&sb, "- %s (%s)\n", t.Entity.Name, t.Entity.EntityType)
 				}

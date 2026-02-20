@@ -106,7 +106,19 @@ func main() {
 	agentLoop := agent.New(model, extractor, memory, cfg.EssencePath, cfg.Timezone)
 
 	if cfg.Coder.Enabled {
-		bridge, err := coder.NewBridge(cfg.Coder.SandboxDir, cfg.Coder.APIKey, cfg.Coder.BaseURL)
+		bridgeCfg := coder.BridgeConfig{
+			SandboxDir:   cfg.Coder.SandboxDir,
+			APIKey:       cfg.Coder.APIKey,
+			BaseURL:      cfg.Coder.BaseURL,
+			SkillsDir:    cfg.Coder.SkillsDir,
+			UseK8sJobs:   cfg.Coder.UseK8sJobs,
+			K8sNamespace: cfg.Coder.K8sNamespace,
+			K8sImage:     cfg.Coder.K8sImage,
+			ArtifactsPVC: cfg.Coder.ArtifactsPVC,
+			SecretName:   "kora-secrets",
+		}
+
+		bridge, err := coder.NewBridgeWithConfig(bridgeCfg)
 		if err != nil {
 			logger.Fatal("failed to create coder bridge", "error", err)
 		}
@@ -121,13 +133,27 @@ func main() {
 		deploy := deployer.NewDeployer("kora-apps")
 		tools.RegisterDeployerTools(agentLoop.Registry(), builder, deploy)
 
-		provider := "anthropic"
-		if cfg.Coder.BaseURL != "" {
-			provider = cfg.Coder.BaseURL
+		mode := "subprocess"
+		if cfg.Coder.UseK8sJobs {
+			mode = "k8s-jobs"
 		}
 
-		logger.Info("coder enabled", "provider", provider, "sandbox", cfg.Coder.SandboxDir)
+		logger.Info("coder enabled", "mode", mode, "sandbox", cfg.Coder.SandboxDir)
 	}
+
+	// skills manager - directory alongside memory db
+	skillsDir := filepath.Join(filepath.Dir(cfg.MemoryPath), "skills")
+	skillsManager, err := tools.NewSkillsManager(skillsDir)
+	if err != nil {
+		logger.Fatal("failed to create skills manager", "error", err)
+	}
+	tools.RegisterSkillsTools(agentLoop.Registry(), skillsManager)
+	agentLoop.SetSkillsDir(skillsDir)
+	logger.Info("skills enabled", "dir", skillsDir)
+
+	// browser tools for web browsing
+	tools.RegisterBrowserTools(agentLoop.Registry(), tools.DefaultBrowserConfig())
+	logger.Info("browser tools enabled")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -72,11 +72,39 @@ func loadCoderConfig() CoderConfig {
 		sandboxDir = "/tmp/kora-sandbox"
 	}
 
+	// k8s Jobs mode settings
+	useK8sJobs := os.Getenv("CODER_USE_K8S_JOBS") == "true"
+
+	k8sNamespace := os.Getenv("CODER_K8S_NAMESPACE")
+	if k8sNamespace == "" {
+		k8sNamespace = "kora"
+	}
+
+	k8sImage := os.Getenv("CODER_K8S_IMAGE")
+	if k8sImage == "" {
+		k8sImage = "kora-claude-code:latest"
+	}
+
+	artifactsPVC := os.Getenv("CODER_ARTIFACTS_PVC")
+	if artifactsPVC == "" {
+		artifactsPVC = "kora-coder-artifacts"
+	}
+
+	skillsDir := os.Getenv("CODER_SKILLS_DIR")
+	if skillsDir == "" {
+		skillsDir = "/skills"
+	}
+
 	return CoderConfig{
-		Enabled:    apiKey != "" || baseURL != "",
-		APIKey:     apiKey,
-		BaseURL:    baseURL,
-		SandboxDir: sandboxDir,
+		Enabled:      apiKey != "" || baseURL != "",
+		APIKey:       apiKey,
+		BaseURL:      baseURL,
+		SandboxDir:   sandboxDir,
+		SkillsDir:    skillsDir,
+		UseK8sJobs:   useK8sJobs,
+		K8sNamespace: k8sNamespace,
+		K8sImage:     k8sImage,
+		ArtifactsPVC: artifactsPVC,
 	}
 }
 

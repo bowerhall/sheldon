@@ -1,0 +1,11 @@
+# minimal config - uses external apis only (no local models)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kora-config
+  namespace: kora
+data:
+  # no local embedder - use external api or disable
+  EMBEDDER_PROVIDER: ""
+  EMBEDDER_BASE_URL: ""
+  EMBEDDER_MODEL: ""

@@ -15,10 +15,15 @@ type Config struct {
 }
 
 type CoderConfig struct {
-	Enabled    bool
-	APIKey     string
-	BaseURL    string
-	SandboxDir string
+	Enabled      bool
+	APIKey       string
+	BaseURL      string
+	SandboxDir   string
+	SkillsDir    string // directory with skill patterns for claude code
+	UseK8sJobs   bool   // use ephemeral k8s Jobs instead of subprocess
+	K8sNamespace string // namespace for Jobs (default: kora)
+	K8sImage     string // Claude Code container image
+	ArtifactsPVC string // PVC name for artifacts
 }
 
 type LLMConfig struct {

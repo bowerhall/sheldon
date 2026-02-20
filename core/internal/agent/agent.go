@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -93,6 +94,15 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 
 	sess.AddMessage("user", userMessage, nil, "")
 
+	// check for skill command (e.g., /apartment-hunter)
+	if skill := a.detectSkillCommand(userMessage); skill != "" {
+		skillContent := a.loadSkill(skill)
+		if skillContent != "" {
+			sess.AddMessage("system", fmt.Sprintf("[Skill activated: %s]\n\n%s", skill, skillContent), nil, "")
+			logger.Debug("skill activated", "skill", skill)
+		}
+	}
+
 	// add chatID to context for tool notifications
 	chatID := a.parseChatID(sessionID)
 	ctx = context.WithValue(ctx, tools.ChatIDKey, chatID)
@@ -126,6 +136,50 @@ func (a *Agent) isNewUser(sessionID string) bool {
 
 	facts, err := a.memory.GetFactsByEntity(entityID)
 	return err != nil || len(facts) == 0
+}
+
+func (a *Agent) detectSkillCommand(message string) string {
+	message = strings.TrimSpace(message)
+	if !strings.HasPrefix(message, "/") {
+		return ""
+	}
+
+	// extract command name (first word after /)
+	parts := strings.Fields(message)
+	if len(parts) == 0 {
+		return ""
+	}
+
+	cmd := strings.TrimPrefix(parts[0], "/")
+	if cmd == "" {
+		return ""
+	}
+
+	// check if skill exists
+	if a.skillsDir == "" {
+		return ""
+	}
+
+	skillPath := filepath.Join(a.skillsDir, strings.ToUpper(cmd)+".md")
+	if _, err := os.Stat(skillPath); err == nil {
+		return cmd
+	}
+
+	return ""
+}
+
+func (a *Agent) loadSkill(name string) string {
+	if a.skillsDir == "" {
+		return ""
+	}
+
+	skillPath := filepath.Join(a.skillsDir, strings.ToUpper(name)+".md")
+	content, err := os.ReadFile(skillPath)
+	if err != nil {
+		return ""
+	}
+
+	return string(content)
 }
 
 func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string, error) {

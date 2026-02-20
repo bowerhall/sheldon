@@ -2,9 +2,12 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kora-config
+  namespace: kora
 data:
+  # external ollama for embeddings (set to your homelab ip)
   EMBEDDER_PROVIDER: "ollama"
-  EMBEDDER_URL: "http://your-homelab:11434"
+  EMBEDDER_URL: "http://host.docker.internal:11434"
   EMBEDDER_MODEL: "nomic-embed-text"
 
-  CODER_BASE_URL: "http://your-homelab:11434"
+  # claude code uses anthropic api (CODER_API_KEY in secrets)
+  # leave CODER_BASE_URL empty to use default anthropic endpoint

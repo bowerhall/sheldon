@@ -1,0 +1,58 @@
+# network policy for kora-apps namespace
+# - kora can call deployed apps
+# - apps cannot call back to kora
+# - apps can call external internet
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: kora-apps
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-kora
+  namespace: kora-apps
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow kora to call deployed apps
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kora
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internet-egress
+  namespace: kora-apps
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    # dns
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+    # https
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 443
+    # http
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 80
+    # block egress to kora namespace by not including it
+    # (default deny + explicit allows = implicit deny to kora)
