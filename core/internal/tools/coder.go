@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/bowerhall/sheldon/internal/coder"
 	"github.com/bowerhall/sheldon/internal/llm"
-	"github.com/kadet/koramem"
+	"github.com/bowerhall/sheldonmem"
 )
 
 type CoderArgs struct {
@@ -19,7 +19,7 @@ type CoderArgs struct {
 	GitRepo    string `json:"git_repo,omitempty"` // target repo name (e.g., "weather-bot")
 }
 
-func RegisterCoderTool(registry *Registry, bridge *coder.Bridge, memory *koramem.Store) {
+func RegisterCoderTool(registry *Registry, bridge *coder.Bridge, memory *sheldonmem.Store) {
 	tool := llm.Tool{
 		Name:        "write_code",
 		Description: "Execute code generation tasks. Use this for writing scripts, building applications, creating files, or any task that requires writing and testing code. Runs in a sandboxed environment with read/write/execute capabilities. If git_repo is specified, code will be committed incrementally and pushed to that repo in the configured org.",
@@ -133,7 +133,7 @@ func RegisterCoderTool(registry *Registry, bridge *coder.Bridge, memory *koramem
 	})
 }
 
-func buildMemoryContext(ctx context.Context, memory *koramem.Store) *coder.MemoryContext {
+func buildMemoryContext(ctx context.Context, memory *sheldonmem.Store) *coder.MemoryContext {
 	memCtx := &coder.MemoryContext{
 		UserPreferences: make(map[string]string),
 		Constraints: []string{

@@ -1,4 +1,4 @@
-package koramem
+package sheldonmem
 
 import (
 	"database/sql"
@@ -40,7 +40,7 @@ func (s *Store) migrate() error {
 		return err
 	}
 
-	if err := s.seedKoraEntity(); err != nil {
+	if err := s.seedSheldonEntity(); err != nil {
 		return err
 	}
 
@@ -55,16 +55,16 @@ func (s *Store) HasEmbedder() bool {
 	return s.embedder != nil
 }
 
-func (s *Store) seedKoraEntity() error {
+func (s *Store) seedSheldonEntity() error {
 	var count int
 
-	err := s.db.QueryRow(queryCountKoraEntity).Scan(&count)
+	err := s.db.QueryRow(queryCountSheldonEntity).Scan(&count)
 	if err != nil {
 		return err
 	}
 
 	if count == 0 {
-		_, err = s.db.Exec(queryInsertEntity, "Kora", "agent", 1, `{"role":"assistant"}`)
+		_, err = s.db.Exec(queryInsertEntity, "Sheldon", "agent", 1, `{"role":"assistant"}`)
 
 		return err
 	}

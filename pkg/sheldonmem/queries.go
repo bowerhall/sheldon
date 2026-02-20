@@ -1,7 +1,7 @@
-package koramem
+package sheldonmem
 
 const (
-	queryCountKoraEntity = `SELECT COUNT(*) FROM entities WHERE name = 'Kora' AND entity_type = 'agent'`
+	queryCountSheldonEntity = `SELECT COUNT(*) FROM entities WHERE name = 'Sheldon' AND entity_type = 'agent'`
 
 	queryInsertDomain    = `INSERT OR IGNORE INTO domains (id, name, slug, layer) VALUES (?, ?, ?, ?)`
 	queryGetDomain       = `SELECT id, name, slug, layer FROM domains WHERE id = ?`

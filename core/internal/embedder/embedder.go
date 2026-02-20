@@ -3,10 +3,10 @@ package embedder
 import (
 	"fmt"
 
-	"github.com/kadet/koramem"
+	"github.com/bowerhall/sheldonmem"
 )
 
-func New(cfg Config) (koramem.Embedder, error) {
+func New(cfg Config) (sheldonmem.Embedder, error) {
 	switch cfg.Provider {
 	case "ollama":
 		baseURL := cfg.BaseURL

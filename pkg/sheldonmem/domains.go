@@ -1,4 +1,4 @@
-package koramem
+package sheldonmem
 
 var defaultDomains = []Domain{
 	{1, "Identity & Self", "identity", "core"},

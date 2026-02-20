@@ -1,4 +1,4 @@
-module github.com/kadet/koramem
+module github.com/bowerhall/sheldonmem
 
 go 1.22.5
 

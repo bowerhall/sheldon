@@ -1,4 +1,4 @@
-package koramem
+package sheldonmem
 
 func (s *Store) CreateEntity(name, entityType string, domainID int, metadata string) (*Entity, error) {
 	result, err := s.db.Exec(queryInsertEntity, name, entityType, domainID, metadata)

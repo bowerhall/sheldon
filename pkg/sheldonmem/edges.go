@@ -1,4 +1,4 @@
-package koramem
+package sheldonmem
 
 func (s *Store) AddEdge(sourceID, targetID int64, relation string, strength float64, metadata string) (*Edge, error) {
 	result, err := s.db.Exec(queryInsertEdge, sourceID, targetID, relation, strength, metadata)

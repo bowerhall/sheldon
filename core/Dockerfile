@@ -3,14 +3,14 @@ FROM golang:1.24-alpine AS builder
 WORKDIR /build
 
 COPY core/go.mod core/go.sum ./core/
-COPY pkg/koramem/go.mod pkg/koramem/go.sum ./pkg/koramem/
+COPY pkg/sheldonmem/go.mod pkg/sheldonmem/go.sum ./pkg/sheldonmem/
 
 WORKDIR /build/core
 RUN go mod download
 
 WORKDIR /build
 COPY core/ ./core/
-COPY pkg/koramem/ ./pkg/koramem/
+COPY pkg/sheldonmem/ ./pkg/sheldonmem/
 
 WORKDIR /build/core
 RUN CGO_ENABLED=0 GOOS=linux go build -o /sheldon ./cmd/sheldon

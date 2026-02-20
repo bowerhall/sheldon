@@ -15,12 +15,12 @@ import (
 	"github.com/bowerhall/sheldon/internal/logger"
 	"github.com/bowerhall/sheldon/internal/session"
 	"github.com/bowerhall/sheldon/internal/tools"
-	"github.com/kadet/koramem"
+	"github.com/bowerhall/sheldonmem"
 )
 
 const maxToolIterations = 10
 
-func New(model, extractor llm.LLM, memory *koramem.Store, essencePath, timezone string) *Agent {
+func New(model, extractor llm.LLM, memory *sheldonmem.Store, essencePath, timezone string) *Agent {
 	systemPrompt := loadSystemPrompt(essencePath)
 
 	registry := tools.NewRegistry()
@@ -61,7 +61,7 @@ func (a *Agent) Registry() *tools.Registry {
 	return a.tools
 }
 
-func (a *Agent) Memory() *koramem.Store {
+func (a *Agent) Memory() *sheldonmem.Store {
 	return a.memory
 }
 

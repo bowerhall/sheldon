@@ -19,7 +19,7 @@
 │   llm/claude.go ──► Anthropic API                       │
 │                                                         │
 │   ┌─────────────────────────────────────────────────┐   │
-│   │  pkg/koramem (NOT WIRED YET)                    │   │
+│   │  pkg/sheldonmem (NOT WIRED YET)                    │   │
 │   │  SQLite: domains, entities, facts, edges        │   │
 │   └─────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
@@ -36,7 +36,7 @@ sheldon/
 ├── SESSION.md             # Dev session journal
 │
 ├── core/                  # Main application
-│   ├── cmd/kora/main.go
+│   ├── cmd/sheldon/main.go
 │   └── internal/
 │       ├── agent/         # Agent loop, processes messages
 │       │   ├── types.go
@@ -57,7 +57,7 @@ sheldon/
 │           ├── types.go
 │           └── session.go
 │
-└── pkg/koramem/           # Memory package (standalone)
+└── pkg/sheldonmem/           # Memory package (standalone)
     ├── types.go           # Store, Domain, Entity, Fact, Edge
     ├── schema.go          # SQLite DDL
     ├── store.go           # Open, Close, migrate
@@ -73,8 +73,8 @@ sheldon/
 
 Don't build entire packages before wiring them. Build thin slices end-to-end:
 
-- Bad: Build all of koramem → then wire to agent → then test
-- Good: User says "my name is X" → agent extracts → koramem stores → next message recalls
+- Bad: Build all of sheldonmem → then wire to agent → then test
+- Good: User says "my name is X" → agent extracts → sheldonmem stores → next message recalls
 
 ### 2. Run Early, Run Often
 
@@ -85,7 +85,7 @@ export ANTHROPIC_API_KEY="your-key"
 export SHELDON_WORKSPACE="/path/to/sheldon"
 
 # Run
-cd core && go run ./cmd/kora
+cd core && go run ./cmd/sheldon
 ```
 
 ### 3. Tests as Documentation
@@ -93,7 +93,7 @@ cd core && go run ./cmd/kora
 Write tests to understand code. Tests show how pieces connect:
 
 ```bash
-cd pkg/koramem && go test -v
+cd pkg/sheldonmem && go test -v
 ```
 
 ### 4. Session Journal
@@ -136,10 +136,10 @@ After each session, update SESSION.md:
 
 ```bash
 # Build
-cd core && go build -o bin/sheldon ./cmd/kora
+cd core && go build -o bin/sheldon ./cmd/sheldon
 
-# Test koramem
-cd pkg/koramem && go test -v
+# Test sheldonmem
+cd pkg/sheldonmem && go test -v
 
 # Run
 cd core && ./bin/sheldon

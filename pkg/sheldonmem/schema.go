@@ -1,4 +1,4 @@
-package koramem
+package sheldonmem
 
 const VectorDimensions = 768
 

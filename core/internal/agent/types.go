@@ -8,7 +8,7 @@ import (
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldon/internal/session"
 	"github.com/bowerhall/sheldon/internal/tools"
-	"github.com/kadet/koramem"
+	"github.com/bowerhall/sheldonmem"
 )
 
 type NotifyFunc func(chatID int64, message string)
@@ -22,7 +22,7 @@ type Contradiction struct {
 type Agent struct {
 	llm          llm.LLM
 	extractor    llm.LLM
-	memory       *koramem.Store
+	memory       *sheldonmem.Store
 	sessions     *session.Store
 	tools        *tools.Registry
 	systemPrompt string

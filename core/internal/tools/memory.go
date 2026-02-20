@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/bowerhall/sheldon/internal/llm"
-	"github.com/kadet/koramem"
+	"github.com/bowerhall/sheldonmem"
 )
 
 type RecallArgs struct {
@@ -16,7 +16,7 @@ type RecallArgs struct {
 	Depth   int    `json:"depth,omitempty"`
 }
 
-func RegisterMemoryTools(registry *Registry, memory *koramem.Store) {
+func RegisterMemoryTools(registry *Registry, memory *sheldonmem.Store) {
 	recallTool := llm.Tool{
 		Name:        "recall_memory",
 		Description: "Search your memory for relevant facts about the user. Use this when you need to remember something about the user's preferences, history, relationships, or any personal information they've shared.",
@@ -57,7 +57,7 @@ func RegisterMemoryTools(registry *Registry, memory *koramem.Store) {
 			depth = 1
 		}
 
-		opts := koramem.RecallOptions{Depth: depth}
+		opts := sheldonmem.RecallOptions{Depth: depth}
 		result, err := memory.RecallWithOptions(ctx, params.Query, domains, 10, opts)
 		if err != nil {
 			return "", err

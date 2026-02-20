@@ -22,14 +22,14 @@ import (
 	"github.com/bowerhall/sheldon/internal/logger"
 	"github.com/bowerhall/sheldon/internal/storage"
 	"github.com/bowerhall/sheldon/internal/tools"
-	"github.com/kadet/koramem"
+	"github.com/bowerhall/sheldonmem"
 )
 
 func init() {
 	godotenv.Load()
 }
 
-func healthCheck(memory *koramem.Store, essencePath string) error {
+func healthCheck(memory *sheldonmem.Store, essencePath string) error {
 	soulPath := filepath.Join(essencePath, "SOUL.md")
 
 	if _, err := os.Stat(soulPath); err != nil {
@@ -79,7 +79,7 @@ func main() {
 		logger.Fatal("failed to create extractor", "error", err)
 	}
 
-	memory, err := koramem.Open(cfg.MemoryPath)
+	memory, err := sheldonmem.Open(cfg.MemoryPath)
 	if err != nil {
 		logger.Fatal("failed to open memory", "error", err)
 	}
@@ -280,7 +280,7 @@ func main() {
 
 	go func() {
 		for range time.Tick(24 * time.Hour) {
-			deleted, err := memory.Decay(koramem.DefaultDecayConfig)
+			deleted, err := memory.Decay(sheldonmem.DefaultDecayConfig)
 			if err != nil {
 				logger.Error("decay failed", "error", err)
 			} else if deleted > 0 {

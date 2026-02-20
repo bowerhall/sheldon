@@ -6,15 +6,15 @@ toolchain go1.24.5
 
 require (
 	github.com/anthropics/anthropic-sdk-go v0.2.0-beta.3
+	github.com/bowerhall/sheldonmem v0.0.0
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
-	github.com/kadet/koramem v0.0.0
 	github.com/minio/minio-go/v7 v7.0.98
 )
 
-replace github.com/kadet/koramem => ../pkg/koramem
+replace github.com/bowerhall/sheldonmem => ../pkg/sheldonmem
 
 require (
 	github.com/asg017/sqlite-vec-go-bindings v0.0.1-alpha.37 // indirect
