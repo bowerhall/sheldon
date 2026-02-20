@@ -1,4 +1,4 @@
-# Kora Deployment
+# Sheldon Deployment
 
 ## Overlays
 
@@ -49,25 +49,25 @@ stringData:
 Each overlay sets appropriate resource limits:
 
 ### Minimal (4GB RAM)
-- Kora: 128-256MB
+- Sheldon: 128-256MB
 - MinIO: 128-256MB
 - Storage: 5GB MinIO, 1GB data
 
 ### Lite (8GB RAM)
-- Kora: 256-512MB
+- Sheldon: 256-512MB
 - MinIO: 256-512MB
 - Ollama: 1-2GB
 - Storage: 10GB MinIO, 5GB data
 
 ### Full (16GB RAM)
-- Kora: 512MB-1GB
+- Sheldon: 512MB-1GB
 - MinIO: 256-512MB
 - Ollama: 2-4GB
 - Storage: 20GB MinIO, 10GB data
 
 ## Components
 
-- **Kora**: Main application
+- **Sheldon**: Main application
 - **MinIO**: Object storage for backups
 - **Ollama**: Local embeddings (lite/full only)
 - **Backup CronJob**: Daily SQLite backups to MinIO
@@ -76,6 +76,6 @@ Each overlay sets appropriate resource limits:
 
 Enabled by default:
 - Default deny all traffic
-- Kora: egress to APIs, internal services
-- Ollama: ingress from Kora only
-- MinIO: ingress from Kora namespace only
+- Sheldon: egress to APIs, internal services
+- Ollama: ingress from Sheldon only
+- MinIO: ingress from Sheldon namespace only
