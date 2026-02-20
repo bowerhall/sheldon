@@ -20,6 +20,7 @@ import (
 	"github.com/kadet/kora/internal/embedder"
 	"github.com/kadet/kora/internal/llm"
 	"github.com/kadet/kora/internal/logger"
+	"github.com/kadet/kora/internal/storage"
 	"github.com/kadet/kora/internal/tools"
 	"github.com/kadet/koramem"
 )
@@ -154,6 +155,37 @@ func main() {
 	// browser tools for web browsing
 	tools.RegisterBrowserTools(agentLoop.Registry(), tools.DefaultBrowserConfig())
 	logger.Info("browser tools enabled")
+
+	// minio storage (optional)
+	if cfg.Storage.Enabled {
+		storageClient, err := storage.NewClient(storage.Config{
+			Endpoint:  cfg.Storage.Endpoint,
+			AccessKey: cfg.Storage.AccessKey,
+			SecretKey: cfg.Storage.SecretKey,
+			UseSSL:    cfg.Storage.UseSSL,
+		})
+		if err != nil {
+			logger.Error("failed to create storage client", "error", err)
+		} else {
+			initCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			if err := storageClient.Init(initCtx); err != nil {
+				logger.Error("failed to init storage buckets", "error", err)
+			} else {
+				tools.RegisterStorageTools(agentLoop.Registry(), storageClient)
+				logger.Info("storage enabled", "endpoint", cfg.Storage.Endpoint)
+			}
+			cancel()
+		}
+	}
+
+	// runtime config (for dynamic model switching)
+	runtimeCfg, err := config.NewRuntimeConfig(filepath.Dir(cfg.MemoryPath))
+	if err != nil {
+		logger.Error("failed to create runtime config", "error", err)
+	} else {
+		tools.RegisterConfigTools(agentLoop.Registry(), runtimeCfg)
+		logger.Info("runtime config enabled")
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -43,6 +43,7 @@ func Load() (*Config, error) {
 	multiBot := loadMultiBotConfig()
 	budgetConfig := loadBudgetConfig()
 	coderConfig := loadCoderConfig()
+	storageConfig := loadStorageConfig()
 
 	return &Config{
 		EssencePath: essencePath,
@@ -52,11 +53,30 @@ func Load() (*Config, error) {
 		Extractor:   extractorConfig,
 		Embedder:    embedderConfig,
 		Coder:       coderConfig,
+		Storage:     storageConfig,
 		Bot:         botConfig,
 		Bots:        multiBot,
 		Heartbeat:   heartbeatConfig,
 		Budget:      budgetConfig,
 	}, nil
+}
+
+func loadStorageConfig() StorageConfig {
+	endpoint := os.Getenv("MINIO_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "minio:9000"
+	}
+
+	accessKey := os.Getenv("MINIO_ACCESS_KEY")
+	secretKey := os.Getenv("MINIO_SECRET_KEY")
+
+	return StorageConfig{
+		Enabled:   accessKey != "" && secretKey != "",
+		Endpoint:  endpoint,
+		AccessKey: accessKey,
+		SecretKey: secretKey,
+		UseSSL:    os.Getenv("MINIO_USE_SSL") == "true",
+	}
 }
 
 func loadCoderConfig() CoderConfig {

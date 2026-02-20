@@ -8,10 +8,19 @@ type Config struct {
 	Extractor   LLMConfig
 	Embedder    EmbedderConfig
 	Coder       CoderConfig
+	Storage     StorageConfig
 	Bot         BotConfig
 	Bots        MultiBot
 	Heartbeat   HeartbeatConfig
 	Budget      BudgetConfig
+}
+
+type StorageConfig struct {
+	Enabled   bool
+	Endpoint  string
+	AccessKey string
+	SecretKey string
+	UseSSL    bool
 }
 
 type CoderConfig struct {

@@ -126,9 +126,40 @@ Features:
 
 File: `core/internal/tools/browser.go`
 
+### MinIO Storage Integration
+- Added `storage` package with MinIO client
+- Agent tools: `upload_file`, `download_file`, `list_files`, `delete_file`
+- Two buckets: `kora-user` (user files), `kora-agent` (agent files)
+- Web console at `:9001` for manual browsing
+- File: `core/internal/storage/minio.go`, `core/internal/tools/storage.go`
+
+### Runtime Config Switching
+- Agent can change models/providers at runtime via conversation
+- Tools: `get_config`, `set_config`, `reset_config`
+- Allowed keys: `llm_provider`, `llm_model`, `extractor_provider`, `extractor_model`, `embedder_provider`, `embedder_model`
+- Changes persist across restarts (stored in `/data/runtime_config.json`)
+- File: `core/internal/config/runtime.go`, `core/internal/tools/config.go`
+
+### Skills Repository
+- Moved skills from ConfigMap to git repo approach
+- Init container clones `CODER_SKILLS_REPO` at startup
+- User can update skills by pushing to repo + restarting pod
+- Skills at `/skills` directory with keyword matching
+- File: `core/internal/coder/skills.go`
+
+### Code Quality
+- Removed debug print statements from sandbox.go
+- Lowercased all k8s YAML comments for consistency
+- Added `--verbose` flag fix for Claude Code stream-json output
+- Added stderr capture for debugging Claude Code failures
+
+### Docker Hub
+- Images pushed: `kadetxx/kora:latest`, `kadetxx/kora-claude-code:latest`
+- Production config updated with Docker Hub image references
+- k8s Jobs mode enabled for production
+
 ## Next Steps
-1. ~~Implement ephemeral Claude Code containers (k8s Jobs)~~ DONE
-2. ~~Implement web browsing tools~~ DONE
-3. Build and push kora-claude-code container image
-4. Deploy to Hetzner VPS
-5. Test full pipeline: skill install → code → build → deploy
+1. ~~Build and push kora-claude-code container image~~ DONE
+2. Deploy to Hetzner VPS
+3. Test full pipeline: skill install → code → build → deploy
+4. Set up skills git repo

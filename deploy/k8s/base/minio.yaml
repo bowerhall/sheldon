@@ -42,13 +42,13 @@ spec:
             - name: MINIO_ROOT_USER
               valueFrom:
                 secretKeyRef:
-                  name: minio-credentials
-                  key: root-user
+                  name: kora-secrets
+                  key: MINIO_ACCESS_KEY
             - name: MINIO_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: minio-credentials
-                  key: root-password
+                  name: kora-secrets
+                  key: MINIO_SECRET_KEY
           volumeMounts:
             - name: data
               mountPath: /data
@@ -91,13 +91,3 @@ spec:
     - name: console
       port: 9001
       targetPort: 9001
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: minio-credentials
-  namespace: kora
-type: Opaque
-stringData:
-  root-user: "kora-admin"
-  root-password: "CHANGE_ME_IN_PRODUCTION"
