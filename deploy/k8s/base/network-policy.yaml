@@ -1,8 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: kora-default-deny
-  namespace: kora
+  name: sheldon-default-deny
+  namespace: sheldon
 spec:
   podSelector: {}
   policyTypes:
@@ -12,12 +12,12 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: kora-allow-egress
-  namespace: kora
+  name: sheldon-allow-egress
+  namespace: sheldon
 spec:
   podSelector:
     matchLabels:
-      app: kora
+      app: sheldon
   policyTypes:
     - Egress
   egress:
@@ -62,7 +62,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: ollama-policy
-  namespace: kora
+  namespace: sheldon
 spec:
   podSelector:
     matchLabels:
@@ -71,11 +71,11 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # only allow from kora
+    # only allow from sheldon
     - from:
         - podSelector:
             matchLabels:
-              app: kora
+              app: sheldon
       ports:
         - protocol: TCP
           port: 11434
@@ -90,7 +90,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: minio-policy
-  namespace: kora
+  namespace: sheldon
 spec:
   podSelector:
     matchLabels:
@@ -99,7 +99,7 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # allow from kora and backup jobs
+    # allow from sheldon and backup jobs
     - from:
         - podSelector: {}
       ports:

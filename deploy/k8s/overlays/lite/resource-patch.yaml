@@ -2,13 +2,13 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kora
-  namespace: kora
+  name: sheldon
+  namespace: sheldon
 spec:
   template:
     spec:
       containers:
-        - name: kora
+        - name: sheldon
           resources:
             requests:
               memory: "256Mi"
@@ -21,7 +21,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: minio
-  namespace: kora
+  namespace: sheldon
 spec:
   template:
     spec:
@@ -39,7 +39,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: minio-data
-  namespace: kora
+  namespace: sheldon
 spec:
   resources:
     requests:
@@ -48,8 +48,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: kora-memory
-  namespace: kora
+  name: sheldon-memory
+  namespace: sheldon
 spec:
   resources:
     requests:

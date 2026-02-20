@@ -1,8 +1,8 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: kora-backup
-  namespace: kora
+  name: sheldon-backup
+  namespace: sheldon
 spec:
   schedule: "0 3 * * *"  # daily at 3am UTC
   concurrencyPolicy: Forbid
@@ -23,23 +23,23 @@ spec:
                   set -e
 
                   # configure minio client
-                  mc alias set kora http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+                  mc alias set sheldon http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
 
                   # ensure bucket exists
-                  mc mb --ignore-existing kora/backups
+                  mc mb --ignore-existing sheldon/backups
 
                   # create backup filename with timestamp
-                  BACKUP_NAME="kora-$(date +%Y%m%d-%H%M%S).db"
+                  BACKUP_NAME="sheldon-$(date +%Y%m%d-%H%M%S).db"
 
                   # copy database (SQLite is safe to copy when using WAL mode)
-                  cp /data/kora.db /tmp/$BACKUP_NAME
+                  cp /data/sheldon.db /tmp/$BACKUP_NAME
 
                   # upload to minio
-                  mc cp /tmp/$BACKUP_NAME kora/backups/
+                  mc cp /tmp/$BACKUP_NAME sheldon/backups/
 
                   # cleanup old backups (keep last 7 daily + 4 weekly)
-                  mc ls kora/backups/ | sort -r | tail -n +12 | awk '{print $5}' | while read file; do
-                    mc rm kora/backups/$file
+                  mc ls sheldon/backups/ | sort -r | tail -n +12 | awk '{print $5}' | while read file; do
+                    mc rm sheldon/backups/$file
                   done
 
                   echo "backup complete: $BACKUP_NAME"
@@ -61,13 +61,13 @@ spec:
           volumes:
             - name: memory
               persistentVolumeClaim:
-                claimName: kora-memory
+                claimName: sheldon-memory
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: kora-backup-init
-  namespace: kora
+  name: sheldon-backup-init
+  namespace: sheldon
 spec:
   template:
     spec:
@@ -82,15 +82,15 @@ spec:
               set -e
 
               # wait for minio to be ready
-              until mc alias set kora http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD; do
+              until mc alias set sheldon http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD; do
                 echo "waiting for minio..."
                 sleep 5
               done
 
               # create buckets
-              mc mb --ignore-existing kora/backups
-              mc mb --ignore-existing kora/artifacts
-              mc mb --ignore-existing kora/skills
+              mc mb --ignore-existing sheldon/backups
+              mc mb --ignore-existing sheldon/artifacts
+              mc mb --ignore-existing sheldon/skills
 
               echo "buckets initialized"
           env:

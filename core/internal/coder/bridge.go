@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kadet/kora/internal/logger"
+	"github.com/bowerhall/sheldon/internal/logger"
 )
 
 // CleanupWorkspaces removes workspaces older than maxAge
@@ -39,6 +39,11 @@ type BridgeConfig struct {
 	K8sImage     string // Claude Code container image
 	ArtifactsPVC string // PVC for artifacts
 	SecretName   string // secret containing CODER_API_KEY
+	// git integration
+	GitEnabled   bool
+	GitUserName  string
+	GitUserEmail string
+	GitOrgURL    string
 }
 
 func NewBridge(sandboxDir, apiKey, baseURL string) (*Bridge, error) {
@@ -60,8 +65,17 @@ func NewBridgeWithConfig(cfg BridgeConfig) (*Bridge, error) {
 	}
 
 	if cfg.UseK8sJobs {
-		b.jobRunner = NewJobRunner(cfg.K8sNamespace, cfg.K8sImage, cfg.ArtifactsPVC, cfg.SecretName)
-		logger.Info("claude code bridge using k8s jobs", "namespace", cfg.K8sNamespace)
+		b.jobRunner = NewJobRunnerWithConfig(JobRunnerConfig{
+			Namespace:    cfg.K8sNamespace,
+			Image:        cfg.K8sImage,
+			ArtifactsPVC: cfg.ArtifactsPVC,
+			APIKeySecret: cfg.SecretName,
+			GitEnabled:   cfg.GitEnabled,
+			GitUserName:  cfg.GitUserName,
+			GitUserEmail: cfg.GitUserEmail,
+			GitOrgURL:    cfg.GitOrgURL,
+		})
+		logger.Info("claude code bridge using k8s jobs", "namespace", cfg.K8sNamespace, "git", cfg.GitEnabled)
 	} else {
 		sandbox, err := NewSandbox(cfg.SandboxDir, cfg.APIKey, cfg.BaseURL)
 		if err != nil {
@@ -120,6 +134,7 @@ func (b *Bridge) executeWithJob(ctx context.Context, task Task, cfg struct {
 		MaxTurns: cfg.MaxTurns,
 		Timeout:  cfg.Timeout,
 		Context:  task.Context,
+		GitRepo:  task.GitRepo,
 	})
 
 	if err != nil {
@@ -285,6 +300,7 @@ func (b *Bridge) executeWithJobProgress(ctx context.Context, task Task, cfg stru
 		Timeout:    cfg.Timeout,
 		Context:    task.Context,
 		OnProgress: onProgress,
+		GitRepo:    task.GitRepo,
 	})
 
 	if err != nil {
@@ -453,7 +469,7 @@ func (b *Bridge) GetLocalWorkspacePath(ctx context.Context, taskID string) (stri
 	}
 
 	// k8s mode - copy artifacts to local temp
-	localDir := "/tmp/kora-artifacts/" + taskID
+	localDir := "/tmp/sheldon-artifacts/" + taskID
 	if err := b.jobRunner.CopyArtifacts(ctx, taskID, localDir); err != nil {
 		return "", fmt.Errorf("copy artifacts: %w", err)
 	}

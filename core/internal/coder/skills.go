@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kadet/kora/internal/logger"
+	"github.com/bowerhall/sheldon/internal/logger"
 )
 
 // Skills manages coding skill templates
@@ -75,6 +75,7 @@ func (s *Skills) GetRelevant(prompt string) []string {
 		"python-api":   {"python", "fastapi", "flask"},
 		"dockerfile":   {"docker", "container", "image"},
 		"k8s-manifest": {"kubernetes", "k8s", "deploy", "manifest"},
+		"git-workflow": {"git", "commit", "push", "repo", "project", "build"},
 	}
 
 	for skill, kws := range keywords {

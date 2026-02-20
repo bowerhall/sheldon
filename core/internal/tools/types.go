@@ -3,7 +3,7 @@ package tools
 import (
 	"context"
 
-	"github.com/kadet/kora/internal/llm"
+	"github.com/bowerhall/sheldon/internal/llm"
 )
 
 type Handler func(ctx context.Context, args string) (string, error)

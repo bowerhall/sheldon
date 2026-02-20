@@ -3,7 +3,7 @@ package session
 import (
 	"sync"
 
-	"github.com/kadet/kora/internal/llm"
+	"github.com/bowerhall/sheldon/internal/llm"
 )
 
 type Session struct {

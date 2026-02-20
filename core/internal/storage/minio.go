@@ -10,10 +10,10 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
-	"github.com/kadet/kora/internal/logger"
+	"github.com/bowerhall/sheldon/internal/logger"
 )
 
-// Client wraps MinIO client with Kora-specific functionality
+// Client wraps MinIO client with Sheldon-specific functionality
 type Client struct {
 	mc          *minio.Client
 	userBucket  string
@@ -40,8 +40,8 @@ func NewClient(cfg Config) (*Client, error) {
 
 	c := &Client{
 		mc:          mc,
-		userBucket:  "kora-user",
-		agentBucket: "kora-agent",
+		userBucket:  "sheldon-user",
+		agentBucket: "sheldon-agent",
 	}
 
 	return c, nil

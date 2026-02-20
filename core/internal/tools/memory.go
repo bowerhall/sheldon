@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kadet/kora/internal/llm"
+	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/kadet/koramem"
 )
 

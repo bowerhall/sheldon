@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kadet/kora/internal/llm"
-	"github.com/kadet/kora/internal/logger"
+	"github.com/bowerhall/sheldon/internal/llm"
+	"github.com/bowerhall/sheldon/internal/logger"
 )
 
 const extractPrompt = `You are a fact extractor. Analyze the conversation and extract any facts worth remembering about the user or topics discussed.

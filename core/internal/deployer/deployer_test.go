@@ -54,7 +54,7 @@ func TestDeployer_Deploy(t *testing.T) {
 		t.Fatalf("testdata not found: %v", err)
 	}
 
-	d := NewDeployer("kora-test")
+	d := NewDeployer("sheldon-test")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -64,8 +64,8 @@ func TestDeployer_Deploy(t *testing.T) {
 		t.Fatalf("Deploy: %v", err)
 	}
 
-	if result.Namespace != "kora-test" {
-		t.Errorf("Namespace = %q, want %q", result.Namespace, "kora-test")
+	if result.Namespace != "sheldon-test" {
+		t.Errorf("Namespace = %q, want %q", result.Namespace, "sheldon-test")
 	}
 
 	if len(result.Resources) == 0 {
@@ -80,7 +80,7 @@ func TestDeployer_Deploy(t *testing.T) {
 		defer cancel()
 
 		// delete the test namespace
-		cleanup := NewDeployer("kora-test")
+		cleanup := NewDeployer("sheldon-test")
 		_ = cleanup.deleteNamespace(cleanupCtx)
 	})
 }
@@ -90,7 +90,7 @@ func TestDeployer_Status(t *testing.T) {
 		t.Skip("Skipping integration test. Set INTEGRATION_TEST=1 to run.")
 	}
 
-	d := NewDeployer("kora-test")
+	d := NewDeployer("sheldon-test")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()

@@ -3,13 +3,13 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kora
-  namespace: kora
+  name: sheldon
+  namespace: sheldon
 spec:
   template:
     spec:
       containers:
-        - name: kora
+        - name: sheldon
           resources:
             requests:
               memory: "512Mi"

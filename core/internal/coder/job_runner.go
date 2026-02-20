@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kadet/kora/internal/logger"
+	"github.com/bowerhall/sheldon/internal/logger"
 )
 
 // JobRunner manages ephemeral k8s Jobs for Claude Code execution
@@ -20,27 +20,57 @@ type JobRunner struct {
 	image        string
 	artifactsPVC string
 	apiKeySecret string
+	gitEnabled   bool
+	gitUserName  string
+	gitUserEmail string
+	gitOrgURL    string
+}
+
+// JobRunnerConfig holds configuration for JobRunner
+type JobRunnerConfig struct {
+	Namespace    string
+	Image        string
+	ArtifactsPVC string
+	APIKeySecret string
+	GitEnabled   bool
+	GitUserName  string
+	GitUserEmail string
+	GitOrgURL    string
 }
 
 // NewJobRunner creates a runner for ephemeral Claude Code Jobs
 func NewJobRunner(namespace, image, artifactsPVC, apiKeySecret string) *JobRunner {
-	if namespace == "" {
-		namespace = "kora"
+	return NewJobRunnerWithConfig(JobRunnerConfig{
+		Namespace:    namespace,
+		Image:        image,
+		ArtifactsPVC: artifactsPVC,
+		APIKeySecret: apiKeySecret,
+	})
+}
+
+// NewJobRunnerWithConfig creates a runner with full configuration including git
+func NewJobRunnerWithConfig(cfg JobRunnerConfig) *JobRunner {
+	if cfg.Namespace == "" {
+		cfg.Namespace = "sheldon"
 	}
-	if image == "" {
-		image = "kora-claude-code:latest"
+	if cfg.Image == "" {
+		cfg.Image = "sheldon-claude-code:latest"
 	}
-	if artifactsPVC == "" {
-		artifactsPVC = "kora-coder-artifacts"
+	if cfg.ArtifactsPVC == "" {
+		cfg.ArtifactsPVC = "sheldon-coder-artifacts"
 	}
-	if apiKeySecret == "" {
-		apiKeySecret = "kora-secrets"
+	if cfg.APIKeySecret == "" {
+		cfg.APIKeySecret = "sheldon-secrets"
 	}
 	return &JobRunner{
-		namespace:    namespace,
-		image:        image,
-		artifactsPVC: artifactsPVC,
-		apiKeySecret: apiKeySecret,
+		namespace:    cfg.Namespace,
+		image:        cfg.Image,
+		artifactsPVC: cfg.ArtifactsPVC,
+		apiKeySecret: cfg.APIKeySecret,
+		gitEnabled:   cfg.GitEnabled,
+		gitUserName:  cfg.GitUserName,
+		gitUserEmail: cfg.GitUserEmail,
+		gitOrgURL:    cfg.GitOrgURL,
 	}
 }
 
@@ -52,6 +82,7 @@ type JobConfig struct {
 	Timeout    time.Duration
 	Context    *MemoryContext
 	OnProgress func(StreamEvent)
+	GitRepo    string // target repo name for pushing code
 }
 
 // RunJob creates and runs an ephemeral k8s Job for Claude Code
@@ -131,6 +162,32 @@ func (r *JobRunner) buildJobYAML(jobName string, cfg JobConfig) string {
 	// escape prompt for shell
 	prompt := strings.ReplaceAll(cfg.Prompt, "'", "'\"'\"'")
 
+	// build git env vars if enabled
+	gitEnvVars := ""
+	if r.gitEnabled {
+		gitEnvVars = fmt.Sprintf(`
+            - name: GIT_USER_NAME
+              value: "%s"
+            - name: GIT_USER_EMAIL
+              value: "%s"
+            - name: GIT_ORG_URL
+              value: "%s"
+            - name: GIT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: %s
+                  key: GIT_TOKEN
+                  optional: true`,
+			r.gitUserName, r.gitUserEmail, r.gitOrgURL, r.apiKeySecret)
+
+		// add target repo if specified
+		if cfg.GitRepo != "" {
+			gitEnvVars += fmt.Sprintf(`
+            - name: GIT_REPO_NAME
+              value: "%s"`, cfg.GitRepo)
+		}
+	}
+
 	return fmt.Sprintf(`apiVersion: batch/v1
 kind: Job
 metadata:
@@ -153,10 +210,11 @@ spec:
       containers:
         - name: claude-code
           image: %s
-          imagePullPolicy: Never
+          imagePullPolicy: Always
           workingDir: /artifacts/%s
           args:
             - "--print"
+            - "--verbose"
             - "--output-format"
             - "stream-json"
             - "--max-turns"
@@ -171,7 +229,7 @@ spec:
                   name: %s
                   key: CODER_API_KEY
             - name: HOME
-              value: /tmp
+              value: /tmp%s
           resources:
             requests:
               memory: "256Mi"
@@ -189,7 +247,7 @@ spec:
 `, jobName, r.namespace, cfg.TaskID,
 		int(cfg.Timeout.Seconds()),
 		r.image, cfg.TaskID, cfg.MaxTurns, prompt,
-		r.apiKeySecret, r.artifactsPVC)
+		r.apiKeySecret, gitEnvVars, r.artifactsPVC)
 }
 
 func (r *JobRunner) waitAndStream(ctx context.Context, jobName string, onProgress func(StreamEvent)) (string, error) {

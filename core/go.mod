@@ -1,4 +1,4 @@
-module github.com/kadet/kora
+module github.com/bowerhall/sheldon
 
 go 1.24.0
 
@@ -11,12 +11,14 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kadet/koramem v0.0.0
+	github.com/minio/minio-go/v7 v7.0.98
 )
 
 replace github.com/kadet/koramem => ../pkg/koramem
 
 require (
 	github.com/asg017/sqlite-vec-go-bindings v0.0.1-alpha.37 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
@@ -25,10 +27,10 @@ require (
 	github.com/klauspost/crc32 v1.3.0 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/minio/minio-go/v7 v7.0.98 // indirect
 	github.com/ncruces/go-sqlite3 v0.17.2-0.20240711235451-21de85e849b7 // indirect
 	github.com/ncruces/julianday v1.0.0 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/tetratelabs/wazero v1.7.3 // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect
@@ -41,4 +43,5 @@ require (
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

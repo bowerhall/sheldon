@@ -1,12 +1,12 @@
-# CLAUDE.md — Kora Project Guide
+# CLAUDE.md — Sheldon Project Guide
 
-> Kora is a personal AI assistant that knows your entire life across 14 structured domains, running on your own infrastructure.
+> Sheldon is a personal AI assistant that knows your entire life across 14 structured domains, running on your own infrastructure.
 
 ## Current Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                         KORA                            │
+│                        SHELDON                          │
 │                                                         │
 │   Telegram ──► bot/telegram.go                          │
 │       │                                                 │
@@ -28,14 +28,14 @@
 ## File Structure
 
 ```
-kora/
+sheldon/
 ├── CLAUDE.md              # This file - project instructions
-├── SOUL.md                # Kora's personality (system prompt)
+├── SOUL.md                # Sheldon's personality (system prompt)
 ├── IDENTITY.md            # Bootstrap user facts
 ├── DECISIONS.md           # Architecture decisions log
 ├── SESSION.md             # Dev session journal
 │
-├── kora-core/             # Main application
+├── core/                  # Main application
 │   ├── cmd/kora/main.go
 │   └── internal/
 │       ├── agent/         # Agent loop, processes messages
@@ -82,10 +82,10 @@ Don't build entire packages before wiring them. Build thin slices end-to-end:
 # Set env vars
 export TELEGRAM_TOKEN="your-token"
 export ANTHROPIC_API_KEY="your-key"
-export KORA_WORKSPACE="/path/to/kora"
+export SHELDON_WORKSPACE="/path/to/sheldon"
 
 # Run
-cd kora-core && go run ./cmd/kora
+cd core && go run ./cmd/kora
 ```
 
 ### 3. Tests as Documentation
@@ -136,11 +136,11 @@ After each session, update SESSION.md:
 
 ```bash
 # Build
-cd kora-core && go build -o bin/kora ./cmd/kora
+cd core && go build -o bin/sheldon ./cmd/kora
 
 # Test koramem
 cd pkg/koramem && go test -v
 
 # Run
-cd kora-core && ./bin/kora
+cd core && ./bin/sheldon
 ```

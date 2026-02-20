@@ -7,17 +7,17 @@ import (
 )
 
 func Load() (*Config, error) {
-	essencePath := os.Getenv("KORA_ESSENCE")
+	essencePath := os.Getenv("SHELDON_ESSENCE")
 	if essencePath == "" {
 		essencePath = "essence"
 	}
 
-	memoryPath := os.Getenv("KORA_MEMORY")
+	memoryPath := os.Getenv("SHELDON_MEMORY")
 	if memoryPath == "" {
-		memoryPath = "kora.db"
+		memoryPath = "sheldon.db"
 	}
 
-	timezone := os.Getenv("KORA_TIMEZONE")
+	timezone := os.Getenv("SHELDON_TIMEZONE")
 	if timezone == "" {
 		timezone = "UTC"
 	}
@@ -89,7 +89,7 @@ func loadCoderConfig() CoderConfig {
 
 	sandboxDir := os.Getenv("CODER_SANDBOX")
 	if sandboxDir == "" {
-		sandboxDir = "/tmp/kora-sandbox"
+		sandboxDir = "/tmp/sheldon-sandbox"
 	}
 
 	// k8s Jobs mode settings
@@ -97,23 +97,32 @@ func loadCoderConfig() CoderConfig {
 
 	k8sNamespace := os.Getenv("CODER_K8S_NAMESPACE")
 	if k8sNamespace == "" {
-		k8sNamespace = "kora"
+		k8sNamespace = "sheldon"
 	}
 
 	k8sImage := os.Getenv("CODER_K8S_IMAGE")
 	if k8sImage == "" {
-		k8sImage = "kora-claude-code:latest"
+		k8sImage = "sheldon-claude-code:latest"
 	}
 
 	artifactsPVC := os.Getenv("CODER_ARTIFACTS_PVC")
 	if artifactsPVC == "" {
-		artifactsPVC = "kora-coder-artifacts"
+		artifactsPVC = "sheldon-coder-artifacts"
 	}
 
 	skillsDir := os.Getenv("CODER_SKILLS_DIR")
 	if skillsDir == "" {
 		skillsDir = "/skills"
 	}
+
+	// git integration for pushing code to repos
+	gitConfig := GitConfig{
+		UserName:  os.Getenv("GIT_USER_NAME"),
+		UserEmail: os.Getenv("GIT_USER_EMAIL"),
+		Token:     os.Getenv("GIT_TOKEN"),
+		OrgURL:    os.Getenv("GIT_ORG_URL"),
+	}
+	gitConfig.Enabled = gitConfig.Token != "" && gitConfig.OrgURL != ""
 
 	return CoderConfig{
 		Enabled:      apiKey != "" || baseURL != "",
@@ -125,6 +134,7 @@ func loadCoderConfig() CoderConfig {
 		K8sNamespace: k8sNamespace,
 		K8sImage:     k8sImage,
 		ArtifactsPVC: artifactsPVC,
+		Git:          gitConfig,
 	}
 }
 

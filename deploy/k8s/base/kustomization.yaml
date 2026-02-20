@@ -3,14 +3,14 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
-  - kora-apps-namespace.yaml
+  - sheldon-apps-namespace.yaml
   - rbac.yaml
   - network-policy.yaml
-  - kora-apps-network-policy.yaml
+  - sheldon-apps-network-policy.yaml
   - minio.yaml
   # - backup.yaml  # optional, depends on minio
   - coder-artifacts.yaml  # needed for k8s Jobs mode
-  - kora.yaml
+  - sheldon.yaml
   - config.yaml
   - essence.yaml
   - secrets.yaml

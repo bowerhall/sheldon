@@ -3,7 +3,7 @@ package bot
 import (
 	"fmt"
 
-	"github.com/kadet/kora/internal/agent"
+	"github.com/bowerhall/sheldon/internal/agent"
 )
 
 func New(cfg Config, agent *agent.Agent) (Bot, error) {

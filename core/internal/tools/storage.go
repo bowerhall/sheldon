@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kadet/kora/internal/llm"
-	"github.com/kadet/kora/internal/storage"
+	"github.com/bowerhall/sheldon/internal/llm"
+	"github.com/bowerhall/sheldon/internal/storage"
 )
 
 // RegisterStorageTools registers MinIO file storage tools

@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kadet/kora/internal/alerts"
-	"github.com/kadet/kora/internal/budget"
-	"github.com/kadet/kora/internal/llm"
-	"github.com/kadet/kora/internal/logger"
-	"github.com/kadet/kora/internal/session"
-	"github.com/kadet/kora/internal/tools"
+	"github.com/bowerhall/sheldon/internal/alerts"
+	"github.com/bowerhall/sheldon/internal/budget"
+	"github.com/bowerhall/sheldon/internal/llm"
+	"github.com/bowerhall/sheldon/internal/logger"
+	"github.com/bowerhall/sheldon/internal/session"
+	"github.com/bowerhall/sheldon/internal/tools"
 	"github.com/kadet/koramem"
 )
 

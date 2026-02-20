@@ -13,7 +13,7 @@ COPY core/ ./core/
 COPY pkg/koramem/ ./pkg/koramem/
 
 WORKDIR /build/core
-RUN CGO_ENABLED=0 GOOS=linux go build -o /kora ./cmd/kora
+RUN CGO_ENABLED=0 GOOS=linux go build -o /sheldon ./cmd/sheldon
 
 FROM alpine:3.19
 
@@ -21,14 +21,14 @@ RUN apk update && \
     apk add --no-cache ca-certificates tzdata nodejs npm docker-cli kubectl && \
     npm install -g @anthropic-ai/claude-code && \
     npm cache clean --force && \
-    adduser -D -u 1000 kora && \
-    addgroup kora docker 2>/dev/null || true && \
-    mkdir -p /data /tmp/kora-sandbox && \
-    chown -R kora:kora /data /tmp/kora-sandbox
+    adduser -D -u 1000 sheldon && \
+    addgroup sheldon docker 2>/dev/null || true && \
+    mkdir -p /data /tmp/sheldon-sandbox && \
+    chown -R sheldon:sheldon /data /tmp/sheldon-sandbox
 
-COPY --from=builder /kora /usr/local/bin/kora
+COPY --from=builder /sheldon /usr/local/bin/sheldon
 
-USER kora
-WORKDIR /home/kora
+USER sheldon
+WORKDIR /home/sheldon
 
-ENTRYPOINT ["/usr/local/bin/kora"]
+ENTRYPOINT ["/usr/local/bin/sheldon"]

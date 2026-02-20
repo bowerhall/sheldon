@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kadet/kora/internal/logger"
+	"github.com/bowerhall/sheldon/internal/logger"
 )
 
 type Severity int

@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: kora-memory
-  namespace: kora
+  name: sheldon-memory
+  namespace: sheldon
 spec:
   accessModes:
     - ReadWriteOnce
@@ -13,19 +13,19 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kora
-  namespace: kora
+  name: sheldon
+  namespace: sheldon
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: kora
+      app: sheldon
   template:
     metadata:
       labels:
-        app: kora
+        app: sheldon
     spec:
-      serviceAccountName: kora
+      serviceAccountName: sheldon
       securityContext:
         fsGroup: 1000
       initContainers:
@@ -53,19 +53,19 @@ spec:
               fi
           envFrom:
             - configMapRef:
-                name: kora-config
+                name: sheldon-config
           volumeMounts:
             - name: skills
               mountPath: /skills
       containers:
-        - name: kora
-          image: kadetxx/kora:latest
+        - name: sheldon
+          image: ghcr.io/bowerhall/sheldon:latest
           imagePullPolicy: Always
           envFrom:
             - configMapRef:
-                name: kora-config
+                name: sheldon-config
             - secretRef:
-                name: kora-secrets
+                name: sheldon-secrets
           resources:
             requests:
               memory: "128Mi"
@@ -82,19 +82,19 @@ spec:
             - name: docker-socket
               mountPath: /var/run/docker.sock
             - name: sandbox
-              mountPath: /tmp/kora-sandbox
+              mountPath: /tmp/sheldon-sandbox
             - name: coder-artifacts
-              mountPath: /tmp/kora-artifacts
+              mountPath: /tmp/sheldon-artifacts
             - name: skills
               mountPath: /skills
               readOnly: true
       volumes:
         - name: memory
           persistentVolumeClaim:
-            claimName: kora-memory
+            claimName: sheldon-memory
         - name: essence
           configMap:
-            name: kora-essence
+            name: sheldon-essence
         - name: docker-socket
           hostPath:
             path: /var/run/docker.sock
@@ -103,6 +103,6 @@ spec:
           emptyDir: {}
         - name: coder-artifacts
           persistentVolumeClaim:
-            claimName: kora-coder-artifacts
+            claimName: sheldon-coder-artifacts
         - name: skills
           emptyDir: {}

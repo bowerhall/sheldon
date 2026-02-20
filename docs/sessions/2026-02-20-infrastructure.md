@@ -158,8 +158,67 @@ File: `core/internal/tools/browser.go`
 - Production config updated with Docker Hub image references
 - k8s Jobs mode enabled for production
 
+### Project Rename: Kora → Sheldon
+Renamed project from "kora" to "sheldon" due to name conflict with another home AI assistant.
+
+Changes made:
+- Go module: `github.com/kadet/kora` → `github.com/kadet/sheldon`
+- All internal imports updated
+- Entity name: `Kora` → `Sheldon`
+- Environment variables: `KORA_*` → `SHELDON_*`
+- k8s namespace: `kora` → `sheldon`
+- k8s resources: `kora-*` → `sheldon-*`
+- Docker images: `kadetxx/kora` → `bowerhall/sheldon`
+- MinIO buckets: `kora-user/kora-agent` → `sheldon-user/sheldon-agent`
+- File paths: `/tmp/kora-*` → `/tmp/sheldon-*`
+- Documentation updated
+- cmd/kora → cmd/sheldon
+
+Files renamed:
+- `deploy/k8s/base/kora.yaml` → `sheldon.yaml`
+- `deploy/k8s/base/kora-apps-namespace.yaml` → `sheldon-apps-namespace.yaml`
+- `deploy/k8s/base/kora-apps-network-policy.yaml` → `sheldon-apps-network-policy.yaml`
+- `core/cmd/kora/` → `core/cmd/sheldon/`
+
+koramem package kept as-is (separate memory package identity).
+
+### Git Integration for Code Projects
+Added git integration so Sheldon can commit and push code to GitHub repos:
+
+Configuration:
+```yaml
+# config.yaml
+GIT_USER_NAME: "Sheldon"
+GIT_USER_EMAIL: "sheldon@example.com"
+GIT_ORG_URL: "https://github.com/your-org"
+
+# secrets.yaml
+GIT_TOKEN: "ghp_xxx"  # GitHub PAT with repo scope
+```
+
+Changes:
+- Added `GitConfig` to `CoderConfig` (config/types.go)
+- Added `git_repo` parameter to `write_code` tool
+- Updated `JobRunner` to pass git env vars to Claude Code containers
+- Added `git-workflow.md` skill for incremental commits
+- Updated general skill with git workflow instructions
+
+Usage:
+```
+User: "Build me a weather bot"
+Sheldon: calls write_code(task="...", git_repo="weather-bot")
+Claude Code: commits after each milestone, pushes to github.com/your-org/weather-bot
+```
+
+Sheldon's access to own repo (kadet/sheldon):
+- Read-only + can open issues + can open PRs (you review and merge)
+- Protected main branch prevents direct push
+- This is safer than full write access
+
 ## Next Steps
 1. ~~Build and push kora-claude-code container image~~ DONE
-2. Deploy to Hetzner VPS
-3. Test full pipeline: skill install → code → build → deploy
-4. Set up skills git repo
+2. Rebuild and push images as `bowerhall/sheldon:latest` and `bowerhall/sheldon-claude-code:latest`
+3. Create GitHub org and Sheldon's account
+4. Deploy to Hetzner VPS
+5. Test full pipeline: skill install → code → build → deploy → push to repo
+6. Set up skills git repo

@@ -25,6 +25,7 @@ type Task struct {
 	Complexity  Complexity
 	Context     *MemoryContext
 	SystemHints string
+	GitRepo     string // target repo name (e.g., "weather-bot")
 }
 
 type MemoryContext struct {

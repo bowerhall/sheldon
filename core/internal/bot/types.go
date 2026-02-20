@@ -4,7 +4,7 @@ import (
 	"context"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/kadet/kora/internal/agent"
+	"github.com/bowerhall/sheldon/internal/agent"
 )
 
 type Bot interface {

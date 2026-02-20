@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kadet/kora/internal/llm"
+	"github.com/bowerhall/sheldon/internal/llm"
 )
 
 type SkillsManager struct {

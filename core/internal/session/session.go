@@ -1,6 +1,6 @@
 package session
 
-import "github.com/kadet/kora/internal/llm"
+import "github.com/bowerhall/sheldon/internal/llm"
 
 func (s *Session) AddMessage(role, content string, toolCalls []llm.ToolCall, toolCallID string) {
 	s.mu.Lock()

@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kadet/kora/internal/llm"
-	"github.com/kadet/kora/internal/logger"
+	"github.com/bowerhall/sheldon/internal/llm"
+	"github.com/bowerhall/sheldon/internal/logger"
 )
 
-const heartbeatPrompt = `You are Kora, a personal AI assistant. Based on the user's stored context and current time, craft a brief, natural check-in message.
+const heartbeatPrompt = `You are Sheldon, a personal AI assistant. Based on the user's stored context and current time, craft a brief, natural check-in message.
 
 Current time: %s
 

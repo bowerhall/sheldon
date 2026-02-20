@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kadet/kora/internal/config"
-	"github.com/kadet/kora/internal/llm"
+	"github.com/bowerhall/sheldon/internal/config"
+	"github.com/bowerhall/sheldon/internal/llm"
 )
 
 // RegisterConfigTools registers runtime config management tools

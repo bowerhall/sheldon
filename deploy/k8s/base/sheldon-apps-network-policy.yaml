@@ -1,12 +1,12 @@
-# network policy for kora-apps namespace
-# - kora can call deployed apps
-# - apps cannot call back to kora
+# network policy for sheldon-apps namespace
+# - sheldon can call deployed apps
+# - apps cannot call back to sheldon
 # - apps can call external internet
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: default-deny
-  namespace: kora-apps
+  namespace: sheldon-apps
 spec:
   podSelector: {}
   policyTypes:
@@ -16,24 +16,24 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-from-kora
-  namespace: kora-apps
+  name: allow-from-sheldon
+  namespace: sheldon-apps
 spec:
   podSelector: {}
   policyTypes:
     - Ingress
   ingress:
-    # allow kora to call deployed apps
+    # allow sheldon to call deployed apps
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: kora
+              kubernetes.io/metadata.name: sheldon
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-internet-egress
-  namespace: kora-apps
+  namespace: sheldon-apps
 spec:
   podSelector: {}
   policyTypes:
@@ -54,5 +54,5 @@ spec:
       ports:
         - protocol: TCP
           port: 80
-    # block egress to kora namespace by not including it
-    # (default deny + explicit allows = implicit deny to kora)
+    # block egress to sheldon namespace by not including it
+    # (default deny + explicit allows = implicit deny to sheldon)

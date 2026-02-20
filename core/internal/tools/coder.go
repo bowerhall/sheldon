@@ -8,20 +8,21 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/kadet/kora/internal/coder"
-	"github.com/kadet/kora/internal/llm"
+	"github.com/bowerhall/sheldon/internal/coder"
+	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/kadet/koramem"
 )
 
 type CoderArgs struct {
 	Task       string `json:"task"`
 	Complexity string `json:"complexity,omitempty"`
+	GitRepo    string `json:"git_repo,omitempty"` // target repo name (e.g., "weather-bot")
 }
 
 func RegisterCoderTool(registry *Registry, bridge *coder.Bridge, memory *koramem.Store) {
 	tool := llm.Tool{
 		Name:        "write_code",
-		Description: "Execute code generation tasks. Use this for writing scripts, building applications, creating files, or any task that requires writing and testing code. Runs in a sandboxed environment with read/write/execute capabilities.",
+		Description: "Execute code generation tasks. Use this for writing scripts, building applications, creating files, or any task that requires writing and testing code. Runs in a sandboxed environment with read/write/execute capabilities. If git_repo is specified, code will be committed incrementally and pushed to that repo in the configured org.",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -33,6 +34,10 @@ func RegisterCoderTool(registry *Registry, bridge *coder.Bridge, memory *koramem
 					"type":        "string",
 					"enum":        []string{"simple", "standard", "complex"},
 					"description": "Task complexity: simple (one file, <5 min), standard (multi-file, <10 min), complex (full project, <20 min). Defaults to standard.",
+				},
+				"git_repo": map[string]any{
+					"type":        "string",
+					"description": "Target repository name for the code (e.g., 'weather-bot'). If specified, commits will be pushed to GIT_ORG_URL/git_repo. Repo will be created if it doesn't exist.",
 				},
 			},
 			"required": []string{"task"},
@@ -64,6 +69,7 @@ func RegisterCoderTool(registry *Registry, bridge *coder.Bridge, memory *koramem
 			Prompt:     params.Task,
 			Complexity: complexity,
 			Context:    memCtx,
+			GitRepo:    params.GitRepo,
 		}
 
 		// use streaming for real-time progress

@@ -30,9 +30,18 @@ type CoderConfig struct {
 	SandboxDir   string
 	SkillsDir    string // directory with skill patterns for claude code
 	UseK8sJobs   bool   // use ephemeral k8s Jobs instead of subprocess
-	K8sNamespace string // namespace for Jobs (default: kora)
+	K8sNamespace string // namespace for Jobs (default: sheldon)
 	K8sImage     string // Claude Code container image
 	ArtifactsPVC string // PVC name for artifacts
+	Git          GitConfig
+}
+
+type GitConfig struct {
+	Enabled   bool
+	UserName  string // git commit author name
+	UserEmail string // git commit author email
+	Token     string // GitHub PAT for pushing
+	OrgURL    string // base URL for org repos (e.g., https://github.com/myorg)
 }
 
 type LLMConfig struct {

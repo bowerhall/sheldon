@@ -1,9 +1,9 @@
-# Kora Kubernetes Deployment
+# Sheldon Kubernetes Deployment
 
 ## Deployment Modes
 
 ### Full (default)
-Deploys Kora + Ollama locally. Use when your server has enough RAM for models.
+Deploys Sheldon + Ollama locally. Use when your server has enough RAM for models.
 
 ```bash
 kubectl apply -k deploy/k8s/
@@ -12,7 +12,7 @@ kubectl apply -k deploy/k8s/overlays/full/
 ```
 
 ### Lite
-Deploys Kora only. LLMs are accessed via remote URLs (homelab, VPS, cloud).
+Deploys Sheldon only. LLMs are accessed via remote URLs (homelab, VPS, cloud).
 
 ```bash
 kubectl apply -k deploy/k8s/overlays/lite/
@@ -30,17 +30,17 @@ data:
 ```
 deploy/k8s/
 ├── kustomization.yaml      # Points to full by default
-├── base/                   # Core Kora resources
+├── base/                   # Core Sheldon resources
 │   ├── namespace.yaml
-│   ├── kora.yaml
+│   ├── sheldon.yaml
 │   ├── config.yaml
 │   ├── essence.yaml
 │   └── secrets.yaml
 └── overlays/
-    ├── full/               # Kora + Ollama (local models)
+    ├── full/               # Sheldon + Ollama (local models)
     │   ├── ollama.yaml
     │   └── config-patch.yaml
-    └── lite/               # Kora only (remote models)
+    └── lite/               # Sheldon only (remote models)
         └── config-patch.yaml
 ```
 
@@ -56,7 +56,7 @@ Required secrets:
 - `TELEGRAM_TOKEN` - Telegram bot token
 - `KIMI_API_KEY` - Kimi API key (or other LLM provider)
 - `HEARTBEAT_CHAT_ID` - Your Telegram chat ID
-- `KORA_TIMEZONE` - Your timezone (e.g., "Europe/Berlin")
+- `SHELDON_TIMEZONE` - Your timezone (e.g., "Europe/Berlin")
 
 Optional:
 - `CLAUDE_CODE_API_KEY` - For Claude Code bridge (if using Anthropic/OpenRouter)
@@ -66,7 +66,7 @@ Optional:
 ```
 LITE MODE (Pi, small VPS)          FULL MODE (homelab, beefy VPS)
 ┌─────────────────────┐            ┌─────────────────────┐
-│  Kora only          │            │  Kora + Ollama      │
+│  Sheldon only       │            │  Sheldon + Ollama   │
 │  ~50MB RAM          │            │  ~8GB+ RAM          │
 │                     │            │                     │
 │  LLMs via remote:   │            │  Everything local:  │

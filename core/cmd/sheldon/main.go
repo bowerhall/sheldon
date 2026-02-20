@@ -10,18 +10,18 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/kadet/kora/internal/agent"
-	"github.com/kadet/kora/internal/alerts"
-	"github.com/kadet/kora/internal/bot"
-	"github.com/kadet/kora/internal/budget"
-	"github.com/kadet/kora/internal/coder"
-	"github.com/kadet/kora/internal/config"
-	"github.com/kadet/kora/internal/deployer"
-	"github.com/kadet/kora/internal/embedder"
-	"github.com/kadet/kora/internal/llm"
-	"github.com/kadet/kora/internal/logger"
-	"github.com/kadet/kora/internal/storage"
-	"github.com/kadet/kora/internal/tools"
+	"github.com/bowerhall/sheldon/internal/agent"
+	"github.com/bowerhall/sheldon/internal/alerts"
+	"github.com/bowerhall/sheldon/internal/bot"
+	"github.com/bowerhall/sheldon/internal/budget"
+	"github.com/bowerhall/sheldon/internal/coder"
+	"github.com/bowerhall/sheldon/internal/config"
+	"github.com/bowerhall/sheldon/internal/deployer"
+	"github.com/bowerhall/sheldon/internal/embedder"
+	"github.com/bowerhall/sheldon/internal/llm"
+	"github.com/bowerhall/sheldon/internal/logger"
+	"github.com/bowerhall/sheldon/internal/storage"
+	"github.com/bowerhall/sheldon/internal/tools"
 	"github.com/kadet/koramem"
 )
 
@@ -45,12 +45,12 @@ func healthCheck(memory *koramem.Store, essencePath string) error {
 
 	logger.Debug("health check", "component", "memory", "status", "ok", "domain", domain.Name)
 
-	kora, err := memory.FindEntityByName("Kora")
+	sheldon, err := memory.FindEntityByName("Sheldon")
 	if err != nil {
-		return fmt.Errorf("kora entity not found: %w", err)
+		return fmt.Errorf("sheldon entity not found: %w", err)
 	}
 
-	logger.Debug("health check", "component", "entity", "status", "ok", "id", kora.ID)
+	logger.Debug("health check", "component", "entity", "status", "ok", "id", sheldon.ID)
 
 	return nil
 }
@@ -116,7 +116,11 @@ func main() {
 			K8sNamespace: cfg.Coder.K8sNamespace,
 			K8sImage:     cfg.Coder.K8sImage,
 			ArtifactsPVC: cfg.Coder.ArtifactsPVC,
-			SecretName:   "kora-secrets",
+			SecretName:   "sheldon-secrets",
+			GitEnabled:   cfg.Coder.Git.Enabled,
+			GitUserName:  cfg.Coder.Git.UserName,
+			GitUserEmail: cfg.Coder.Git.UserEmail,
+			GitOrgURL:    cfg.Coder.Git.OrgURL,
 		}
 
 		bridge, err := coder.NewBridgeWithConfig(bridgeCfg)
@@ -131,7 +135,7 @@ func main() {
 			logger.Fatal("failed to create builder", "error", err)
 		}
 
-		deploy := deployer.NewDeployer("kora-apps")
+		deploy := deployer.NewDeployer("sheldon-apps")
 		tools.RegisterDeployerTools(agentLoop.Registry(), builder, deploy)
 
 		mode := "subprocess"
@@ -315,7 +319,7 @@ func main() {
 		embedderProvider = "none"
 	}
 
-	logger.Info("kora started",
+	logger.Info("sheldon started",
 		"bots", enabledProviders,
 		"llm", cfg.LLM.Provider,
 		"embedder", embedderProvider,

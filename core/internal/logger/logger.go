@@ -9,7 +9,7 @@ var log *slog.Logger
 
 func init() {
 	level := slog.LevelInfo
-	if os.Getenv("KORA_DEBUG") == "true" {
+	if os.Getenv("SHELDON_DEBUG") == "true" {
 		level = slog.LevelDebug
 	}
 

@@ -1,10 +1,10 @@
 # pvc for ephemeral claude code job artifacts
-# jobs write output here, kora reads for build/deploy
+# jobs write output here, sheldon reads for build/deploy
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: kora-coder-artifacts
-  namespace: kora
+  name: sheldon-coder-artifacts
+  namespace: sheldon
 spec:
   accessModes:
     - ReadWriteOnce

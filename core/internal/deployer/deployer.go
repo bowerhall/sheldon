@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kadet/kora/internal/logger"
+	"github.com/bowerhall/sheldon/internal/logger"
 )
 
 type Deployer struct {
@@ -17,7 +17,7 @@ type Deployer struct {
 
 func NewDeployer(namespace string) *Deployer {
 	if namespace == "" {
-		namespace = "kora-apps"
+		namespace = "sheldon-apps"
 	}
 	return &Deployer{namespace: namespace}
 }

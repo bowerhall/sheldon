@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kadet/kora/internal/deployer"
-	"github.com/kadet/kora/internal/llm"
+	"github.com/bowerhall/sheldon/internal/deployer"
+	"github.com/bowerhall/sheldon/internal/llm"
 )
 
 type BuildArgs struct {
@@ -87,7 +87,7 @@ func RegisterDeployerTools(registry *Registry, builder *deployer.Builder, deploy
 				},
 				"namespace": map[string]any{
 					"type":        "string",
-					"description": "Kubernetes namespace (default: 'kora-apps')",
+					"description": "Kubernetes namespace (default: 'sheldon-apps')",
 				},
 			},
 			"required": []string{"manifest_dir"},
@@ -131,7 +131,7 @@ func RegisterDeployerTools(registry *Registry, builder *deployer.Builder, deploy
 				},
 				"namespace": map[string]any{
 					"type":        "string",
-					"description": "Kubernetes namespace (default: 'kora-apps')",
+					"description": "Kubernetes namespace (default: 'sheldon-apps')",
 				},
 			},
 			"required": []string{"deployment_name"},
@@ -168,7 +168,7 @@ func RegisterDeployerTools(registry *Registry, builder *deployer.Builder, deploy
 				},
 				"namespace": map[string]any{
 					"type":        "string",
-					"description": "Kubernetes namespace (default: 'kora-apps')",
+					"description": "Kubernetes namespace (default: 'sheldon-apps')",
 				},
 			},
 			"required": []string{"deployment_name"},

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kadet/kora/internal/llm"
-	"github.com/kadet/kora/internal/logger"
+	"github.com/bowerhall/sheldon/internal/llm"
+	"github.com/bowerhall/sheldon/internal/logger"
 )
 
 // BrowserConfig holds configuration for the browser tool
@@ -24,7 +24,7 @@ type BrowserConfig struct {
 // DefaultBrowserConfig returns sensible defaults
 func DefaultBrowserConfig() BrowserConfig {
 	return BrowserConfig{
-		UserAgent: "Kora/1.0 (AI Assistant; +https://github.com/kadet/kora)",
+		UserAgent: "Sheldon/1.0 (AI Assistant; +https://github.com/bowerhall/sheldon)",
 		Timeout:   30 * time.Second,
 	}
 }

@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/kadet/kora/internal/agent"
-	"github.com/kadet/kora/internal/logger"
+	"github.com/bowerhall/sheldon/internal/agent"
+	"github.com/bowerhall/sheldon/internal/logger"
 )
 
 type discord struct {
