@@ -9,8 +9,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: bowerhall/sheldon
-  IMAGE_NAME_CODER: bowerhall/sheldon-coder-sandbox
 
 jobs:
   test:
@@ -46,6 +44,17 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        include:
+          - name: sheldon
+            context: .
+            file: core/Dockerfile
+            image: bowerhall/sheldon
+          - name: coder-sandbox
+            context: core/deploy/coder-sandbox
+            file: core/deploy/coder-sandbox/Dockerfile
+            image: bowerhall/sheldon-coder-sandbox
 
     steps:
       - name: Checkout
@@ -69,29 +78,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ steps.doppler-build.outputs.GHCR_TOKEN }}
 
-      - name: Build and push Sheldon
-        uses: docker/build-push-action@v5
+      - name: Build and push ${{ matrix.name }}
+        uses: docker/build-push-action@v6
         with:
-          context: .
-          file: core/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and push Coder Sandbox
-        uses: docker/build-push-action@v5
-        with:
-          context: core/deploy/coder-sandbox
-          file: core/deploy/coder-sandbox/Dockerfile
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_CODER }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_CODER }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ env.REGISTRY }}/${{ matrix.image }}:latest
+            ${{ env.REGISTRY }}/${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
   deploy:
     runs-on: ubuntu-latest
@@ -138,9 +135,7 @@ jobs:
           ANTHROPIC_API_KEY=${{ steps.doppler.outputs.ANTHROPIC_API_KEY }}
           DOMAIN=${{ steps.doppler.outputs.DOMAIN }}
           ACME_EMAIL=${{ steps.doppler.outputs.ACME_EMAIL }}
-          HEARTBEAT_ENABLED=${{ steps.doppler.outputs.HEARTBEAT_ENABLED }}
           HEARTBEAT_CHAT_ID=${{ steps.doppler.outputs.HEARTBEAT_CHAT_ID }}
-          HEARTBEAT_INTERVAL=${{ steps.doppler.outputs.HEARTBEAT_INTERVAL }}
           EMBEDDER_PROVIDER=${{ steps.doppler.outputs.EMBEDDER_PROVIDER }}
           EMBEDDER_BASE_URL=${{ steps.doppler.outputs.EMBEDDER_BASE_URL }}
           EMBEDDER_MODEL=${{ steps.doppler.outputs.EMBEDDER_MODEL }}
