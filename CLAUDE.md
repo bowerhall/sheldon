@@ -1,146 +1,167 @@
 # CLAUDE.md — Sheldon Project Guide
 
-> Sheldon is a personal AI assistant that knows your entire life across 14 structured domains, running on your own infrastructure.
+> Sheldon is a personal AI assistant that remembers your entire life across 14 structured domains, runs on your own infrastructure, and can write and deploy code autonomously.
 
-## Current Architecture
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                        SHELDON                          │
-│                                                         │
-│   Telegram ──► bot/telegram.go                          │
-│       │                                                 │
-│       ▼                                                 │
-│   agent/agent.go ──► session/session.go (in-memory)     │
-│       │                                                 │
-│       ├──► SOUL.md (system prompt)                      │
-│       │                                                 │
-│       ▼                                                 │
-│   llm/claude.go ──► Anthropic API                       │
-│                                                         │
-│   ┌─────────────────────────────────────────────────┐   │
-│   │  pkg/sheldonmem (NOT WIRED YET)                    │   │
-│   │  SQLite: domains, entities, facts, edges        │   │
-│   └─────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                              SHELDON                                  │
+│                                                                       │
+│  Telegram/Discord ──► Agent Loop ──► LLM (Kimi/Claude/OpenAI)        │
+│         │                 │                                          │
+│         │                 ├── SOUL.md (personality)                  │
+│         │                 ├── IDENTITY.md (user bootstrap)           │
+│         │                 └── Tools                                  │
+│         │                       ├── recall_memory                    │
+│         │                       ├── write_code (→ Coder Sandbox)     │
+│         │                       ├── deploy_app (→ Docker Compose)    │
+│         │                       ├── set_cron / list_crons            │
+│         │                       ├── search_web / browse_url          │
+│         │                       └── save_skill / list_skills         │
+│         │                                                            │
+│         └──► sheldonmem (SQLite + sqlite-vec)                        │
+│                   ├── Entities (graph nodes)                         │
+│                   ├── Facts (domain-tagged, confidence-scored)       │
+│                   ├── Edges (typed relationships)                    │
+│                   └── Vectors (semantic search via Ollama)           │
+│                                                                       │
+│  Ollama (sidecar)                                                    │
+│    ├── nomic-embed-text (embeddings)                                 │
+│    └── qwen2:0.5b (fact extraction)                                  │
+│                                                                       │
+│  Coder Sandbox (ephemeral containers)                                │
+│    └── ollama launch claude --model kimi-k2.5                        │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ## File Structure
 
 ```
 sheldon/
-├── CLAUDE.md              # This file - project instructions
-├── SOUL.md                # Sheldon's personality (system prompt)
-├── IDENTITY.md            # Bootstrap user facts
-├── DECISIONS.md           # Architecture decisions log
-├── SESSION.md             # Dev session journal
+├── CLAUDE.md              # this file
+├── README.md              # public docs
+├── DECISIONS.md           # architecture decision log
 │
-├── core/                  # Main application
-│   ├── cmd/sheldon/main.go
+├── core/                  # main Go application
+│   ├── cmd/sheldon/       # entry point
+│   ├── essence/           # SOUL.md, IDENTITY.md
+│   ├── deploy/            # docker-compose, coder-sandbox Dockerfile
 │   └── internal/
-│       ├── agent/         # Agent loop, processes messages
-│       │   ├── types.go
-│       │   └── agent.go
-│       ├── bot/           # Telegram integration
-│       │   ├── types.go
-│       │   └── telegram.go
-│       ├── config/        # Environment config
-│       │   ├── types.go
-│       │   └── config.go
-│       ├── llm/           # Claude API client
-│       │   ├── types.go
-│       │   └── claude.go
-│       ├── router/        # Domain classification (stub)
-│       │   ├── types.go
-│       │   └── router.go
-│       └── session/       # In-memory conversation state
-│           ├── types.go
-│           └── session.go
+│       ├── agent/         # agent loop, context builder, cron runner
+│       ├── bot/           # telegram, discord
+│       ├── coder/         # code generation bridge, git ops
+│       ├── config/        # env config, runtime config
+│       ├── cron/          # cron storage
+│       ├── deployer/      # docker compose deployer
+│       ├── embedder/      # ollama embeddings
+│       ├── llm/           # multi-provider (kimi, claude, openai, ollama)
+│       ├── storage/       # minio client
+│       └── tools/         # all agent tools
 │
-└── pkg/sheldonmem/           # Memory package (standalone)
-    ├── types.go           # Store, Domain, Entity, Fact, Edge
-    ├── schema.go          # SQLite DDL
-    ├── store.go           # Open, Close, migrate
-    ├── domains.go         # 14 life domains
-    ├── entities.go        # Entity CRUD
-    ├── facts.go           # Fact CRUD + contradiction detection
-    └── edges.go           # Edge CRUD
+├── pkg/sheldonmem/        # memory package (standalone, extractable)
+│   ├── store.go           # Open, Close, DB
+│   ├── entities.go        # entity CRUD
+│   ├── facts.go           # fact CRUD, contradiction detection
+│   ├── edges.go           # relationship edges
+│   ├── vectors.go         # sqlite-vec integration
+│   ├── recall.go          # hybrid retrieval (keyword + semantic)
+│   ├── decay.go           # memory decay/cleanup
+│   └── domains.go         # 14 life domains
+│
+├── skills/                # markdown skill definitions
+└── docs/                  # deployment guide, voice architecture
 ```
 
-## Development Workflow
+## Key Patterns
 
-### 1. Build Vertically
+### LLM Providers
+```go
+// internal/llm/llm.go - factory pattern
+model, _ := llm.New(llm.Config{
+    Provider: "kimi",  // or claude, openai, ollama
+    APIKey:   key,
+    Model:    "kimi-k2-0711-preview",
+})
+```
 
-Don't build entire packages before wiring them. Build thin slices end-to-end:
+### Tool Registration
+```go
+// internal/tools/registry.go
+tools.RegisterCronTools(agentLoop.Registry(), cronStore)
+tools.RegisterCoderTool(agentLoop.Registry(), bridge, memory)
+tools.RegisterBrowserTools(agentLoop.Registry(), config)
+```
 
-- Bad: Build all of sheldonmem → then wire to agent → then test
-- Good: User says "my name is X" → agent extracts → sheldonmem stores → next message recalls
+### Memory Operations
+```go
+// sheldonmem - fact storage with contradiction detection
+fact, _ := memory.AddFact(&entityID, domainID, "city", "Berlin", 0.9)
+// automatically supersedes previous "city" fact for same entity
 
-### 2. Run Early, Run Often
+// hybrid recall (keyword + semantic)
+result, _ := memory.Recall(ctx, "user's location", []int{9}, 5)
+```
+
+### Coder Security Model
+```
+Sheldon (has GIT_TOKEN)
+  │
+  ├── GitOps.CloneRepo() ── clones repo to workspace
+  │
+  ├── Spawn coder container (NO GIT_TOKEN)
+  │   └── Coder writes code, can't access token
+  │
+  └── GitOps.PushChanges() ── pushes results to branch
+```
+
+## Development
 
 ```bash
-# Set env vars
-export TELEGRAM_TOKEN="your-token"
-export ANTHROPIC_API_KEY="your-key"
-export SHELDON_WORKSPACE="/path/to/sheldon"
-
-# Run
+# local run
+cp core/.env.example core/.env
+# fill in TELEGRAM_TOKEN, KIMI_API_KEY
 cd core && go run ./cmd/sheldon
-```
 
-### 3. Tests as Documentation
-
-Write tests to understand code. Tests show how pieces connect:
-
-```bash
+# test memory package
 cd pkg/sheldonmem && go test -v
+
+# build
+cd core && go build -o bin/sheldon ./cmd/sheldon
 ```
 
-### 4. Session Journal
+## Deployment
 
-After each session, update SESSION.md:
+Push to main triggers GitHub Actions:
+1. Build + push Docker images to GHCR
+2. Fetch secrets from Doppler
+3. SSH to VPS, deploy via docker-compose
 
-- What was built
-- How it connects
-- What's next
-
-## Code Style
-
-- No unnecessary comments. Code should be self-documenting. Use all lowercase if you have to make comments.
-- No emojis in code or comments.
-- Each package has `types.go` for structs, main logic in other files.
-- Small, focused functions.
-- Actionable error messages.
-- Run `go fmt` and `go vet` before committing.
+Required Doppler secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `GHCR_TOKEN`, `TELEGRAM_TOKEN`, `KIMI_API_KEY`
 
 ## The 14 Domains
 
-| ID  | Name                    | Layer    |
-| --- | ----------------------- | -------- |
-| 1   | Identity & Self         | Core     |
-| 2   | Body & Health           | Core     |
-| 3   | Mind & Emotions         | Inner    |
-| 4   | Beliefs & Worldview     | Inner    |
-| 5   | Knowledge & Skills      | Inner    |
-| 6   | Relationships & Social  | World    |
-| 7   | Work & Career           | World    |
-| 8   | Finances & Assets       | World    |
-| 9   | Place & Environment     | World    |
-| 10  | Goals & Aspirations     | Temporal |
-| 11  | Preferences & Tastes    | Meta     |
-| 12  | Rhythms & Routines      | Temporal |
-| 13  | Life Events & Decisions | Temporal |
-| 14  | Unconscious Patterns    | Meta     |
+| ID | Domain | Layer | Rate of Change |
+|----|--------|-------|----------------|
+| 1 | Identity & Self | Core | Years |
+| 2 | Body & Health | Core | Months |
+| 3 | Mind & Emotions | Inner | Months |
+| 4 | Beliefs & Worldview | Inner | Years |
+| 5 | Knowledge & Skills | Inner | Months |
+| 6 | Relationships & Social | World | Months |
+| 7 | Work & Career | World | Months |
+| 8 | Finances & Assets | World | Days |
+| 9 | Place & Environment | World | Months |
+| 10 | Goals & Aspirations | Temporal | Weeks |
+| 11 | Preferences & Tastes | Meta | Years |
+| 12 | Rhythms & Routines | Temporal | Weeks |
+| 13 | Life Events & Decisions | Temporal | Append-only |
+| 14 | Unconscious Patterns | Meta | Years |
 
-## Quick Reference
+## Code Style
 
-```bash
-# Build
-cd core && go build -o bin/sheldon ./cmd/sheldon
-
-# Test sheldonmem
-cd pkg/sheldonmem && go test -v
-
-# Run
-cd core && ./bin/sheldon
-```
+- no unnecessary comments
+- no emojis in code
+- `types.go` for structs in each package
+- small focused functions
+- `go fmt` and `go vet` before commit
