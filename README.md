@@ -2,21 +2,15 @@
 
 A personal AI assistant that remembers your entire life, runs on your own infrastructure, and can write and deploy code autonomously.
 
-## Why Sheldon?
+## Features
 
-🚀 **Zero-cost embeddings & extraction** — Local Ollama models for semantic search and fact extraction. No per-request API fees.
-
-🧠 **Unified memory system** — SQLite + sqlite-vec in a single file. Entities, facts, relationships, vectors. No external databases.
-
-🔒 **Isolated code execution** — Coder runs in ephemeral Docker containers. Write, test, deploy apps safely.
-
-⚡ **One-click VPS deploy** — Push to GitHub, Doppler handles secrets, Actions deploys. ~€8/month on Hetzner.
-
-🗂️ **14 life domains** — Structured memory across Identity, Health, Relationships, Work, Finances, Goals, and more.
-
-💬 **Proactive check-ins** — Scheduled heartbeats with memory-augmented context. Sheldon reaches out when relevant.
-
-🏠 **Self-hosted** — Your data, your infrastructure. No cloud dependency for core functionality.
+- 🚀 **Zero-cost embeddings** — Local Ollama models, no API fees
+- 🧠 **Unified memory** — SQLite + sqlite-vec, single file, no external DB
+- 🔒 **Isolated coder** — Ephemeral Docker containers for safe code execution
+- ⚡ **One-click deploy** — Push to GitHub → deployed on VPS (~€8/mo)
+- 🗂️ **14 life domains** — Structured memory across your entire life
+- 💬 **Proactive check-ins** — Scheduled heartbeats with context
+- 🏠 **Self-hosted** — Your data, your infrastructure
 
 ```
 You: "remind me to take meds every evening for two weeks"
