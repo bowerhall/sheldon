@@ -45,9 +45,11 @@ CREATE INDEX IF NOT EXISTS idx_crons_chat_id ON crons(chat_id);
 // NewStore creates a cron store using the provided database connection
 func NewStore(db *sql.DB) (*Store, error) {
 	s := &Store{db: db}
+
 	if err := s.migrate(); err != nil {
 		return nil, err
 	}
+
 	return s, nil
 }
 
@@ -96,6 +98,7 @@ func (s *Store) GetDue() ([]Cron, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	return s.scanCrons(rows)
@@ -113,6 +116,7 @@ func (s *Store) GetByChat(chatID int64) ([]Cron, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	defer rows.Close()
 
 	return s.scanCrons(rows)
@@ -149,9 +153,11 @@ func (s *Store) DeleteExpired() (int, error) {
 // scanCrons is a helper to scan cron rows
 func (s *Store) scanCrons(rows *sql.Rows) ([]Cron, error) {
 	var crons []Cron
+
 	for rows.Next() {
 		var c Cron
 		var expiresAt, nextRun, createdAt *string
+
 		err := rows.Scan(&c.ID, &c.Keyword, &c.Schedule, &c.ChatID, &expiresAt, &nextRun, &createdAt)
 		if err != nil {
 			return nil, err
@@ -161,15 +167,18 @@ func (s *Store) scanCrons(rows *sql.Rows) ([]Cron, error) {
 			t, _ := time.Parse("2006-01-02 15:04:05", *expiresAt)
 			c.ExpiresAt = &t
 		}
+
 		if nextRun != nil {
 			c.NextRun, _ = time.Parse("2006-01-02 15:04:05", *nextRun)
 		}
+
 		if createdAt != nil {
 			c.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", *createdAt)
 		}
 
 		crons = append(crons, c)
 	}
+
 	return crons, nil
 }
 
@@ -179,5 +188,6 @@ func ComputeNextRun(schedule string) (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
+
 	return sched.Next(time.Now()), nil
 }

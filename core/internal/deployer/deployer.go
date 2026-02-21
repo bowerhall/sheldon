@@ -41,6 +41,7 @@ func (d *Deployer) Deploy(ctx context.Context, manifestDir string) (*DeployResul
 	}
 
 	var applied []string
+
 	for _, manifest := range manifests {
 		if err := d.applyManifest(ctx, manifest); err != nil {
 			return &DeployResult{
@@ -123,6 +124,7 @@ func (d *Deployer) applyManifest(ctx context.Context, path string) error {
 func (d *Deployer) patchImagePullPolicy(ctx context.Context) {
 	// get all deployments in namespace
 	listCmd := exec.CommandContext(ctx, "kubectl", "get", "deployments", "-n", d.namespace, "-o", "name")
+
 	output, err := listCmd.CombinedOutput()
 	if err != nil {
 		return
@@ -133,6 +135,7 @@ func (d *Deployer) patchImagePullPolicy(ctx context.Context) {
 		if dep == "" {
 			continue
 		}
+
 		// patch each deployment's imagePullPolicy to Never
 		patchCmd := exec.CommandContext(ctx, "kubectl", "patch", dep, "-n", d.namespace,
 			"--type=json", "-p", `[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"Never"}]`)
@@ -167,5 +170,6 @@ func (d *Deployer) Status(ctx context.Context, deploymentName string) (string, e
 func (d *Deployer) deleteNamespace(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx, "kubectl", "delete", "namespace", d.namespace, "--ignore-not-found")
 	_, err := cmd.CombinedOutput()
+
 	return err
 }

@@ -20,6 +20,7 @@ func NewBuilder(outputDir string) (*Builder, error) {
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return nil, fmt.Errorf("create output dir: %w", err)
 	}
+
 	return &Builder{outputDir: outputDir}, nil
 }
 
@@ -84,12 +85,14 @@ func (b *Builder) hasKaniko() bool {
 	if err != nil {
 		_, err = exec.LookPath("/kaniko/executor")
 	}
+
 	return err == nil
 }
 
 func (b *Builder) buildWithDocker(ctx context.Context, contextDir, tag, tarPath string) error {
 	buildCmd := exec.CommandContext(ctx, "docker", "build", "-t", tag, contextDir)
 	buildCmd.Dir = contextDir
+
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("docker build: %w\n%s", err, string(output))
 	}

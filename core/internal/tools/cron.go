@@ -169,17 +169,17 @@ func parseExpiry(s string) *time.Time {
 
 	// parse common patterns
 	patterns := map[string]time.Duration{
-		"1 day":     24 * time.Hour,
-		"2 days":    2 * 24 * time.Hour,
-		"3 days":    3 * 24 * time.Hour,
-		"1 week":    7 * 24 * time.Hour,
-		"2 weeks":   14 * 24 * time.Hour,
-		"3 weeks":   21 * 24 * time.Hour,
-		"1 month":   30 * 24 * time.Hour,
-		"2 months":  60 * 24 * time.Hour,
-		"3 months":  90 * 24 * time.Hour,
-		"6 months":  180 * 24 * time.Hour,
-		"1 year":    365 * 24 * time.Hour,
+		"1 day":    24 * time.Hour,
+		"2 days":   2 * 24 * time.Hour,
+		"3 days":   3 * 24 * time.Hour,
+		"1 week":   7 * 24 * time.Hour,
+		"2 weeks":  14 * 24 * time.Hour,
+		"3 weeks":  21 * 24 * time.Hour,
+		"1 month":  30 * 24 * time.Hour,
+		"2 months": 60 * 24 * time.Hour,
+		"3 months": 90 * 24 * time.Hour,
+		"6 months": 180 * 24 * time.Hour,
+		"1 year":   365 * 24 * time.Hour,
 	}
 
 	if d, ok := patterns[s]; ok {

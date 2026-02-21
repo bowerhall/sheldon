@@ -13,10 +13,12 @@ func New(cfg Config) (sheldonmem.Embedder, error) {
 		if baseURL == "" {
 			baseURL = "http://localhost:11434"
 		}
+
 		model := cfg.Model
 		if model == "" {
 			model = "nomic-embed-text"
 		}
+
 		return newOllama(baseURL, model), nil
 	case "":
 		return nil, nil

@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/bowerhall/sheldon/internal/agent"
 	"github.com/bowerhall/sheldon/internal/alerts"
 	"github.com/bowerhall/sheldon/internal/bot"
@@ -24,6 +23,7 @@ import (
 	"github.com/bowerhall/sheldon/internal/storage"
 	"github.com/bowerhall/sheldon/internal/tools"
 	"github.com/bowerhall/sheldonmem"
+	"github.com/joho/godotenv"
 )
 
 func init() {

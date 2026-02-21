@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/bowerhall/sheldon/internal/agent"
 	"github.com/bowerhall/sheldon/internal/logger"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func newTelegram(token string, agent *agent.Agent) (Bot, error) {

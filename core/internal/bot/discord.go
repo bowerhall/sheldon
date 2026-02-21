@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/bowerhall/sheldon/internal/agent"
 	"github.com/bowerhall/sheldon/internal/logger"
+	"github.com/bwmarrin/discordgo"
 )
 
 type discord struct {

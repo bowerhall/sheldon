@@ -10,10 +10,10 @@ import (
 )
 
 type Sandbox struct {
-	baseDir      string
-	apiKey       string // NVIDIA NIM API key (primary)
-	fallbackKey  string // Moonshot Kimi API key (fallback)
-	model        string // model to use (default: kimi-k2.5)
+	baseDir     string
+	apiKey      string // NVIDIA NIM API key (primary)
+	fallbackKey string // Moonshot Kimi API key (fallback)
+	model       string // model to use (default: kimi-k2.5)
 }
 
 type Workspace struct {

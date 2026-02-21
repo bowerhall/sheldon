@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/bowerhall/sheldon/internal/coder"
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldonmem"
+	"github.com/google/uuid"
 )
 
 type CoderArgs struct {
