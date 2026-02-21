@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bowerhall/sheldon/internal/cron"
 	"github.com/bowerhall/sheldon/internal/llm"
-	"github.com/bowerhall/sheldonmem"
 )
 
 type SetCronArgs struct {
@@ -21,7 +21,7 @@ type DeleteCronArgs struct {
 	Keyword string `json:"keyword"`
 }
 
-func RegisterCronTools(registry *Registry, memory *sheldonmem.Store) {
+func RegisterCronTools(registry *Registry, cronStore *cron.Store) {
 	// set_cron tool
 	setCronTool := llm.Tool{
 		Name:        "set_cron",
@@ -65,7 +65,7 @@ func RegisterCronTools(registry *Registry, memory *sheldonmem.Store) {
 			}
 		}
 
-		cron, err := memory.CreateCron(params.Keyword, params.Schedule, chatID, expiresAt)
+		c, err := cronStore.Create(params.Keyword, params.Schedule, chatID, expiresAt)
 		if err != nil {
 			return "", fmt.Errorf("failed to create cron: %w", err)
 		}
@@ -76,8 +76,8 @@ func RegisterCronTools(registry *Registry, memory *sheldonmem.Store) {
 		}
 
 		return fmt.Sprintf("Reminder '%s' scheduled. Next: %s%s",
-			cron.Keyword,
-			cron.NextRun.Format("Mon Jan 2 3:04 PM"),
+			c.Keyword,
+			c.NextRun.Format("Mon Jan 2 3:04 PM"),
 			expiryInfo), nil
 	})
 
@@ -97,7 +97,7 @@ func RegisterCronTools(registry *Registry, memory *sheldonmem.Store) {
 			return "", fmt.Errorf("no chat context available")
 		}
 
-		crons, err := memory.GetCronsByChat(chatID)
+		crons, err := cronStore.GetByChat(chatID)
 		if err != nil {
 			return "", fmt.Errorf("failed to list crons: %w", err)
 		}
@@ -149,7 +149,7 @@ func RegisterCronTools(registry *Registry, memory *sheldonmem.Store) {
 			return "", fmt.Errorf("no chat context available")
 		}
 
-		err := memory.DeleteCronByKeyword(params.Keyword, chatID)
+		err := cronStore.DeleteByKeyword(params.Keyword, chatID)
 		if err != nil {
 			return "", fmt.Errorf("failed to delete cron: %w", err)
 		}

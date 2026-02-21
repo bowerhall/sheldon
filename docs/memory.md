@@ -1,6 +1,6 @@
 # sheldonmem — Memory System
 
-> Structured domain memory with graph relationships and scheduled reminders for personal AI. Pure Go, single SQLite file.
+> Structured domain memory with graph relationships for personal AI. Pure Go, single SQLite file.
 
 Package: `github.com/bowerhall/sheldonmem`
 
@@ -15,7 +15,6 @@ Existing AI memory solutions (Mem0, Zep, Letta) share the same limitations: flat
 - Hybrid retrieval: keyword SQL + semantic vector + graph expansion
 - Contradiction detection with version chains
 - Decay scoring for memory hygiene
-- Cron-based scheduled reminders integrated with memory
 - Single SQLite file — no external services
 - Pure Go — embeds in any Go binary
 
@@ -115,24 +114,6 @@ CREATE INDEX idx_edges_target ON edges(target_id);
 CREATE INDEX idx_edges_relation ON edges(relation);
 ```
 
-### crons
-
-Scheduled reminders that integrate with memory. When a cron fires, it searches memory using its keyword.
-
-```sql
-CREATE TABLE crons (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    keyword TEXT NOT NULL,      -- search term for memory recall
-    schedule TEXT NOT NULL,     -- cron expression "0 20 * * *"
-    chat_id INTEGER NOT NULL,   -- where to send notification
-    expires_at DATETIME,        -- auto-delete after this time (nullable = never)
-    next_run DATETIME NOT NULL, -- pre-computed next fire time
-    created_at DATETIME DEFAULT (datetime('now'))
-);
-CREATE INDEX idx_crons_next_run ON crons(next_run);
-CREATE INDEX idx_crons_chat_id ON crons(chat_id);
-```
-
 ### domains
 
 The 14 life domains. Seeded on init, immutable reference table.
@@ -190,7 +171,7 @@ CREATE VIRTUAL TABLE vec_facts USING vec0(
 
 ## Cron System
 
-sheldonmem includes a built-in cron system that integrates seamlessly with memory. Instead of storing reminder details in a separate system, crons use keywords to search memory when they fire.
+Sheldon includes a cron system (`internal/cron`) that integrates with sheldonmem for cron-augmented memory retrieval. Instead of storing reminder content in the cron, crons store keywords that search memory when they fire. This keeps memory as the source of truth.
 
 ### How It Works
 
@@ -409,3 +390,5 @@ sheldonmem is designed as a standalone, extractable package:
 - Single SQLite file with WAL journaling
 - Pure Go with sqlite-vec for vector search
 - AGPL-3.0 license
+
+The cron system (`internal/cron`) is separate from sheldonmem, keeping memory pure. Crons use sheldonmem's database connection but maintain their own schema. This allows sheldonmem to be extracted as a standalone memory package without cron coupling.

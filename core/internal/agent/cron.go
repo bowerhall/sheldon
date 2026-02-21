@@ -5,21 +5,23 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bowerhall/sheldon/internal/cron"
 	"github.com/bowerhall/sheldon/internal/logger"
 	"github.com/bowerhall/sheldonmem"
-	"github.com/robfig/cron/v3"
 )
 
 // CronRunner checks for due crons and fires reminders
 type CronRunner struct {
+	crons    *cron.Store
 	memory   *sheldonmem.Store
 	notify   NotifyFunc
 	timezone *time.Location
 }
 
 // NewCronRunner creates a new CronRunner
-func NewCronRunner(memory *sheldonmem.Store, notify NotifyFunc, tz *time.Location) *CronRunner {
+func NewCronRunner(crons *cron.Store, memory *sheldonmem.Store, notify NotifyFunc, tz *time.Location) *CronRunner {
 	return &CronRunner{
+		crons:    crons,
 		memory:   memory,
 		notify:   notify,
 		timezone: tz,
@@ -48,7 +50,7 @@ func (r *CronRunner) Run(ctx context.Context) {
 
 func (r *CronRunner) checkDueCrons(ctx context.Context) {
 	// cleanup expired crons
-	deleted, err := r.memory.DeleteExpiredCrons()
+	deleted, err := r.crons.DeleteExpired()
 	if err != nil {
 		logger.Error("failed to delete expired crons", "error", err)
 	} else if deleted > 0 {
@@ -56,7 +58,7 @@ func (r *CronRunner) checkDueCrons(ctx context.Context) {
 	}
 
 	// get due crons
-	crons, err := r.memory.GetDueCrons()
+	crons, err := r.crons.GetDue()
 	if err != nil {
 		logger.Error("failed to get due crons", "error", err)
 		return
@@ -67,7 +69,7 @@ func (r *CronRunner) checkDueCrons(ctx context.Context) {
 	}
 }
 
-func (r *CronRunner) fireCron(ctx context.Context, c sheldonmem.Cron) {
+func (r *CronRunner) fireCron(ctx context.Context, c cron.Cron) {
 	// search memory for keyword
 	result, err := r.memory.Recall(ctx, c.Keyword, []int{10, 12, 13}, 5)
 	if err != nil {
@@ -85,15 +87,13 @@ func (r *CronRunner) fireCron(ctx context.Context, c sheldonmem.Cron) {
 	}
 
 	// calculate next run
-	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
-	sched, err := parser.Parse(c.Schedule)
+	nextRun, err := cron.ComputeNextRun(c.Schedule)
 	if err != nil {
-		logger.Error("failed to parse cron schedule", "schedule", c.Schedule, "error", err)
+		logger.Error("failed to compute next run", "schedule", c.Schedule, "error", err)
 		return
 	}
 
-	nextRun := sched.Next(time.Now())
-	if err := r.memory.UpdateCronNextRun(c.ID, nextRun); err != nil {
+	if err := r.crons.UpdateNextRun(c.ID, nextRun); err != nil {
 		logger.Error("failed to update cron next_run", "id", c.ID, "error", err)
 	}
 

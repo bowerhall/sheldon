@@ -1,17 +1,63 @@
-package sheldonmem
+package cron
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/robfig/cron/v3"
 )
 
+// Cron represents a scheduled reminder
+type Cron struct {
+	ID        int64
+	Keyword   string     // search term for memory recall
+	Schedule  string     // cron expression "0 20 * * *"
+	ChatID    int64      // where to send notification
+	ExpiresAt *time.Time // auto-delete after this time (nil = never)
+	NextRun   time.Time  // pre-computed next fire time
+	CreatedAt time.Time
+}
+
+// Store manages cron persistence
+type Store struct {
+	db *sql.DB
+}
+
 // cronParser is configured for standard 5-field cron expressions
 var cronParser = cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 
-// CreateCron creates a new scheduled reminder
-func (s *Store) CreateCron(keyword, schedule string, chatID int64, expiresAt *time.Time) (*Cron, error) {
+const schema = `
+CREATE TABLE IF NOT EXISTS crons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    keyword TEXT NOT NULL,
+    schedule TEXT NOT NULL,
+    chat_id INTEGER NOT NULL,
+    expires_at DATETIME,
+    next_run DATETIME NOT NULL,
+    created_at DATETIME DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_crons_next_run ON crons(next_run);
+CREATE INDEX IF NOT EXISTS idx_crons_chat_id ON crons(chat_id);
+`
+
+// NewStore creates a cron store using the provided database connection
+func NewStore(db *sql.DB) (*Store, error) {
+	s := &Store{db: db}
+	if err := s.migrate(); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+func (s *Store) migrate() error {
+	_, err := s.db.Exec(schema)
+	return err
+}
+
+// Create creates a new scheduled reminder
+func (s *Store) Create(keyword, schedule string, chatID int64, expiresAt *time.Time) (*Cron, error) {
 	// validate cron expression
 	sched, err := cronParser.Parse(schedule)
 	if err != nil {
@@ -40,8 +86,8 @@ func (s *Store) CreateCron(keyword, schedule string, chatID int64, expiresAt *ti
 	}, nil
 }
 
-// GetDueCrons returns all crons that should fire now (next_run <= now and not expired)
-func (s *Store) GetDueCrons() ([]Cron, error) {
+// GetDue returns all crons that should fire now (next_run <= now and not expired)
+func (s *Store) GetDue() ([]Cron, error) {
 	rows, err := s.db.Query(`
 		SELECT id, keyword, schedule, chat_id, expires_at, next_run, created_at
 		FROM crons
@@ -55,8 +101,8 @@ func (s *Store) GetDueCrons() ([]Cron, error) {
 	return s.scanCrons(rows)
 }
 
-// GetCronsByChat returns all active crons for a specific chat
-func (s *Store) GetCronsByChat(chatID int64) ([]Cron, error) {
+// GetByChat returns all active crons for a specific chat
+func (s *Store) GetByChat(chatID int64) ([]Cron, error) {
 	rows, err := s.db.Query(`
 		SELECT id, keyword, schedule, chat_id, expires_at, next_run, created_at
 		FROM crons
@@ -72,26 +118,26 @@ func (s *Store) GetCronsByChat(chatID int64) ([]Cron, error) {
 	return s.scanCrons(rows)
 }
 
-// UpdateCronNextRun updates the next run time for a cron
-func (s *Store) UpdateCronNextRun(id int64, nextRun time.Time) error {
+// UpdateNextRun updates the next run time for a cron
+func (s *Store) UpdateNextRun(id int64, nextRun time.Time) error {
 	_, err := s.db.Exec(`UPDATE crons SET next_run = ? WHERE id = ?`, nextRun, id)
 	return err
 }
 
-// DeleteCron deletes a cron by ID
-func (s *Store) DeleteCron(id int64) error {
+// Delete deletes a cron by ID
+func (s *Store) Delete(id int64) error {
 	_, err := s.db.Exec(`DELETE FROM crons WHERE id = ?`, id)
 	return err
 }
 
-// DeleteCronByKeyword deletes a cron by keyword and chat ID
-func (s *Store) DeleteCronByKeyword(keyword string, chatID int64) error {
+// DeleteByKeyword deletes a cron by keyword and chat ID
+func (s *Store) DeleteByKeyword(keyword string, chatID int64) error {
 	_, err := s.db.Exec(`DELETE FROM crons WHERE keyword = ? AND chat_id = ?`, keyword, chatID)
 	return err
 }
 
-// DeleteExpiredCrons removes all crons past their expiry date
-func (s *Store) DeleteExpiredCrons() (int, error) {
+// DeleteExpired removes all crons past their expiry date
+func (s *Store) DeleteExpired() (int, error) {
 	result, err := s.db.Exec(`DELETE FROM crons WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')`)
 	if err != nil {
 		return 0, err
@@ -101,7 +147,7 @@ func (s *Store) DeleteExpiredCrons() (int, error) {
 }
 
 // scanCrons is a helper to scan cron rows
-func (s *Store) scanCrons(rows interface{ Next() bool; Scan(dest ...any) error }) ([]Cron, error) {
+func (s *Store) scanCrons(rows *sql.Rows) ([]Cron, error) {
 	var crons []Cron
 	for rows.Next() {
 		var c Cron

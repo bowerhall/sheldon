@@ -16,6 +16,7 @@ import (
 	"github.com/bowerhall/sheldon/internal/budget"
 	"github.com/bowerhall/sheldon/internal/coder"
 	"github.com/bowerhall/sheldon/internal/config"
+	"github.com/bowerhall/sheldon/internal/cron"
 	"github.com/bowerhall/sheldon/internal/deployer"
 	"github.com/bowerhall/sheldon/internal/embedder"
 	"github.com/bowerhall/sheldon/internal/llm"
@@ -161,8 +162,12 @@ func main() {
 	tools.RegisterBrowserTools(agentLoop.Registry(), tools.DefaultBrowserConfig())
 	logger.Info("browser tools enabled")
 
-	// cron tools for scheduled reminders
-	tools.RegisterCronTools(agentLoop.Registry(), memory)
+	// cron store for scheduled reminders
+	cronStore, err := cron.NewStore(memory.DB())
+	if err != nil {
+		logger.Fatal("failed to create cron store", "error", err)
+	}
+	tools.RegisterCronTools(agentLoop.Registry(), cronStore)
 	logger.Info("cron tools enabled")
 
 	// minio storage (optional)
@@ -322,7 +327,7 @@ func main() {
 	// cron runner for scheduled reminders
 	if len(bots) > 0 {
 		tz, _ := time.LoadLocation(cfg.Timezone)
-		cronRunner := agent.NewCronRunner(memory, func(chatID int64, msg string) {
+		cronRunner := agent.NewCronRunner(cronStore, memory, func(chatID int64, msg string) {
 			notifyBot.Send(chatID, msg)
 		}, tz)
 		go cronRunner.Run(ctx)
