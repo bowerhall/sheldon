@@ -196,11 +196,12 @@ User: "remind me to take meds every evening for 2 weeks"
 ┌─────────────────────────────────────────────┐
 │ 1. Query: WHERE next_run <= now             │
 │ 2. For cron "meds":                         │
-│    - Recall(ctx, "meds", [10,12,13], 5)     │
+│    - Recall(ctx, "meds", nil, 10)           │
 │    - Finds: "take meds every evening"       │
-│ 3. Send notification: "⏰ take meds..."      │
-│ 4. Update next_run to tomorrow 8pm          │
-│ 5. After 2 weeks: auto-delete cron          │
+│ 3. Inject into agent loop with context      │
+│ 4. Agent decides action: send reminder      │
+│ 5. Update next_run to tomorrow 8pm          │
+│ 6. After 2 weeks: auto-delete cron          │
 └─────────────────────────────────────────────┘
 ```
 

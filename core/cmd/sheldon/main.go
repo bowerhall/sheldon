@@ -310,39 +310,26 @@ func main() {
 		}
 	}()
 
-	if cfg.Heartbeat.Enabled && cfg.Heartbeat.ChatID != 0 && len(bots) > 0 {
-		heartbeatBot := bots[0]
-		provider := enabledProviders[0]
-		sessionID := fmt.Sprintf("%s:%d", provider, cfg.Heartbeat.ChatID)
-		interval := time.Duration(cfg.Heartbeat.Interval) * time.Hour
-
-		go func() {
-			time.Sleep(10 * time.Second)
-			sendHeartbeat := func() {
-				message, err := agentLoop.Heartbeat(ctx, sessionID)
-				if err != nil {
-					logger.Error("heartbeat failed", "error", err)
-					return
-				}
-				heartbeatBot.Send(cfg.Heartbeat.ChatID, message)
-			}
-			sendHeartbeat() // immediate first heartbeat
-			for range time.Tick(interval) {
-				sendHeartbeat()
-			}
-		}()
-
-		logger.Info("heartbeat enabled", "interval", cfg.Heartbeat.Interval, "chatID", cfg.Heartbeat.ChatID, "provider", provider)
-	}
-
-	// cron runner for scheduled reminders
+	// cron runner for scheduled triggers (reminders, check-ins, tasks)
 	if len(bots) > 0 {
 		tz, _ := time.LoadLocation(cfg.Timezone)
-		cronRunner := agent.NewCronRunner(cronStore, memory, func(chatID int64, msg string) {
-			notifyBot.Send(chatID, msg)
-		}, tz)
+		provider := enabledProviders[0]
+
+		cronRunner := agent.NewCronRunner(
+			cronStore,
+			memory,
+			// TriggerFunc: injects into agent loop
+			func(chatID int64, sessionID string, prompt string) (string, error) {
+				return agentLoop.ProcessSystemTrigger(ctx, sessionID, prompt)
+			},
+			// NotifyFunc: sends response to chat
+			func(chatID int64, msg string) {
+				notifyBot.Send(chatID, msg)
+			},
+			tz,
+		)
 		go cronRunner.Run(ctx)
-		logger.Info("cron runner started")
+		logger.Info("cron runner started", "provider", provider)
 	}
 
 	embedderProvider := cfg.Embedder.Provider

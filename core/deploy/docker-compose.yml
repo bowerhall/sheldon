@@ -72,10 +72,8 @@ services:
       - GIT_USER_EMAIL=${GIT_USER_EMAIL:-}
       - GIT_ORG_URL=${GIT_ORG_URL:-}
 
-      # Heartbeat (optional)
-      - HEARTBEAT_ENABLED=${HEARTBEAT_ENABLED:-false}
+      # Alert chat ID (optional) - for budget warnings and error alerts
       - HEARTBEAT_CHAT_ID=${HEARTBEAT_CHAT_ID:-}
-      - HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL:-8}
 
       # Timezone
       - TZ=${TZ:-UTC}

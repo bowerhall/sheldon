@@ -213,12 +213,26 @@ S3-compatible API means easy migration to any cloud storage later.
 
 ---
 
-### Single Heartbeat System
-**Decision**: Use a single heartbeat system that adapts based on context, rather than separate crons for morning briefing, goal tracking, etc.
+### Unified Cron System (Scheduled Agent Triggers)
+**Decision**: Replace fixed-interval heartbeat with cron-based triggers that inject into the agent loop. Crons don't just send messages — they wake the agent with recalled context, and the agent decides what to do.
 
-**Why**: The LLM + sheldonmem can determine what's relevant. If heartbeat fires in the morning, it naturally includes briefing-style content.
+**Why**:
+- Runtime flexibility: "check on me every 6 hours" or "go quiet until tomorrow" via conversation
+- Unified system: heartbeat, reminders, and scheduled tasks all use the same mechanism
+- Natural control: "stop checking on me for 3 hours" just pauses the heartbeat cron
 
-**Tradeoff**: Less predictable than hardcoded schedules. Acceptable because the goal is natural conversation.
+**How it works**:
+1. User says "remind me to take meds every evening"
+2. Sheldon stores fact + creates cron with keyword "meds"
+3. When cron fires, CronRunner recalls memory with keyword
+4. Context is injected into agent loop: "You scheduled this: [facts]. Take action."
+5. Agent decides: send reminder, generate check-in, or start a task
+
+**Special keywords**:
+- `heartbeat` / `check-in`: Agent generates conversational check-in
+- Task-related keywords: Agent starts working (can use tools)
+
+**Tradeoff**: Requires LLM call per cron fire (vs simple notification). Acceptable because it enables autonomous scheduled work.
 
 ---
 

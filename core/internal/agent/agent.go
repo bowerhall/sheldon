@@ -227,3 +227,30 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 	logger.Warn("agent loop hit max iterations", "max", maxToolIterations)
 	return "I apologize, but I'm having trouble completing this request. Please try again.", nil
 }
+
+// ProcessSystemTrigger handles a scheduled trigger (cron-based). Unlike user messages,
+// system triggers don't wait for session locks - they run in their own context.
+// This allows crons to fire even when a conversation is in progress.
+func (a *Agent) ProcessSystemTrigger(ctx context.Context, sessionID string, triggerPrompt string) (string, error) {
+	logger.Debug("system trigger received", "session", sessionID)
+
+	sess := a.sessions.Get(sessionID)
+
+	// Add trigger as a system message so the agent knows this isn't a user speaking
+	sess.AddMessage("user", triggerPrompt, nil, "")
+
+	// Add chatID to context for tool access
+	chatID := a.parseChatID(sessionID)
+	ctx = context.WithValue(ctx, tools.ChatIDKey, chatID)
+
+	response, err := a.runAgentLoop(ctx, sess)
+	if err != nil {
+		logger.Error("system trigger processing failed", "error", err)
+		return "", err
+	}
+
+	// Remember this interaction
+	go a.remember(ctx, sessionID, sess.Messages())
+
+	return response, nil
+}

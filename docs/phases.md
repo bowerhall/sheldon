@@ -10,7 +10,7 @@ Everything needed for a daily-usable personal assistant:
 - **Coder** — isolated code generation in ephemeral Docker containers
 - **Deployer** — deploy apps via Docker Compose + Traefik
 - **Skills system** — markdown-based skill injection
-- **Cron/reminders** — scheduled notifications with memory context
+- **Cron system** — scheduled agent triggers (reminders, check-ins, autonomous tasks)
 - **Browser tools** — web search and page fetching
 - **Git integration** — push code to GitHub repos
 - **Ollama sidecar** — local embeddings + fact extraction (zero API cost)

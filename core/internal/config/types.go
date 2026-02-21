@@ -77,10 +77,11 @@ type BotInstance struct {
 	Token   string
 }
 
+// HeartbeatConfig is kept for backwards compatibility with env vars.
+// Only ChatID is used - for error alerts and budget warnings.
+// Scheduled check-ins are now handled by the cron system.
 type HeartbeatConfig struct {
-	Enabled  bool
-	Interval int   // hours
-	ChatID   int64 // telegram chat ID to send proactive messages
+	ChatID int64 // telegram chat ID for alerts and notifications
 }
 
 type BudgetConfig struct {

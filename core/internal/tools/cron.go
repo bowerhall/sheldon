@@ -21,25 +21,30 @@ type DeleteCronArgs struct {
 	Keyword string `json:"keyword"`
 }
 
+type PauseCronArgs struct {
+	Keyword string `json:"keyword"`
+	Until   string `json:"until"`
+}
+
 func RegisterCronTools(registry *Registry, cronStore *cron.Store) {
 	// set_cron tool
 	setCronTool := llm.Tool{
 		Name:        "set_cron",
-		Description: "Schedule a recurring reminder. Use a short keyword that describes the reminder (this keyword will be used to search memory when the cron fires). The user's request should already be stored in memory before calling this.",
+		Description: "Schedule a recurring trigger. When the cron fires, you'll wake up with the keyword's recalled context and decide what to do: send a check-in, reminder, or start working on a task. Use 'heartbeat' keyword for periodic check-ins.",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"keyword": map[string]any{
 					"type":        "string",
-					"description": "Short keyword for memory search when reminder fires (e.g., 'meds', 'standup', 'water', 'exercise')",
+					"description": "Short keyword for memory search when cron fires (e.g., 'heartbeat', 'meds', 'standup', 'build-weather-app')",
 				},
 				"schedule": map[string]any{
 					"type":        "string",
-					"description": "Cron expression: minute hour day-of-month month day-of-week. Examples: '0 20 * * *' (8pm daily), '0 9 * * 1-5' (9am weekdays), '30 14 * * *' (2:30pm daily), '0 */2 * * *' (every 2 hours)",
+					"description": "Cron expression: minute hour day-of-month month day-of-week. Examples: '0 20 * * *' (8pm daily), '0 9 * * 1-5' (9am weekdays), '0 */6 * * *' (every 6 hours), '0 15 22 2 *' (3pm on Feb 22)",
 				},
 				"expires_in": map[string]any{
 					"type":        "string",
-					"description": "When to auto-delete the reminder. Examples: '2 weeks', '1 month', '3 days', '1 year'. Omit for permanent reminder.",
+					"description": "When to auto-delete. Examples: '2 weeks', '1 month', '1 day'. Omit for permanent.",
 				},
 			},
 			"required": []string{"keyword", "schedule"},
@@ -84,7 +89,7 @@ func RegisterCronTools(registry *Registry, cronStore *cron.Store) {
 	// list_crons tool
 	listCronsTool := llm.Tool{
 		Name:        "list_crons",
-		Description: "List all active scheduled reminders for this chat",
+		Description: "List all active scheduled triggers for this chat",
 		Parameters: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -103,20 +108,25 @@ func RegisterCronTools(registry *Registry, cronStore *cron.Store) {
 		}
 
 		if len(crons) == 0 {
-			return "No active reminders scheduled.", nil
+			return "No active scheduled triggers.", nil
 		}
 
 		var sb strings.Builder
-		sb.WriteString("Active reminders:\n")
+		sb.WriteString("Active scheduled triggers:\n")
 		for _, c := range crons {
+			status := ""
+			if c.PausedUntil != nil && c.PausedUntil.After(time.Now()) {
+				status = fmt.Sprintf(" [PAUSED until %s]", c.PausedUntil.Format("Mon Jan 2 3:04 PM"))
+			}
 			expiryInfo := ""
 			if c.ExpiresAt != nil {
 				expiryInfo = fmt.Sprintf(" (expires %s)", c.ExpiresAt.Format("Jan 2"))
 			}
-			fmt.Fprintf(&sb, "- %s: next %s, schedule '%s'%s\n",
+			fmt.Fprintf(&sb, "- %s: next %s, schedule '%s'%s%s\n",
 				c.Keyword,
 				c.NextRun.Format("Mon Jan 2 3:04 PM"),
 				c.Schedule,
+				status,
 				expiryInfo)
 		}
 		return sb.String(), nil
@@ -125,13 +135,13 @@ func RegisterCronTools(registry *Registry, cronStore *cron.Store) {
 	// delete_cron tool
 	deleteCronTool := llm.Tool{
 		Name:        "delete_cron",
-		Description: "Delete a scheduled reminder by its keyword",
+		Description: "Delete a scheduled trigger by its keyword",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"keyword": map[string]any{
 					"type":        "string",
-					"description": "Keyword of the reminder to delete",
+					"description": "Keyword of the trigger to delete",
 				},
 			},
 			"required": []string{"keyword"},
@@ -154,7 +164,87 @@ func RegisterCronTools(registry *Registry, cronStore *cron.Store) {
 			return "", fmt.Errorf("failed to delete cron: %w", err)
 		}
 
-		return fmt.Sprintf("Reminder '%s' deleted.", params.Keyword), nil
+		return fmt.Sprintf("Trigger '%s' deleted.", params.Keyword), nil
+	})
+
+	// pause_cron tool
+	pauseCronTool := llm.Tool{
+		Name:        "pause_cron",
+		Description: "Temporarily pause a scheduled trigger until a specified time. Use this when the user wants you to 'go quiet' or 'stop checking in' for a while.",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"keyword": map[string]any{
+					"type":        "string",
+					"description": "Keyword of the trigger to pause (e.g., 'heartbeat')",
+				},
+				"until": map[string]any{
+					"type":        "string",
+					"description": "When to resume. Examples: '3 hours', 'tomorrow morning', '2026-02-22 09:00'",
+				},
+			},
+			"required": []string{"keyword", "until"},
+		},
+	}
+
+	registry.Register(pauseCronTool, func(ctx context.Context, args string) (string, error) {
+		var params PauseCronArgs
+		if err := json.Unmarshal([]byte(args), &params); err != nil {
+			return "", fmt.Errorf("invalid arguments: %w", err)
+		}
+
+		chatID := ChatIDFromContext(ctx)
+		if chatID == 0 {
+			return "", fmt.Errorf("no chat context available")
+		}
+
+		// parse the until time
+		until := parseExpiry(params.Until)
+		if until == nil {
+			return "", fmt.Errorf("could not parse time: %s", params.Until)
+		}
+
+		err := cronStore.SetPausedUntil(params.Keyword, chatID, until)
+		if err != nil {
+			return "", fmt.Errorf("failed to pause cron: %w", err)
+		}
+
+		return fmt.Sprintf("Trigger '%s' paused until %s.", params.Keyword, until.Format("Mon Jan 2 3:04 PM")), nil
+	})
+
+	// resume_cron tool (unpause)
+	resumeCronTool := llm.Tool{
+		Name:        "resume_cron",
+		Description: "Resume a paused scheduled trigger immediately",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"keyword": map[string]any{
+					"type":        "string",
+					"description": "Keyword of the trigger to resume",
+				},
+			},
+			"required": []string{"keyword"},
+		},
+	}
+
+	registry.Register(resumeCronTool, func(ctx context.Context, args string) (string, error) {
+		var params DeleteCronArgs // reuse struct, same shape
+		if err := json.Unmarshal([]byte(args), &params); err != nil {
+			return "", fmt.Errorf("invalid arguments: %w", err)
+		}
+
+		chatID := ChatIDFromContext(ctx)
+		if chatID == 0 {
+			return "", fmt.Errorf("no chat context available")
+		}
+
+		err := cronStore.SetPausedUntil(params.Keyword, chatID, nil)
+		if err != nil {
+			return "", fmt.Errorf("failed to resume cron: %w", err)
+		}
+
+		return fmt.Sprintf("Trigger '%s' resumed.", params.Keyword), nil
 	})
 }
 

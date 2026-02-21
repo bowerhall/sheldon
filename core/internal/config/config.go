@@ -191,22 +191,13 @@ func loadMultiBotConfig() MultiBot {
 }
 
 func loadHeartbeatConfig() HeartbeatConfig {
-	enabled := os.Getenv("HEARTBEAT_ENABLED") == "true"
-
-	interval := 3 // default 3 hours
-	if i, err := strconv.Atoi(os.Getenv("HEARTBEAT_INTERVAL")); err == nil && i > 0 {
-		interval = i
-	}
-
 	var chatID int64
 	if id, err := strconv.ParseInt(os.Getenv("HEARTBEAT_CHAT_ID"), 10, 64); err == nil {
 		chatID = id
 	}
 
 	return HeartbeatConfig{
-		Enabled:  enabled,
-		Interval: interval,
-		ChatID:   chatID,
+		ChatID: chatID,
 	}
 }
 
