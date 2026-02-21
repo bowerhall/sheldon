@@ -87,8 +87,8 @@ func TestAddFact(t *testing.T) {
 		t.Fatalf("failed to add fact: %v", err)
 	}
 
-	if fact.Value != "Kadet" {
-		t.Errorf("expected 'Kadet', got '%s'", fact.Value)
+	if fact.Fact.Value != "Kadet" {
+		t.Errorf("expected 'Kadet', got '%s'", fact.Fact.Value)
 	}
 }
 
@@ -105,7 +105,7 @@ func TestFactContradictionSupersedes(t *testing.T) {
 	fact1, _ := store.AddFact(&entityID, 9, "city", "Lagos", 0.9)
 	fact2, _ := store.AddFact(&entityID, 9, "city", "Berlin", 0.9)
 
-	if fact2.Supersedes == nil || *fact2.Supersedes != fact1.ID {
+	if fact2.Fact.Supersedes == nil || *fact2.Fact.Supersedes != fact1.Fact.ID {
 		t.Errorf("expected fact2 to supersede fact1")
 	}
 
