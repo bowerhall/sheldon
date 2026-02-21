@@ -108,7 +108,6 @@ var sensitivePatterns = []*regexp.Regexp{
 - WAL mode: concurrent reads, single writer
 - No network exposure: sheldonmem is in-process
 - Backup: SQLite snapshot to MinIO (TODO: encryption)
-- Fact deletion: `/review` command allows deletion (TODO)
 - No PII in logs: facts logged with domain ID only
 
 ## Credential Management

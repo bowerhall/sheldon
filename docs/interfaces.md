@@ -3,7 +3,7 @@
 ## Phase 0: Telegram
 - Primary interface for text + voice
 - Inline keyboards for structured interactions
-- Commands: `/review`, `/status`, `/goals`
+- Natural language interface (no slash commands)
 
 ## Phase 5: Mac Menu Bar App
 - SwiftUI app, keyboard shortcut activation

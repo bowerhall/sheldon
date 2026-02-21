@@ -22,28 +22,20 @@
 - Warn at 80%, hard stop at 100%
 - Cron resets daily
 
-### 4. Memory Review Flow (Day 2-3)
-- `/review` command: query sheldonmem for facts added in last 24 hours
-- Display with domain labels: "[Career] Current role: ..."
-- Inline keyboard: [Approve All] [Review Each] [Delete All]
-- Individual: [Keep] [Delete] per fact
-- Custom tool in Sheldon ToolRegistry
-
-### 5. Contradiction Alerts (Day 3)
+### 4. Contradiction Alerts (Day 2-3)
 - sheldonmem.Remember returns contradiction info when superseding
 - Alert: "You previously said X, but now mentioned Y. Which is correct?"
 - Inline keyboard: [Keep old] [Accept new]
 
-### 6. Error Alerting (Day 3-4)
+### 5. Error Alerting (Day 3)
 - Telegram notification: SQLite errors, critical failures, budget breach
 - Cooldown: max 1 alert per type per hour
 
-### 7. Goal Tracking Cron (Day 4)
+### 6. Goal Tracking Cron (Day 4)
 - Weekly cron: sheldonmem.Recall D10, prompt for progress updates
 - "You set a goal to finish OMSCS application by March. How's it going?"
 
 ## Success Criteria
 - [ ] Morning briefing fires at 8am
 - [ ] Budget tracker enforces daily limit
-- [ ] `/review` shows recent facts with approve/delete
 - [ ] You message Sheldon 10+ times/day
