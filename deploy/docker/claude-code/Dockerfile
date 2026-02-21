@@ -1,20 +1,32 @@
-# Ephemeral Claude Code runner container
-# Used by Kora for isolated code execution tasks
-FROM node:20-alpine
+# Ephemeral code runner container using Ollama + Claude Code
+# Uses NVIDIA NIM (kimi-k2.5) or fallback model for code generation
+FROM ubuntu:22.04
 
-# Install claude-code CLI and basic tools
-RUN npm install -g @anthropic-ai/claude-code && \
-    apk add --no-cache git curl jq
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    jq \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user (use node's existing group 1000)
-# node:20-alpine already has node user/group at 1000
-RUN adduser -u 1001 -G node -h /home/coder -D coder
+# Install Ollama
+RUN curl -fsSL https://ollama.com/install.sh | sh
+
+# Create non-root user
+RUN useradd -m -u 1001 -s /bin/bash coder
 
 # Working directory for artifacts
 WORKDIR /workspace
-RUN chown coder:node /workspace
+RUN chown coder:coder /workspace
+
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 USER coder
 
-# Entrypoint runs claude with provided arguments
-ENTRYPOINT ["claude"]
+# Ollama will be started by entrypoint
+ENV OLLAMA_HOST=0.0.0.0
+
+ENTRYPOINT ["/entrypoint.sh"]

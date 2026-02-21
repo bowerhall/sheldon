@@ -80,12 +80,17 @@ func loadStorageConfig() StorageConfig {
 }
 
 func loadCoderConfig() CoderConfig {
-	apiKey := os.Getenv("CODER_API_KEY")
-	if apiKey == "" {
-		apiKey = os.Getenv("ANTHROPIC_API_KEY")
-	}
+	// Primary: NVIDIA NIM API key (free tier)
+	apiKey := os.Getenv("NVIDIA_API_KEY")
 
-	baseURL := os.Getenv("CODER_BASE_URL")
+	// Fallback: Moonshot Kimi API key
+	fallbackKey := os.Getenv("KIMI_API_KEY")
+
+	// Model to use (default: kimi-k2.5)
+	model := os.Getenv("CODER_MODEL")
+	if model == "" {
+		model = "kimi-k2.5"
+	}
 
 	sandboxDir := os.Getenv("CODER_SANDBOX")
 	if sandboxDir == "" {
@@ -102,7 +107,7 @@ func loadCoderConfig() CoderConfig {
 
 	k8sImage := os.Getenv("CODER_K8S_IMAGE")
 	if k8sImage == "" {
-		k8sImage = "sheldon-claude-code:latest"
+		k8sImage = "ghcr.io/bowerhall/sheldon-claude-code:latest"
 	}
 
 	artifactsPVC := os.Getenv("CODER_ARTIFACTS_PVC")
@@ -124,10 +129,14 @@ func loadCoderConfig() CoderConfig {
 	}
 	gitConfig.Enabled = gitConfig.Token != "" && gitConfig.OrgURL != ""
 
+	// enabled if we have any API key (NVIDIA or Kimi fallback)
+	enabled := apiKey != "" || fallbackKey != ""
+
 	return CoderConfig{
-		Enabled:      apiKey != "" || baseURL != "",
+		Enabled:      enabled,
 		APIKey:       apiKey,
-		BaseURL:      baseURL,
+		FallbackKey:  fallbackKey,
+		Model:        model,
 		SandboxDir:   sandboxDir,
 		SkillsDir:    skillsDir,
 		UseK8sJobs:   useK8sJobs,

@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: bowerhall/sheldon
+  IMAGE_NAME_CLAUDE_CODE: bowerhall/sheldon-claude-code
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Test sheldonmem
+        run: |
+          cd pkg/sheldonmem
+          go test -v ./...
+
+      - name: Test core
+        run: |
+          cd core
+          go test -v ./...
+
+      - name: Build
+        run: |
+          cd core
+          go build -o bin/sheldon ./cmd/sheldon
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Sheldon
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: core/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Claude Code
+        uses: docker/build-push-action@v5
+        with:
+          context: deploy/docker/claude-code
+          file: deploy/docker/claude-code/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_CLAUDE_CODE }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_CLAUDE_CODE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            # Pull latest images
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker pull ghcr.io/bowerhall/sheldon:latest
+            docker pull ghcr.io/bowerhall/sheldon-claude-code:latest
+
+            # Restart deployment
+            kubectl rollout restart deployment/sheldon -n sheldon
+            kubectl rollout status deployment/sheldon -n sheldon --timeout=120s
+
+            # Show status
+            kubectl get pods -n sheldon

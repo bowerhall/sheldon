@@ -10,9 +10,10 @@ import (
 )
 
 type Sandbox struct {
-	baseDir string
-	apiKey  string
-	baseURL string
+	baseDir      string
+	apiKey       string // NVIDIA NIM API key (primary)
+	fallbackKey  string // Moonshot Kimi API key (fallback)
+	model        string // model to use (default: kimi-k2.5)
 }
 
 type Workspace struct {
@@ -20,15 +21,20 @@ type Workspace struct {
 	TaskID string
 }
 
-func NewSandbox(baseDir, apiKey, baseURL string) (*Sandbox, error) {
+func NewSandbox(baseDir, apiKey, fallbackKey, model string) (*Sandbox, error) {
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return nil, fmt.Errorf("create sandbox dir: %w", err)
 	}
 
+	if model == "" {
+		model = "kimi-k2.5"
+	}
+
 	return &Sandbox{
-		baseDir: baseDir,
-		apiKey:  apiKey,
-		baseURL: baseURL,
+		baseDir:     baseDir,
+		apiKey:      apiKey,
+		fallbackKey: fallbackKey,
+		model:       model,
 	}, nil
 }
 
@@ -58,12 +64,19 @@ func (s *Sandbox) CleanEnv() []string {
 		"SHELL=/bin/sh",
 	}
 
-	if s.baseURL != "" {
-		env = append(env, "ANTHROPIC_BASE_URL="+s.baseURL)
+	// NVIDIA NIM API key (primary)
+	if s.apiKey != "" {
+		env = append(env, "NVIDIA_API_KEY="+s.apiKey)
 	}
 
-	if s.apiKey != "" {
-		env = append(env, "ANTHROPIC_API_KEY="+s.apiKey)
+	// Moonshot Kimi API key (fallback)
+	if s.fallbackKey != "" {
+		env = append(env, "KIMI_API_KEY="+s.fallbackKey)
+	}
+
+	// Model to use
+	if s.model != "" {
+		env = append(env, "CODER_MODEL="+s.model)
 	}
 
 	return env

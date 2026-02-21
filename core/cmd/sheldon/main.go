@@ -110,7 +110,8 @@ func main() {
 		bridgeCfg := coder.BridgeConfig{
 			SandboxDir:   cfg.Coder.SandboxDir,
 			APIKey:       cfg.Coder.APIKey,
-			BaseURL:      cfg.Coder.BaseURL,
+			FallbackKey:  cfg.Coder.FallbackKey,
+			Model:        cfg.Coder.Model,
 			SkillsDir:    cfg.Coder.SkillsDir,
 			UseK8sJobs:   cfg.Coder.UseK8sJobs,
 			K8sNamespace: cfg.Coder.K8sNamespace,
@@ -143,7 +144,7 @@ func main() {
 			mode = "k8s-jobs"
 		}
 
-		logger.Info("coder enabled", "mode", mode, "sandbox", cfg.Coder.SandboxDir)
+		logger.Info("coder enabled", "mode", mode, "model", cfg.Coder.Model, "sandbox", cfg.Coder.SandboxDir)
 	}
 
 	// skills manager - directory alongside memory db

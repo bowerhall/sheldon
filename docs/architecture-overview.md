@@ -2,85 +2,189 @@
 
 ## System Architecture (v5)
 
-Kora is a single Go binary running on k3s. The memory system (koramem) is an embedded Go package — no external services for memory operations.
+Sheldon is a single Go binary running on k3s. The memory system (sheldonmem) is an embedded Go package — no external services for memory operations.
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        KORA SYSTEM (k3s cluster)                    │
-│                                                                     │
-│  ┌────────────────────── kora-system namespace ──────────────────┐  │
-│  │                                                               │  │
-│  │  ┌─────────────────────────────────────────────────────────┐  │  │
-│  │  │              KORA (PicoClaw Fork + koramem)             │  │  │
-│  │  │                                                         │  │  │
-│  │  │  Telegram ──→ Agent Loop ──→ ContextBuilder             │  │  │
-│  │  │  Channel       │    ↑         │                         │  │  │
-│  │  │                │    │         ├── SOUL.md               │  │  │
-│  │  │                │    │         ├── IDENTITY.md           │  │  │
-│  │  │                │    │         ├── session history       │  │  │
-│  │  │         ┌──────┘    │         └── koramem.Recall()      │  │  │
-│  │  │         ↓           │              (in-process)         │  │  │
-│  │  │  Domain Router ─────┤                                   │  │  │
-│  │  │  (Haiku call)       │         koramem.Remember()        │  │  │
-│  │  │         │           │         (post-response, async)    │  │  │
-│  │  │         ↓           ↓                                   │  │  │
-│  │  │  ┌──────────────────────────────────────────┐           │  │  │
-│  │  │  │  koramem (embedded Go package)           │           │  │  │
-│  │  │  │  SQLite + sqlite-vec — single kora.db    │           │  │  │
-│  │  │  │  entities, facts, edges, domains, vectors │          │  │  │
-│  │  │  └──────────────────────────────────────────┘           │  │  │
-│  │  │                                                         │  │  │
-│  │  │  Tool Registry    Session Manager    Cron/Heartbeat     │  │  │
-│  │  └─────────────────────────────────────────────────────────┘  │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                                                                     │
-│  ┌────────────────────── kora-storage namespace (Phase 3+) ──────┐  │
-│  │  MinIO (object storage) — backups, artifacts, exports         │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                                                                     │
-│  ┌────────────────────── future namespaces ──────────────────────┐  │
-│  │  kora-voice:    Piper/XTTS (Phase 4+)                         │  │
-│  │  kora-services: Agent-deployed apps (Phase 6+)                │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              USER INTERACTION                               │
+│                                                                             │
+│                    Telegram ◄───────────────► Discord                       │
+│                         │                         │                         │
+│                         └──────────┬──────────────┘                         │
+│                                    │ long-polling (no inbound ports)        │
+│                                    ▼                                        │
+└────────────────────────────────────┼────────────────────────────────────────┘
+                                     │
+┌────────────────────────────────────┼─────────────────────────────────────────┐
+│                              SHELDON CORE                                    │
+│                                    │                                         │
+│                                    ▼                                         │
+│  ┌───────────────────────────────────────────────────────────────────────┐   │
+│  │                           AGENT LOOP                                  │   │
+│  │                                                                       │   │
+│  │   User Message ──► Context Builder ──► LLM Call ──► Tool Execution    │   │
+│  │                          │                              │             │   │
+│  │                          │                              ▼             │   │
+│  │              ┌───────────┴───────────┐          ┌─────────────┐       │   │
+│  │              │                       │          │   TOOLS     │       │   │
+│  │              ▼                       ▼          │             │       │   │
+│  │         SOUL.md               Session History   │ • recall    │       │   │
+│  │      (personality)            (recent context)  │ • remember  │       │   │
+│  │                                                 │ • write_code│       │   │
+│  │                                                 │ • deploy    │       │   │
+│  │                                                 │ • browse    │       │   │
+│  │                                                 │ • storage   │       │   │
+│  │                                                 └──────┬──────┘       │   │
+│  └─────────────────────────────────────────────────────────┼─────────────┘   │
+│                                                            │                 │
+└────────────────────────────────────────────────────────────┼─────────────────┘
+                                                             │
+                    ┌────────────────────────────────────────┼────────────────┐
+                    │                                        │                │
+                    ▼                                        ▼                ▼
+┌───────────────────────────┐  ┌─────────────────────────────────┐  ┌─────────────┐
+│       SHELDONMEM          │  │         CODE GENERATION         │  │   STORAGE   │
+│    (SQLite + sqlite-vec)  │  │                                 │  │   (MinIO)   │
+│                           │  │  ┌───────────────────────────┐  │  │             │
+│  ┌─────────┐ ┌─────────┐  │  │  │     Ollama Launch Claude  │  │  │  • uploads  │
+│  │Entities │ │  Facts  │  │  │  │     (subprocess or k8s)   │  │  │  • backups  │
+│  │ (graph) │ │(14 doms)│  │  │  └─────────────┬─────────────┘  │  │  • files     │
+│  └────┬────┘ └────┬────┘  │  │                │                │  └─────────────┘
+│       │           │       │  │                ▼                │
+│  ┌────┴───────────┴────┐  │  │  ┌───────────────────────────┐  │
+│  │       Edges         │  │  │  │    Model Selection        │  │
+│  │   (relationships)   │  │  │  │                           │  │
+│  └─────────────────────┘  │  │  │  NVIDIA_API_KEY set?      │  │
+│                           │  │  │         │                 │  │
+│  ┌─────────────────────┐  │  │  │    yes  │  no             │  │
+│  │      Vectors        │  │  │  │         ▼                 │  │
+│  │  (semantic search)  │  │  │  │  ┌──────┴───────┐         │  │
+│  └─────────────────────┘  │  │  │  ▼              ▼         │  │
+│                           │  │  │ NVIDIA NIM    Kimi API    │  │
+│  Single file: sheldon.db   │  │  │ (free tier)   (fallback)  │  │
+└───────────────────────────┘  │  │     │              │      │  │
+                               │  │     └──────┬───────┘      │  │
+                               │  │            ▼              │  │
+                               │  │     kimi-k2.5 model       │  │
+                               │  │            │              │  │
+                               │  │            ▼              │  │
+                               │  │   Code / Files / Git Push │  │
+                               │  └───────────────────────────┘  │
+                               └─────────────────────────────────┘
 
-External:
-  Telegram API ←→ Kora (outbound HTTPS)
-  Claude API   ←→ Kora (outbound HTTPS, for responses + extraction + routing)
-  Embed API    ←→ Kora (outbound HTTPS, Voyage AI or local Ollama)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            LLM PROVIDERS                                    │
+│                                                                             │
+│   Main Chat & Memory Extraction          Code Generation                    │
+│   ┌─────────────────────────┐            ┌─────────────────────────┐        │
+│   │  Kimi (kimi-k2-0711)    │            │  Ollama + Kimi K2.5     │        │
+│   │  via KIMI_API_KEY       │            │  via NVIDIA or Kimi API │        │
+│   └─────────────────────────┘            └─────────────────────────┘        │
+│                                                                             │
+│   Supported: claude, openai, kimi        Runs in isolated sandbox/k8s Job   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          INFRASTRUCTURE (VPS)                               │
+│                                                                             │
+│   Hetzner CX32 (8GB RAM, €8/mo) running k3s                                 │
+│                                                                             │
+│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│   │   Sheldon   │  │   Ollama    │  │    MinIO    │  │  Embedder   │        │
+│   │    Pod      │  │    Pod      │  │    Pod      │  │ (optional)  │        │
+│   │             │  │             │  │             │  │             │        │
+│   │  main app   │  │  model host │  │  storage    │  │  sqlite-vec │        │
+│   └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
+│          │                │                │                                │
+│          └────────────────┴────────────────┘                                │
+│                           │                                                 │
+│                    PersistentVolumes                                        │
+│                    /data/sheldon/*                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Message Flow
 
 ```
-1. User sends Telegram message
-2. PicoClaw Telegram channel receives message
+1. User sends Telegram/Discord message
+2. Bot channel receives message (long-polling, no inbound ports)
 3. Agent loop starts processing
-4. Domain Router → Haiku call → returns domain IDs + model tier
-5. koramem.Recall() → hybrid search (keyword + semantic + graph expansion)
-5b. Agent self-load → always fetch Kora entity facts (nickname, tone, corrections)
-6. ContextBuilder → assembles: SOUL.md + Kora entity facts + user facts + session history
-7. Claude API call (model selected by router) → response
+4. Domain Router → LLM call → returns domain IDs
+5. sheldonmem.Recall() → hybrid search (keyword + semantic + graph expansion)
+6. ContextBuilder → assembles: SOUL.md + entity facts + session history
+7. LLM API call → response
 8. If tool calls → execute tools → loop back to step 7
-9. Final response sent to user via Telegram
-10. koramem.Remember() → async: extract user-directed + agent-directed facts, store to respective entities
+9. Final response sent to user
+10. sheldonmem.Remember() → async: extract facts, store to entities
 ```
 
-## Phase Evolution
+## Code Generation Flow
 
-| Phase | What's Added                                                        | Containers   |
-| ----- | ------------------------------------------------------------------- | ------------ |
-| 0     | Kora binary with koramem                                            | 1            |
-| 1     | Structured logging, budget tracking, briefings                       | 1            |
-| 2     | Claude Code bridge ([spec](claude-code-bridge.md)), skill execution | 1            |
-| 3     | MinIO storage, backup automation                                    | 2            |
-| 4     | Voice server (Piper/XTTS)                                           | 3            |
-| 5     | Mac titlebar app                                                    | 3 + desktop  |
-| 6     | Self-extension engine                                               | 3+ (dynamic) |
-| 7     | Mobile apps                                                         | 3+ (dynamic) |
+```
+1. User requests code task via chat
+2. Agent calls write_code tool with prompt
+3. Bridge creates isolated workspace (sandbox or k8s Job)
+4. Ollama launches Claude Code with kimi-k2.5 model
+   └── Model selection: NVIDIA NIM (free) → Kimi API (fallback)
+5. Claude Code writes/edits files in workspace
+6. Output sanitized (API keys, tokens stripped)
+7. Files collected, workspace path returned
+8. Optional: build_image → deploy to k8s
+9. Optional: git commit/push to configured repo
+```
 
-## Why koramem Over PicoClaw's Markdown Memory
+## The 14 Life Domains
 
-PicoClaw stores memory in markdown files (MEMORY.md, USER.md, sessions/). This works for simple assistants but lacks: structured domains, semantic search, entity relationships, contradiction detection, and decay scoring.
+| ID  | Domain                  | Layer    | Rate of Change |
+| --- | ----------------------- | -------- | -------------- |
+| 1   | Identity & Self         | Core     | Years          |
+| 2   | Body & Health           | Core     | Months         |
+| 3   | Mind & Emotions         | Inner    | Months         |
+| 4   | Beliefs & Worldview     | Inner    | Years          |
+| 5   | Knowledge & Skills      | Inner    | Months         |
+| 6   | Relationships & Social  | World    | Months         |
+| 7   | Work & Career           | World    | Months         |
+| 8   | Finances & Assets       | World    | Days           |
+| 9   | Place & Environment     | World    | Months         |
+| 10  | Goals & Aspirations     | Temporal | Weeks          |
+| 11  | Preferences & Tastes    | Meta     | Years          |
+| 12  | Rhythms & Routines      | Temporal | Weeks          |
+| 13  | Life Events & Decisions | Temporal | Append-only    |
+| 14  | Unconscious Patterns    | Meta     | Years          |
 
-koramem replaces this with: SQLite + sqlite-vec in a single file, 14 life domains as first-class schema, entity graph with typed relationships, hybrid retrieval (keyword + semantic + graph), and automatic memory hygiene. Still lightweight (~100–200MB RAM), still a single binary, but with real memory capabilities.
+## Deployment Overlays
+
+| Overlay   | RAM | What's Included                     |
+| --------- | --- | ----------------------------------- |
+| `minimal` | 2GB | Sheldon only, no embeddings         |
+| `lite`    | 4GB | Sheldon + external Ollama (homelab) |
+| `full`    | 8GB | Sheldon + in-cluster Ollama + MinIO |
+
+## Cost Breakdown
+
+| Component           | Cost        |
+| ------------------- | ----------- |
+| Hetzner CX32 VPS    | €8/mo       |
+| NVIDIA NIM API      | Free        |
+| Kimi API (fallback) | Pay-per-use |
+| **Total**           | ~€8/mo      |
+
+## Why sheldonmem Over Markdown Memory
+
+Basic assistants store memory in markdown files. This works for simple use cases but lacks:
+
+- Structured domains
+- Semantic search
+- Entity relationships
+- Contradiction detection
+- Decay scoring
+
+sheldonmem replaces this with:
+
+- SQLite + sqlite-vec in a single file
+- 14 life domains as first-class schema
+- Entity graph with typed relationships
+- Hybrid retrieval (keyword + semantic + graph)
+- Automatic memory hygiene
+
+Still lightweight (~100–200MB RAM), still a single binary, but with real memory capabilities.

@@ -58,7 +58,31 @@ export SHELDON_ESSENCE="./core/essence"
 cd core && go run ./cmd/sheldon
 ```
 
-### Kubernetes Deployment
+### VPS Deployment (Recommended)
+
+One-command install on a fresh Ubuntu VPS (Hetzner CX32, 8GB RAM, €8/mo recommended):
+
+```bash
+# SSH to your VPS, then:
+curl -fsSL https://raw.githubusercontent.com/bowerhall/sheldon/main/deploy/scripts/vps-install.sh | sudo bash
+```
+
+Or manually:
+
+```bash
+# Clone and run install script
+git clone https://github.com/bowerhall/sheldon.git /opt/sheldon
+cd /opt/sheldon
+
+# Configure secrets
+cp deploy/k8s/base/secrets.yaml.example deploy/k8s/base/secrets.yaml
+# Edit secrets.yaml with your credentials (TELEGRAM_TOKEN, KIMI_API_KEY, etc.)
+
+# Run installer
+sudo ./deploy/scripts/vps-install.sh
+```
+
+### Manual Kubernetes Deployment
 
 ```bash
 # Create namespace
@@ -68,8 +92,10 @@ kubectl create namespace sheldon
 cp deploy/k8s/base/secrets.yaml.example deploy/k8s/base/secrets.yaml
 # Edit secrets.yaml with your credentials
 
-# Deploy (choose overlay based on VPS size)
-kubectl apply -k deploy/k8s/overlays/lite  # 8GB RAM recommended
+# Deploy (choose overlay based on resources)
+kubectl apply -k deploy/k8s/overlays/full     # 8GB+ RAM, in-cluster Ollama
+kubectl apply -k deploy/k8s/overlays/lite     # 4GB RAM, external Ollama
+kubectl apply -k deploy/k8s/overlays/minimal  # 2GB RAM, no embeddings
 ```
 
 See [deploy/README.md](deploy/README.md) for detailed deployment options.
@@ -87,7 +113,9 @@ See [deploy/README.md](deploy/README.md) for detailed deployment options.
 | `LLM_MODEL` | Model name | Yes |
 | `SHELDON_MEMORY` | Path to SQLite database | Yes |
 | `SHELDON_ESSENCE` | Path to SOUL.md directory | Yes |
-| `CODER_API_KEY` | Anthropic key for Claude Code | No |
+| `NVIDIA_API_KEY` | NVIDIA NIM API key for coder (free at build.nvidia.com) | No |
+| `KIMI_API_KEY` | Moonshot Kimi API key (fallback for coder) | No |
+| `CODER_MODEL` | Model for code generation (default: kimi-k2.5) | No |
 | `GIT_TOKEN` | GitHub PAT for code commits | No |
 | `GIT_ORG_URL` | GitHub org URL for repos | No |
 
@@ -163,7 +191,7 @@ go vet ./...
 
 - No inbound ports required (Telegram/Discord use long-polling)
 - Network policies isolate components
-- Claude Code runs in ephemeral k8s Jobs with separate API key
+- Code generation runs in isolated k8s Jobs via Ollama + NVIDIA NIM
 - Credentials stored in k8s Secrets
 - Output sanitization for API keys and tokens
 

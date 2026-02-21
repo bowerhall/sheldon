@@ -31,14 +31,15 @@ type Bridge struct {
 // BridgeConfig holds configuration for the Bridge
 type BridgeConfig struct {
 	SandboxDir   string
-	APIKey       string
-	BaseURL      string
+	APIKey       string // NVIDIA NIM API key (primary)
+	FallbackKey  string // Moonshot Kimi API key (fallback)
+	Model        string // model to use (default: kimi-k2.5)
 	SkillsDir    string // directory with skill templates
 	UseK8sJobs   bool   // use k8s Jobs instead of subprocess
 	K8sNamespace string // namespace for Jobs
-	K8sImage     string // Claude Code container image
+	K8sImage     string // code runner container image
 	ArtifactsPVC string // PVC for artifacts
-	SecretName   string // secret containing CODER_API_KEY
+	SecretName   string // secret containing API keys
 	// git integration
 	GitEnabled   bool
 	GitUserName  string
@@ -46,12 +47,12 @@ type BridgeConfig struct {
 	GitOrgURL    string
 }
 
-func NewBridge(sandboxDir, apiKey, baseURL string) (*Bridge, error) {
+func NewBridge(sandboxDir, apiKey, fallbackKey string) (*Bridge, error) {
 	return NewBridgeWithConfig(BridgeConfig{
-		SandboxDir: sandboxDir,
-		APIKey:     apiKey,
-		BaseURL:    baseURL,
-		UseK8sJobs: false,
+		SandboxDir:  sandboxDir,
+		APIKey:      apiKey,
+		FallbackKey: fallbackKey,
+		UseK8sJobs:  false,
 	})
 }
 
@@ -75,14 +76,14 @@ func NewBridgeWithConfig(cfg BridgeConfig) (*Bridge, error) {
 			GitUserEmail: cfg.GitUserEmail,
 			GitOrgURL:    cfg.GitOrgURL,
 		})
-		logger.Info("claude code bridge using k8s jobs", "namespace", cfg.K8sNamespace, "git", cfg.GitEnabled)
+		logger.Info("coder bridge using k8s jobs", "namespace", cfg.K8sNamespace, "git", cfg.GitEnabled)
 	} else {
-		sandbox, err := NewSandbox(cfg.SandboxDir, cfg.APIKey, cfg.BaseURL)
+		sandbox, err := NewSandbox(cfg.SandboxDir, cfg.APIKey, cfg.FallbackKey, cfg.Model)
 		if err != nil {
 			return nil, err
 		}
 		b.sandbox = sandbox
-		logger.Info("claude code bridge using subprocess")
+		logger.Info("coder bridge using subprocess", "model", cfg.Model)
 	}
 
 	return b, nil
@@ -202,7 +203,17 @@ func (b *Bridge) executeWithSubprocess(ctx context.Context, task Task, cfg struc
 }
 
 func (b *Bridge) run(ctx context.Context, ws *Workspace, prompt string, maxTurns int) (string, error) {
+	// Build ollama launch claude command with model from env
+	model := b.sandbox.model
+	if model == "" {
+		model = "kimi-k2.5"
+	}
+
+	// ollama launch claude --model MODEL -- CLAUDE_ARGS
 	args := []string{
+		"launch", "claude",
+		"--model", model,
+		"--",
 		"--print",
 		"--output-format", "text",
 		"--max-turns", fmt.Sprintf("%d", maxTurns),
@@ -210,11 +221,11 @@ func (b *Bridge) run(ctx context.Context, ws *Workspace, prompt string, maxTurns
 		"-p", prompt,
 	}
 
-	cmd := exec.CommandContext(ctx, "claude", args...)
+	cmd := exec.CommandContext(ctx, "ollama", args...)
 	cmd.Dir = ws.Path
 	cmd.Env = b.sandbox.CleanEnv()
 
-	logger.Debug("claude command", "dir", ws.Path, "args", args)
+	logger.Debug("ollama launch claude command", "dir", ws.Path, "model", model)
 
 	var output strings.Builder
 	var stderrBuf strings.Builder
@@ -359,7 +370,17 @@ func (b *Bridge) executeWithSubprocessProgress(ctx context.Context, task Task, c
 }
 
 func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt string, maxTurns int, onProgress func(StreamEvent)) (string, error) {
+	// Build ollama launch claude command with model from env
+	model := b.sandbox.model
+	if model == "" {
+		model = "kimi-k2.5"
+	}
+
+	// ollama launch claude --model MODEL -- CLAUDE_ARGS
 	args := []string{
+		"launch", "claude",
+		"--model", model,
+		"--",
 		"--print",
 		"--verbose",
 		"--output-format", "stream-json",
@@ -368,11 +389,11 @@ func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt stri
 		"-p", prompt,
 	}
 
-	cmd := exec.CommandContext(ctx, "claude", args...)
+	cmd := exec.CommandContext(ctx, "ollama", args...)
 	cmd.Dir = ws.Path
 	cmd.Env = b.sandbox.CleanEnv()
 
-	logger.Debug("claude command (progress)", "dir", ws.Path, "prompt_len", len(prompt))
+	logger.Debug("ollama launch claude command (progress)", "dir", ws.Path, "model", model)
 
 	var output strings.Builder
 	var stderrBuf strings.Builder
