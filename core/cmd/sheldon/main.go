@@ -75,6 +75,7 @@ func main() {
 		Provider: cfg.Extractor.Provider,
 		APIKey:   cfg.Extractor.APIKey,
 		Model:    cfg.Extractor.Model,
+		BaseURL:  cfg.Extractor.BaseURL,
 	})
 	if err != nil {
 		logger.Fatal("failed to create extractor", "error", err)

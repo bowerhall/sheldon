@@ -1,0 +1,101 @@
+# Sheldon Standard Setup
+#
+# Usage:
+#   1. Set secrets in Doppler (or copy .env.example to .env)
+#   2. docker compose up -d
+#   3. Message your Telegram bot
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=sheldon-net"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Uncomment for Let's Encrypt HTTPS:
+      # - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      # - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      # - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - sheldon-net
+
+  sheldon:
+    image: ${SHELDON_IMAGE:-ghcr.io/bowerhall/sheldon:latest}
+    container_name: sheldon
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    volumes:
+      - ./data:/data
+      - ./skills:/data/skills
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      # Required
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - KIMI_API_KEY=${KIMI_API_KEY}
+      - LLM_PROVIDER=${LLM_PROVIDER:-kimi}
+      - LLM_MODEL=${LLM_MODEL:-kimi-k2-0711-preview}
+
+      # Paths (fixed for container)
+      - SHELDON_MEMORY=/data/sheldon.db
+      - SHELDON_ESSENCE=/app/essence
+      - CODER_SANDBOX=/data/sandbox
+
+      # Embeddings (Ollama runs alongside)
+      - EMBEDDER_PROVIDER=ollama
+      - EMBEDDER_URL=http://ollama:11434
+      - EMBEDDER_MODEL=nomic-embed-text
+
+      # Extractor (local model via Ollama - no API cost)
+      - EXTRACTOR_PROVIDER=ollama
+      - EXTRACTOR_BASE_URL=http://ollama:11434
+      - EXTRACTOR_MODEL=qwen2:0.5b
+
+      # Coder LLM (uses KIMI_API_KEY by default, or set NVIDIA_API_KEY)
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+
+      # Git integration (optional)
+      - GIT_TOKEN=${GIT_TOKEN:-}
+      - GIT_USER_NAME=${GIT_USER_NAME:-Sheldon}
+      - GIT_USER_EMAIL=${GIT_USER_EMAIL:-}
+      - GIT_ORG_URL=${GIT_ORG_URL:-}
+
+      # Heartbeat (optional)
+      - HEARTBEAT_ENABLED=${HEARTBEAT_ENABLED:-false}
+      - HEARTBEAT_CHAT_ID=${HEARTBEAT_CHAT_ID:-}
+      - HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL:-8}
+
+      # Timezone
+      - TZ=${TZ:-UTC}
+    networks:
+      - sheldon-net
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - sheldon-net
+    # Pull models on first start (embeddings + extraction)
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && ollama pull qwen2:0.5b && wait"]
+
+networks:
+  sheldon-net:
+    name: sheldon-net
+    driver: bridge
+
+volumes:
+  ollama_data:

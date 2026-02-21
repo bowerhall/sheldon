@@ -53,6 +53,7 @@ type LLMConfig struct {
 	Provider string
 	APIKey   string
 	Model    string
+	BaseURL  string
 }
 
 type EmbedderConfig struct {

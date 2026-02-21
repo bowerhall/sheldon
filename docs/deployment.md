@@ -10,60 +10,18 @@
 ## Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bowerhall/sheldon/main/deploy/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bowerhall/sheldon/main/core/deploy/install.sh | bash
 ```
-
-The installer will ask which mode you want.
 
 ---
 
-## Deployment Modes
+## What You Get
 
-### Minimal
-
-**What it is:** Single container, no orchestration, no web routing.
-
-**Good for:** Trying it out, Raspberry Pi, laptop, resource-constrained devices.
-
-**What you get:**
 - Sheldon chatbot via Telegram/Discord
-- Memory (SQLite)
-- Skills
+- Memory (SQLite + sqlite-vec for semantic search)
+- Local Ollama for embeddings and fact extraction (zero API cost)
+- Skills framework
 - Cron reminders
-
-**What you don't get:**
-- Web-accessible apps
-- Traefik routing
-- App deployment capability
-
-**Install:**
-
-```bash
-mkdir -p ~/.sheldon
-cd ~/.sheldon
-
-TELEGRAM_TOKEN=xxx \
-ANTHROPIC_API_KEY=xxx \
-docker run -d \
-  --name sheldon \
-  --restart unless-stopped \
-  -v ~/.sheldon:/data \
-  -e TELEGRAM_TOKEN \
-  -e ANTHROPIC_API_KEY \
-  -e MEMORY_PATH=/data/sheldon.db \
-  ghcr.io/bowerhall/sheldon:latest
-```
-
----
-
-### Standard
-
-**What it is:** Sheldon + Traefik reverse proxy + app deployment capability.
-
-**Good for:** VPS, any server with Docker.
-
-**What you get:**
-- Everything in Minimal
 - Traefik for web routing
 - HTTPS via Let's Encrypt
 - Sheldon can deploy apps for you
@@ -82,6 +40,9 @@ Internet
        │          │          │
        ▼          ▼          ▼
    Sheldon    App #1     App #2
+       │
+       ▼
+    Ollama (embeddings + extraction)
 
    All containers on same Docker network.
    Traefik auto-discovers via labels.
@@ -101,8 +62,8 @@ mkdir -p /opt/sheldon
 cd /opt/sheldon
 
 # 4. Download compose files
-curl -O https://raw.githubusercontent.com/bowerhall/sheldon/main/core/deploy/standard/docker-compose.yml
-curl -O https://raw.githubusercontent.com/bowerhall/sheldon/main/core/deploy/standard/.env.example
+curl -O https://raw.githubusercontent.com/bowerhall/sheldon/main/core/deploy/docker-compose.yml
+curl -O https://raw.githubusercontent.com/bowerhall/sheldon/main/core/.env.example
 
 # 5. Configure
 cp .env.example .env
@@ -136,39 +97,6 @@ Sheldon will:
 2. Add it to `apps.yml`
 3. Run `docker compose -f apps.yml up -d`
 4. Configure Traefik labels for routing
-
----
-
-### Distributed (Future)
-
-> **Not implemented.** This is a potential future architecture for multi-node setups.
-
-**What it is:** Multiple nodes with sync and failover.
-
-**Architecture idea:**
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                   S3 / MinIO                            │
-│               (sync hub for memory)                     │
-└─────────────────────────────────────────────────────────┘
-              ▲                           ▲
-              │ Litestream                │ Litestream
-              │ (realtime SQLite sync)    │
-┌─────────────┴───────────┐   ┌───────────┴─────────────┐
-│       Node A            │   │         Node B          │
-│      (primary)          │   │       (standby)         │
-└─────────────────────────┘   └─────────────────────────┘
-              │                           │
-              └───────────┬───────────────┘
-                          │
-                   DNS Failover
-```
-
-**Would require:**
-- [Litestream](https://litestream.io/) for SQLite replication
-- S3/MinIO for sync hub
-- DNS-based failover (Cloudflare, Route53)
 
 ---
 
@@ -211,8 +139,7 @@ We use [Doppler](https://doppler.com) for secrets management. This gives you:
 | `EMBEDDER_PROVIDER` | - | `ollama` or `voyage` |
 | `EMBEDDER_BASE_URL` | - | Ollama URL if using |
 | `EMBEDDER_MODEL` | - | Embedding model name |
-| `CODER_ENABLED` | `false` | Enable AI code generation |
-| `CODER_ISOLATED` | `false` | Run coder in Docker containers |
+| `CODER_ISOLATED` | `true` | Run coder in Docker containers (recommended) |
 | `CODER_MODEL` | `kimi-k2.5` | Model for code generation |
 | `NVIDIA_API_KEY` | - | NVIDIA NIM API key (primary) |
 | `KIMI_API_KEY` | - | Kimi API key (fallback) |
@@ -305,11 +232,13 @@ docker compose up -d
 
 ---
 
-## Isolated Code Generation
+## Code Generation (Coder)
 
-To enable AI code generation in isolated containers:
+Coder is enabled automatically when you provide an API key (`NVIDIA_API_KEY` or `KIMI_API_KEY`).
 
-1. Pull the coder sandbox image:
+By default, coder runs in isolated Docker containers for security. To enable:
+
+1. Ensure the coder sandbox image is available:
 
 ```bash
 docker pull ghcr.io/bowerhall/sheldon-coder-sandbox:latest
@@ -318,9 +247,8 @@ docker pull ghcr.io/bowerhall/sheldon-coder-sandbox:latest
 2. Add to your `.env`:
 
 ```env
-CODER_ENABLED=true
-CODER_ISOLATED=true
 KIMI_API_KEY=your_kimi_api_key
+# Optional: NVIDIA_API_KEY for free tier access
 ```
 
 3. Restart:
@@ -328,6 +256,8 @@ KIMI_API_KEY=your_kimi_api_key
 ```bash
 docker compose up -d
 ```
+
+Coder runs in isolated mode by default. Set `CODER_ISOLATED=false` only for local development.
 
 ---
 
@@ -375,21 +305,11 @@ docker compose up -d
 
 ---
 
-## When to use what
+## Resource Requirements
 
-| Situation | Mode |
-|-----------|------|
-| Trying Sheldon out | Minimal |
-| VPS deployment | Standard |
-| Raspberry Pi (limited RAM) | Minimal |
-| Multi-node / HA | Distributed (future) |
+| Config | RAM | Storage | CPU | Cost |
+|--------|-----|---------|-----|------|
+| Base (Sheldon + Ollama) | 2GB | 5GB | 2 cores | €5/mo |
+| With Coder | 4GB | 10GB | 4 cores | €8/mo |
 
----
-
-## Resource requirements
-
-| Mode | RAM | Storage | CPU |
-|------|-----|---------|-----|
-| Minimal | 256MB | 1GB | 1 core |
-| Standard | 512MB | 2GB | 1 core |
-| Standard + Coder | 1GB | 5GB | 2 cores |
+**Recommended:** Hetzner CX32 (4 vCPU, 8GB RAM, €8.49/mo) handles everything with headroom.

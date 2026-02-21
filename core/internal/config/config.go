@@ -116,8 +116,8 @@ func loadCoderConfig() CoderConfig {
 		sandboxDir = "/tmp/sheldon-sandbox"
 	}
 
-	// isolated mode uses ephemeral Docker containers
-	isolated := os.Getenv("CODER_ISOLATED") == "true"
+	// isolated mode uses ephemeral Docker containers (default: true for security)
+	isolated := os.Getenv("CODER_ISOLATED") != "false"
 
 	image := os.Getenv("CODER_IMAGE")
 	if image == "" {
@@ -275,10 +275,14 @@ func loadExtractorConfig() (LLMConfig, error) {
 		return LLMConfig{}, err
 	}
 
+	// Base URL for Ollama (defaults handled in llm package)
+	baseURL := os.Getenv("EXTRACTOR_BASE_URL")
+
 	return LLMConfig{
 		Provider: provider,
 		APIKey:   apiKey,
 		Model:    os.Getenv("EXTRACTOR_MODEL"),
+		BaseURL:  baseURL,
 	}, nil
 }
 
@@ -307,6 +311,9 @@ func getAPIKey(provider, prefix string) (string, error) {
 			return "", fmt.Errorf("KIMI_API_KEY not set")
 		}
 		return key, nil
+	case "ollama":
+		// Ollama doesn't need an API key
+		return "ollama", nil
 	default:
 		return "", fmt.Errorf("unknown provider: %s", provider)
 	}

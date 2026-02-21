@@ -27,6 +27,19 @@ func New(cfg Config) (LLM, error) {
 		}
 
 		return newOpenAICompatible(cfg.APIKey, "https://api.moonshot.ai/v1", model), nil
+	case "ollama":
+		baseURL := cfg.BaseURL
+		if baseURL == "" {
+			baseURL = "http://localhost:11434"
+		}
+
+		model := cfg.Model
+		if model == "" {
+			model = "qwen2:0.5b"
+		}
+
+		// Ollama's OpenAI-compatible endpoint
+		return newOpenAICompatible("ollama", baseURL+"/v1", model), nil
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", cfg.Provider)
 	}

@@ -17,7 +17,7 @@ build-sheldon:
 # Build coder sandbox image
 build-coder:
 	@echo "Building coder-sandbox image..."
-	docker build -t $(CODER_IMAGE) deploy/docker/coder-sandbox/
+	docker build -t $(CODER_IMAGE) core/deploy/coder-sandbox/
 
 # Push images to registry
 push: push-sheldon push-coder
@@ -30,35 +30,35 @@ push-coder:
 
 # Start services with Docker Compose
 run:
-	cd deploy/docker/standard && docker compose up -d
+	cd core/deploy && docker compose up -d
 
 # Stop services
 stop:
-	cd deploy/docker/standard && docker compose down
+	cd core/deploy && docker compose down
 
 # Restart sheldon (after rebuild)
 restart:
-	cd deploy/docker/standard && docker compose restart sheldon
+	cd core/deploy && docker compose restart sheldon
 
 # View logs
 logs:
-	cd deploy/docker/standard && docker compose logs -f sheldon
+	cd core/deploy && docker compose logs -f sheldon
 
 # View all logs
 logs-all:
-	cd deploy/docker/standard && docker compose logs -f
+	cd core/deploy && docker compose logs -f
 
 # Get shell in sheldon container
 shell:
-	cd deploy/docker/standard && docker compose exec sheldon /bin/sh
+	cd core/deploy && docker compose exec sheldon /bin/sh
 
 # Check status
 status:
-	cd deploy/docker/standard && docker compose ps
+	cd core/deploy && docker compose ps
 
 # Clean up
 clean:
-	cd deploy/docker/standard && docker compose down -v
+	cd core/deploy && docker compose down -v
 
 # Run Go tests
 test:
@@ -73,4 +73,4 @@ run-local:
 
 # Pull latest images
 pull:
-	cd deploy/docker/standard && docker compose pull
+	cd core/deploy && docker compose pull

@@ -199,11 +199,15 @@ func (b *Bridge) executeWithDocker(ctx context.Context, task Task, cfg struct {
 
 		// Push changes after coder completes (if GitRepo is set)
 		if task.GitRepo != "" && b.gitOps != nil {
-			pushed, pushErr := b.gitOps.PushChanges(taskCtx, result.WorkspacePath, task.GitRepo, "sheldon/"+task.ID)
+			branchName := "sheldon/" + task.ID
+			pushed, pushErr := b.gitOps.PushChanges(taskCtx, result.WorkspacePath, task.GitRepo, branchName)
 			if pushErr != nil {
 				logger.Error("git push failed", "error", pushErr, "repo", task.GitRepo)
+				result.GitError = pushErr.Error()
 			} else if pushed {
-				logger.Debug("pushed changes to repo", "repo", task.GitRepo, "branch", "sheldon/"+task.ID)
+				logger.Debug("pushed changes to repo", "repo", task.GitRepo, "branch", branchName)
+				result.GitPushed = true
+				result.GitBranch = branchName
 			}
 		}
 	}
@@ -277,11 +281,15 @@ func (b *Bridge) executeWithSubprocess(ctx context.Context, task Task, cfg struc
 
 	// Push changes after coder completes (if GitRepo is set)
 	if task.GitRepo != "" && b.gitOps != nil && result.Error == "" {
-		pushed, pushErr := b.gitOps.PushChanges(taskCtx, ws.Path, task.GitRepo, "sheldon/"+task.ID)
+		branchName := "sheldon/" + task.ID
+		pushed, pushErr := b.gitOps.PushChanges(taskCtx, ws.Path, task.GitRepo, branchName)
 		if pushErr != nil {
 			logger.Error("git push failed", "error", pushErr, "repo", task.GitRepo)
+			result.GitError = pushErr.Error()
 		} else if pushed {
-			logger.Debug("pushed changes to repo", "repo", task.GitRepo, "branch", "sheldon/"+task.ID)
+			logger.Debug("pushed changes to repo", "repo", task.GitRepo, "branch", branchName)
+			result.GitPushed = true
+			result.GitBranch = branchName
 		}
 	}
 
@@ -424,11 +432,15 @@ func (b *Bridge) executeWithDockerProgress(ctx context.Context, task Task, cfg s
 
 		// Push changes after coder completes (if GitRepo is set)
 		if task.GitRepo != "" && b.gitOps != nil {
-			pushed, pushErr := b.gitOps.PushChanges(taskCtx, result.WorkspacePath, task.GitRepo, "sheldon/"+task.ID)
+			branchName := "sheldon/" + task.ID
+			pushed, pushErr := b.gitOps.PushChanges(taskCtx, result.WorkspacePath, task.GitRepo, branchName)
 			if pushErr != nil {
 				logger.Error("git push failed", "error", pushErr, "repo", task.GitRepo)
+				result.GitError = pushErr.Error()
 			} else if pushed {
-				logger.Debug("pushed changes to repo", "repo", task.GitRepo, "branch", "sheldon/"+task.ID)
+				logger.Debug("pushed changes to repo", "repo", task.GitRepo, "branch", branchName)
+				result.GitPushed = true
+				result.GitBranch = branchName
 			}
 		}
 	}
@@ -494,11 +506,15 @@ func (b *Bridge) executeWithSubprocessProgress(ctx context.Context, task Task, c
 
 	// Push changes after coder completes (if GitRepo is set)
 	if task.GitRepo != "" && b.gitOps != nil && result.Error == "" {
-		pushed, pushErr := b.gitOps.PushChanges(taskCtx, ws.Path, task.GitRepo, "sheldon/"+task.ID)
+		branchName := "sheldon/" + task.ID
+		pushed, pushErr := b.gitOps.PushChanges(taskCtx, ws.Path, task.GitRepo, branchName)
 		if pushErr != nil {
 			logger.Error("git push failed", "error", pushErr, "repo", task.GitRepo)
+			result.GitError = pushErr.Error()
 		} else if pushed {
-			logger.Debug("pushed changes to repo", "repo", task.GitRepo, "branch", "sheldon/"+task.ID)
+			logger.Debug("pushed changes to repo", "repo", task.GitRepo, "branch", branchName)
+			result.GitPushed = true
+			result.GitBranch = branchName
 		}
 	}
 

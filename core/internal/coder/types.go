@@ -48,6 +48,10 @@ type Result struct {
 	Warnings      []string
 	Sanitized     bool
 	Error         string
+	// Git status
+	GitPushed bool   // true if changes were pushed
+	GitBranch string // branch name if pushed
+	GitError  string // error message if push failed
 }
 
 type StreamEvent struct {

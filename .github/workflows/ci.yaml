@@ -77,8 +77,8 @@ jobs:
       - name: Build and push Coder Sandbox
         uses: docker/build-push-action@v5
         with:
-          context: core/deploy/docker/coder-sandbox
-          file: core/deploy/docker/coder-sandbox/Dockerfile
+          context: core/deploy/coder-sandbox
+          file: core/deploy/coder-sandbox/Dockerfile
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_CODER }}:latest
@@ -154,9 +154,9 @@ jobs:
           host: ${{ steps.doppler.outputs.VPS_HOST }}
           username: ${{ steps.doppler.outputs.VPS_USER }}
           key: ${{ steps.doppler.outputs.VPS_SSH_KEY }}
-          source: "core/deploy/standard/docker-compose.yml"
+          source: "core/deploy/docker-compose.yml"
           target: "/opt/sheldon/"
-          strip_components: 3
+          strip_components: 2
 
       - name: Copy .env
         uses: appleboy/scp-action@v0.1.7
