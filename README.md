@@ -9,16 +9,53 @@ A personal AI assistant that remembers your entire life, runs on your own infras
 - 🔒 **Isolated coder** — Ephemeral Docker containers for safe code execution
 - ⚡ **One-click deploy** — Push to GitHub → deployed on VPS (~€8/mo)
 - 🗂️ **14 life domains** — Structured memory across your entire life
-- 💬 **Proactive check-ins** — Scheduled heartbeats with context
+- ⏰ **Scheduled agent triggers** — Cron + scheduler + reminder + task runner in one
 - 🏠 **Self-hosted** — Your data, your infrastructure
+
+## Scheduled Agent Triggers
+
+Unlike traditional heartbeat systems that just send notifications, Sheldon's cron system **wakes the full agent** with context. The agent decides what to do: send a check-in, remind you about something, or start working on a task.
+
+```
+You: "check on me every 6 hours"
+Sheldon: "I'll check in with you every 6 hours."
+
+[6 hours later]
+Sheldon: "Hey! How's your afternoon going? Last we talked you were working on the API refactor."
+
+You: "go quiet until tomorrow"
+Sheldon: "Got it, I'll be quiet until tomorrow morning."
+```
 
 ```
 You: "remind me to take meds every evening for two weeks"
-Sheldon: "Got it! I'll remind you about your meds every evening at 8pm."
+Sheldon: "I'll remind you at 8pm every evening for the next two weeks."
 
 [8:00 PM]
-Sheldon: "Time to take your meds"
+Sheldon: "Time for your evening meds!"
 ```
+
+```
+You: "build me a weather dashboard at 3pm tomorrow"
+Sheldon: "I'll start building your weather dashboard tomorrow at 3pm."
+
+[3:00 PM next day]
+Sheldon: "Starting on your weather dashboard now."
+[works autonomously, uses coder tools]
+Sheldon: "Done! Deployed to weather.yourdomain.com"
+```
+
+**How it works:**
+1. You tell Sheldon what you want (reminder, check-in schedule, scheduled task)
+2. Sheldon stores context in memory + creates a cron with a keyword
+3. When cron fires → recalls memory with keyword → injects into agent loop
+4. Agent takes action based on context (not just a dumb notification)
+
+**Why this is better than traditional heartbeat:**
+- 🎯 **Context-aware** — Agent knows *why* it's reaching out
+- 🛠️ **Can take action** — Not just notify, but actually do work
+- 🎚️ **Runtime control** — "go quiet for 3 hours" via conversation, not config
+- 🔗 **Memory-linked** — Updates to facts automatically reflect in reminders
 
 ## Architecture
 
@@ -105,8 +142,7 @@ cd sheldon
 | `ANTHROPIC_API_KEY` | If using Claude |
 | `GIT_TOKEN` | GitHub PAT for coder to push code |
 | `GIT_ORG_URL` | e.g., `https://github.com/your-org` |
-| `HEARTBEAT_ENABLED` | `true` for proactive check-ins |
-| `HEARTBEAT_CHAT_ID` | Your Telegram chat ID |
+| `HEARTBEAT_CHAT_ID` | Your Telegram chat ID (for error alerts) |
 
 4. Generate Service Token: Project Settings → Service Tokens → Generate
 5. Copy the token (starts with `dp.st.`)
