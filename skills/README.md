@@ -1,31 +1,49 @@
-# sheldon skills
+# Sheldon Skills
 
-coding patterns for coder. sheldon injects relevant skills based on prompt keywords.
+Skills are markdown files that inject context into the coder's prompt based on task keywords.
 
-## usage
+## Format
 
-1. push this folder to your own repo
-2. set `CODER_SKILLS_REPO` in sheldon config to your repo url
-3. sheldon clones at startup and injects matching skills into prompts
+Skills follow the [ClawHub standard](https://github.com/openclaw/clawhub/blob/main/docs/skill-format.md):
 
-## adding skills
+```yaml
+---
+name: skill-name
+description: Short description
+version: 1.0.0
+metadata:
+  openclaw:
+    requires:
+      bins:
+        - required-binary
+      env:
+        - REQUIRED_ENV_VAR
+    alwaysActive: false
+---
 
-create a new `.md` file with patterns. sheldon matches by filename keywords:
+# Skill Content
 
-| file | triggers on |
-|------|-------------|
-| `go-api.md` | "go", "golang", "api" |
-| `python-api.md` | "python", "fastapi", "flask" |
-| `dockerfile.md` | "docker", "container", "image" |
-| `compose.md` | "compose", "deploy", "traefik" |
-| `general.md` | always included |
-
-## updating
-
-just push to your repo. restart sheldon to pull latest:
-
-```bash
-docker compose restart sheldon
+Instructions and examples here...
 ```
 
-or wait for next container restart.
+## Included Skills
+
+| Skill | Description |
+|-------|-------------|
+| `general` | Coding guidelines, always active |
+| `go-api` | Go API patterns with net/http |
+| `python-api` | FastAPI patterns |
+| `dockerfile` | Multi-stage Docker builds |
+| `compose` | Docker Compose with Traefik |
+| `git-workflow` | Branching and conventional commits |
+
+## How Skills Work
+
+1. User asks Sheldon to write code
+2. Coder analyzes the task for keywords
+3. Matching skills are injected into the prompt
+4. `general` is always included
+
+## Adding Skills
+
+Create a new `.md` file in this directory with YAML frontmatter.

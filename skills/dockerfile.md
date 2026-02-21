@@ -1,14 +1,24 @@
-# dockerfile patterns
+---
+name: dockerfile
+description: Dockerfile patterns for Go and Node applications
+version: 1.0.0
+metadata:
+  openclaw:
+    requires:
+      bins:
+        - docker
+---
 
-## go applications
+# Dockerfile Patterns
+
+## Go Applications
+
 - multi-stage build (builder + runtime)
 - use alpine for small images
 - run as non-root user
-- copy only the binary
 
-## example
 ```dockerfile
-FROM golang:1.22-alpine AS builder
+FROM golang:1.24-alpine AS builder
 WORKDIR /build
 COPY go.* ./
 RUN go mod download
@@ -23,7 +33,8 @@ EXPOSE 8080
 CMD ["app"]
 ```
 
-## node applications
+## Node Applications
+
 ```dockerfile
 FROM node:20-alpine AS builder
 WORKDIR /app

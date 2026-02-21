@@ -1,15 +1,29 @@
-# go api patterns
+---
+name: go-api
+description: Go API development patterns
+version: 1.0.0
+metadata:
+  openclaw:
+    requires:
+      bins:
+        - go
+---
 
-## structure
-- single main.go for simple apis
+# Go API Patterns
+
+## Structure
+
+- single main.go for simple APIs
 - use net/http, no frameworks unless requested
 - graceful shutdown with signal handling
 
-## endpoints
-- health check at GET /health returning {"status": "ok"}
+## Endpoints
+
+- health check at GET /health
 - use http.ServeMux for routing
 
-## example
+## Example
+
 ```go
 package main
 

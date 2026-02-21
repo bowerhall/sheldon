@@ -1,29 +1,37 @@
-# docker compose patterns
+---
+name: compose
+description: Docker Compose patterns with Traefik routing
+version: 1.0.0
+metadata:
+  openclaw:
+    requires:
+      bins:
+        - docker
+---
 
-## service definition
-- use specific image tags, not :latest in production
-- set restart policy (unless-stopped recommended)
+# Docker Compose Patterns
+
+## Service Definition
+
+- use specific image tags, not :latest
+- set restart policy (unless-stopped)
 - define healthcheck for critical services
 - use named volumes for persistent data
 
-## traefik routing
-- add labels for automatic discovery
-- use entrypoints (web, websecure)
-- set Host rules for subdomain routing
+## Traefik Routing
 
-## example
+- add labels for automatic discovery
+- use Host rules for subdomain routing
+
+## Example
+
 ```yaml
-# docker-compose.yml
 services:
-  {{name}}:
-    image: {{image}}:{{tag}}
+  myapp:
+    image: myapp:1.0.0
     restart: unless-stopped
     networks:
       - sheldon-net
-    volumes:
-      - {{name}}-data:/data
-    environment:
-      - NODE_ENV=production
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -31,19 +39,17 @@ services:
       retries: 3
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.{{name}}.rule=Host(`{{name}}.${DOMAIN}`)"
-      - "traefik.http.routers.{{name}}.entrypoints=web"
-      - "traefik.http.services.{{name}}.loadbalancer.server.port=8080"
-
-volumes:
-  {{name}}-data:
+      - "traefik.http.routers.myapp.rule=Host(`myapp.${DOMAIN}`)"
+      - "traefik.http.routers.myapp.entrypoints=web"
+      - "traefik.http.services.myapp.loadbalancer.server.port=8080"
 
 networks:
   sheldon-net:
     external: true
 ```
 
-## multi-service app
+## Multi-Service App
+
 ```yaml
 services:
   web:
@@ -57,8 +63,6 @@ services:
     build: ./api
     depends_on:
       - db
-    labels:
-      - "traefik.http.routers.api.rule=Host(`api.${DOMAIN}`)"
 
   db:
     image: postgres:16-alpine

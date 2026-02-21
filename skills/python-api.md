@@ -1,11 +1,25 @@
-# python api patterns
+---
+name: python-api
+description: Python API development with FastAPI
+version: 1.0.0
+metadata:
+  openclaw:
+    requires:
+      bins:
+        - python3
+        - pip
+---
 
-## structure
-- use fastapi for apis (unless flask requested)
-- single app.py for simple apis
+# Python API Patterns
+
+## Structure
+
+- use FastAPI for APIs (unless Flask requested)
+- single app.py for simple APIs
 - use uvicorn as server
 
-## example
+## Example
+
 ```python
 from fastapi import FastAPI
 import uvicorn
@@ -21,6 +35,7 @@ if __name__ == "__main__":
 ```
 
 ## requirements.txt
+
 ```
 fastapi==0.109.0
 uvicorn==0.27.0
