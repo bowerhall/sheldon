@@ -54,6 +54,19 @@ CREATE TABLE IF NOT EXISTS edges (
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
 CREATE INDEX IF NOT EXISTS idx_edges_relation ON edges(relation);
+
+CREATE TABLE IF NOT EXISTS crons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    keyword TEXT NOT NULL,
+    schedule TEXT NOT NULL,
+    chat_id INTEGER NOT NULL,
+    expires_at DATETIME,
+    next_run DATETIME NOT NULL,
+    created_at DATETIME DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_crons_next_run ON crons(next_run);
+CREATE INDEX IF NOT EXISTS idx_crons_chat_id ON crons(chat_id);
 `
 
 const vecSchema = `

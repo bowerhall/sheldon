@@ -161,6 +161,10 @@ func main() {
 	tools.RegisterBrowserTools(agentLoop.Registry(), tools.DefaultBrowserConfig())
 	logger.Info("browser tools enabled")
 
+	// cron tools for scheduled reminders
+	tools.RegisterCronTools(agentLoop.Registry(), memory)
+	logger.Info("cron tools enabled")
+
 	// minio storage (optional)
 	if cfg.Storage.Enabled {
 		storageClient, err := storage.NewClient(storage.Config{
@@ -313,6 +317,16 @@ func main() {
 		}()
 
 		logger.Info("heartbeat enabled", "interval", cfg.Heartbeat.Interval, "chatID", cfg.Heartbeat.ChatID, "provider", provider)
+	}
+
+	// cron runner for scheduled reminders
+	if len(bots) > 0 {
+		tz, _ := time.LoadLocation(cfg.Timezone)
+		cronRunner := agent.NewCronRunner(memory, func(chatID int64, msg string) {
+			notifyBot.Send(chatID, msg)
+		}, tz)
+		go cronRunner.Run(ctx)
+		logger.Info("cron runner started")
 	}
 
 	embedderProvider := cfg.Embedder.Provider

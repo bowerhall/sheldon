@@ -1,25 +1,28 @@
-# koramem — Memory System
+# sheldonmem — Memory System
 
-> Structured domain memory with graph relationships for personal AI. Pure Go, single SQLite file.
+> Structured domain memory with graph relationships and scheduled reminders for personal AI. Pure Go, single SQLite file.
 
-Package: `github.com/kadet/koramem`
+Package: `github.com/bowerhall/sheldonmem`
 
 ## Why Build This
 
-Existing AI memory solutions (Mem0, Zep, Letta) share the same limitations: flat unstructured facts, no domain awareness, no graph relationships, Python-only, require external vector databases. koramem fixes all of this.
+Existing AI memory solutions (Mem0, Zep, Letta) share the same limitations: flat unstructured facts, no domain awareness, no graph relationships, Python-only, require external vector databases. sheldonmem fixes all of this.
 
-**What koramem provides that nothing else does:**
+**What sheldonmem provides that nothing else does:**
+
 - 14 life domains as first-class schema concept
 - Entity graph with typed cross-domain relationships
 - Hybrid retrieval: keyword SQL + semantic vector + graph expansion
 - Contradiction detection with version chains
 - Decay scoring for memory hygiene
+- Cron-based scheduled reminders integrated with memory
 - Single SQLite file — no external services
 - Pure Go — embeds in any Go binary
 
 ## Schema
 
 ### entities
+
 First-class graph nodes: people, places, organizations, concepts, goals, events.
 
 ```sql
@@ -39,39 +42,40 @@ CREATE INDEX idx_entities_name ON entities(name);
 
 ### Agent Self-Entity
 
-Kora itself is a first-class entity in the store, seeded on init alongside the 14 domains:
+Sheldon itself is a first-class entity in the store, seeded on init alongside the 14 domains:
 
 ```sql
 -- Seeded on first run
 INSERT INTO entities (name, entity_type, domain_id, metadata)
-VALUES ('Kora', 'agent', 1, '{"role": "assistant", "version": "1.0"}');
+VALUES ('Sheldon', 'agent', 1, '{"role": "assistant", "version": "1.0"}');
 ```
 
-This enables Kora to accumulate its own evolving identity. Facts attach to the Kora entity just like any other:
+This enables Sheldon to accumulate its own evolving identity. Facts attach to the Sheldon entity just like any other:
 
-| field | example value | how it's learned |
-|-------|--------------|-----------------|
-| nickname | "K" | user says "I'll call you K" |
-| tone_preference | "concise, slightly informal" | user feedback or explicit instruction |
-| self_correction | "I tend to over-explain career advice" | user pushback patterns |
-| user_dynamic | "Kadet prefers options, not directives" | observed interaction patterns |
-| operational_note | "use Opus for career decisions" | learned from user preferences |
-| humor_style | "dry, occasional" | accumulated from positive reactions |
-| communication_lang | "English, occasional Pidgin OK" | user instruction |
-| trust_level | "autonomous for apartments, confirm for finances" | explicit user delegation |
+| field              | example value                                     | how it's learned                      |
+| ------------------ | ------------------------------------------------- | ------------------------------------- |
+| nickname           | "Shelly"                                          | user says "I'll call you Shelly"      |
+| tone_preference    | "concise, slightly informal"                      | user feedback or explicit instruction |
+| self_correction    | "I tend to over-explain career advice"            | user pushback patterns                |
+| user_dynamic       | "User prefers options, not directives"            | observed interaction patterns         |
+| operational_note   | "use Opus for career decisions"                   | learned from user preferences         |
+| humor_style        | "dry, occasional"                                 | accumulated from positive reactions   |
+| communication_lang | "English, occasional Pidgin OK"                   | user instruction                      |
+| trust_level        | "autonomous for apartments, confirm for finances" | explicit user delegation              |
 
-Edges connect Kora to the user and to operational concepts:
+Edges connect Sheldon to the user and to operational concepts:
 
 ```
-Kora →serves→ Kadet
-Kora →nicknamed→ "K"            (stored as fact, not edge)
-Kora →prefers_model→ Opus       (for career domain — stored as fact)
-Kadet →trusts→ Kora             (edge with strength, metadata: {scope: "apartment_search"})
+Sheldon →serves→ User
+Sheldon →nicknamed→ "Shelly"     (stored as fact, not edge)
+Sheldon →prefers_model→ Opus    (for career domain — stored as fact)
+User →trusts→ Sheldon           (edge with strength, metadata: {scope: "apartment_search"})
 ```
 
-**Static vs dynamic identity**: SOUL.md defines Kora's baseline personality at deploy time (warm, direct, culturally aware). The Kora entity in koramem accumulates *learned* identity — how it should adapt based on interaction history. On context assembly, both are loaded: SOUL.md first, then Kora entity facts layered on top as overrides.
+**Static vs dynamic identity**: SOUL.md defines Sheldon's baseline personality at deploy time (warm, direct, culturally aware). The Sheldon entity in sheldonmem accumulates _learned_ identity — how it should adapt based on interaction history. On context assembly, both are loaded: SOUL.md first, then Sheldon entity facts layered on top as overrides.
 
 ### facts
+
 Atomic knowledge units. Domain-tagged, confidence-scored, versioned via supersedes chain.
 
 ```sql
@@ -84,17 +88,16 @@ CREATE TABLE facts (
     confidence REAL DEFAULT 0.8,
     access_count INTEGER DEFAULT 0,
     last_accessed DATETIME,
-    source_id INTEGER REFERENCES conversations(id),
     supersedes INTEGER REFERENCES facts(id),
     active BOOLEAN DEFAULT 1,
     created_at DATETIME DEFAULT (datetime('now'))
 );
 CREATE INDEX idx_facts_domain ON facts(domain_id, active);
 CREATE INDEX idx_facts_entity ON facts(entity_id, active);
-CREATE INDEX idx_facts_field ON facts(domain_id, field, active);
 ```
 
 ### edges
+
 Typed relationships between entities. The graph layer that enables cross-domain reasoning.
 
 ```sql
@@ -112,7 +115,26 @@ CREATE INDEX idx_edges_target ON edges(target_id);
 CREATE INDEX idx_edges_relation ON edges(relation);
 ```
 
+### crons
+
+Scheduled reminders that integrate with memory. When a cron fires, it searches memory using its keyword.
+
+```sql
+CREATE TABLE crons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    keyword TEXT NOT NULL,      -- search term for memory recall
+    schedule TEXT NOT NULL,     -- cron expression "0 20 * * *"
+    chat_id INTEGER NOT NULL,   -- where to send notification
+    expires_at DATETIME,        -- auto-delete after this time (nullable = never)
+    next_run DATETIME NOT NULL, -- pre-computed next fire time
+    created_at DATETIME DEFAULT (datetime('now'))
+);
+CREATE INDEX idx_crons_next_run ON crons(next_run);
+CREATE INDEX idx_crons_chat_id ON crons(chat_id);
+```
+
 ### domains
+
 The 14 life domains. Seeded on init, immutable reference table.
 
 ```sql
@@ -120,58 +142,127 @@ CREATE TABLE domains (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
     slug TEXT NOT NULL UNIQUE,
-    layer TEXT NOT NULL,  -- core|inner|world|temporal|meta
-    description TEXT
+    layer TEXT NOT NULL  -- core|inner|world|temporal|meta
 );
 ```
 
 ### vec_facts (sqlite-vec virtual table)
+
 Vector embeddings for semantic search over facts.
 
 ```sql
 CREATE VIRTUAL TABLE vec_facts USING vec0(
     fact_id INTEGER PRIMARY KEY,
-    embedding float[384]  -- dimension matches embedding model
-);
-```
-
-### conversations
-Source tracking for provenance.
-
-```sql
-CREATE TABLE conversations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    external_id TEXT,
-    summary TEXT,
-    created_at DATETIME DEFAULT (datetime('now'))
+    embedding float[768]  -- dimension matches embedding model
 );
 ```
 
 ## The 14 Domains
 
 ### Layer: Core Self
+
 - **D1 Identity & Self** — name, nationality, languages, cultural identity, self-perception. Rate: years.
 - **D2 Body & Health** — conditions, medications, allergies, biometrics, sleep, fitness, diet. Rate: months.
 
 ### Layer: Inner World
+
 - **D3 Mind & Emotions** — personality traits, emotional patterns, coping, attachment style, cognitive style. Rate: months.
 - **D4 Beliefs & Worldview** — religion, philosophy, politics, ethics, values, meaning. Rate: years.
 - **D5 Knowledge & Skills** — education, certifications, expertise, current learning, tools. Rate: months.
 
 ### Layer: External World
+
 - **D6 Relationships & Social** — family, partner, friends, colleagues, communities, obligations. Rate: months.
 - **D7 Work & Career** — role, company, visa status, career history, professional goals, income. Rate: months.
 - **D8 Finances & Assets** — income, expenses, investments, debts, budget, subscriptions. Rate: days.
 - **D9 Place & Environment** — city, neighborhood, home, workspace, travel plans, possessions. Rate: months.
 
 ### Layer: Temporal
+
 - **D10 Goals & Aspirations** — life goals, medium/short term, status, progress, blockers, deadlines. Rate: weeks.
-- **D12 Rhythms & Routines** — daily schedule, sleep/wake, exercise, rituals, weekly patterns. Rate: weeks.
+- **D12 Rhythms & Routines** — daily schedule, sleep/wake, exercise, rituals, weekly patterns, **reminders**. Rate: weeks.
 - **D13 Life Events & Decisions** — event log with date, category, impact, rationale. Rate: append-only.
 
 ### Layer: Meta-Awareness
+
 - **D11 Preferences & Tastes** — food, music, aesthetics, communication style, tool preferences. Rate: years.
 - **D14 Unconscious Patterns** — mannerisms, speech patterns, blind spots, external perception. Rate: years.
+
+## Cron System
+
+sheldonmem includes a built-in cron system that integrates seamlessly with memory. Instead of storing reminder details in a separate system, crons use keywords to search memory when they fire.
+
+### How It Works
+
+```
+User: "remind me to take meds every evening for 2 weeks"
+                    │
+                    ▼
+┌─────────────────────────────────────────────┐
+│ 1. Sheldon stores fact in memory (D12):     │
+│    field: "medication"                       │
+│    value: "take meds every evening"         │
+│                                             │
+│ 2. Sheldon creates cron:                    │
+│    keyword: "meds"                          │
+│    schedule: "0 20 * * *" (8pm daily)       │
+│    expires_at: 2 weeks from now             │
+└─────────────────────────────────────────────┘
+
+[8:00 PM - CronRunner checks]
+                    │
+                    ▼
+┌─────────────────────────────────────────────┐
+│ 1. Query: WHERE next_run <= now             │
+│ 2. For cron "meds":                         │
+│    - Recall(ctx, "meds", [10,12,13], 5)     │
+│    - Finds: "take meds every evening"       │
+│ 3. Send notification: "⏰ take meds..."      │
+│ 4. Update next_run to tomorrow 8pm          │
+│ 5. After 2 weeks: auto-delete cron          │
+└─────────────────────────────────────────────┘
+```
+
+### Why Keywords Instead of Storing Full Reminders
+
+1. **Memory is the source of truth** — The cron just knows _when_ to remind, memory knows _what_ to remind about
+2. **Context-aware** — When cron fires, it recalls related facts, providing richer context
+3. **Natural updates** — If user says "actually, take meds at dinner not evening", memory updates automatically; cron still works
+4. **No duplication** — Reminder content lives in one place (facts), schedule lives in another (crons)
+
+### Cron API
+
+```go
+// Create a cron
+cron, err := store.CreateCron("meds", "0 20 * * *", chatID, &expiresAt)
+
+// Get due crons (next_run <= now and not expired)
+dueCrons, err := store.GetDueCrons()
+
+// Update next run after firing
+err := store.UpdateCronNextRun(cronID, nextRunTime)
+
+// List user's crons
+crons, err := store.GetCronsByChat(chatID)
+
+// Delete by keyword
+err := store.DeleteCronByKeyword("meds", chatID)
+
+// Cleanup expired crons
+deleted, err := store.DeleteExpiredCrons()
+```
+
+### Cron Expressions
+
+Standard 5-field cron format: `minute hour day-of-month month day-of-week`
+
+| Expression    | Meaning             |
+| ------------- | ------------------- |
+| `0 20 * * *`  | 8pm daily           |
+| `0 9 * * 1-5` | 9am weekdays        |
+| `30 14 * * *` | 2:30pm daily        |
+| `0 */2 * * *` | every 2 hours       |
+| `0 8 1 * *`   | 8am on 1st of month |
 
 ## Retrieval Algorithm (Recall)
 
@@ -211,13 +302,13 @@ Step 4: Graph expansion
   Add connected entity facts to context
 
 Step 4b: Agent self-load (always runs)
-  SELECT * FROM facts WHERE entity_id = (Kora entity ID) AND active = 1
+  SELECT * FROM facts WHERE entity_id = (Sheldon entity ID) AND active = 1
   These facts override/supplement SOUL.md in context assembly
   Loaded every request regardless of domain routing
 
 Step 5: Return Memory{Facts, Entities, Graph, Domains, AgentSelf}
   Typically 15–30 facts + 3–8 entities + edges
-  AgentSelf: always loaded — Kora entity facts (nickname, tone, corrections)
+  AgentSelf: always loaded — Sheldon entity facts (nickname, tone, corrections)
   Injected after SOUL.md as dynamic personality overrides
 ```
 
@@ -244,7 +335,7 @@ Step 2: Entity resolution
 
 Step 3: Fact insertion with contradiction detection
   For each extracted fact:
-    If target == 'agent': attach to Kora entity (seeded on init)
+    If target == 'agent': attach to Sheldon entity (seeded on init)
     If target == 'user': attach to user entity or standalone
     Check: SELECT * FROM facts WHERE domain_id=? AND field=? AND active=1
            AND entity_id=? (matching target entity)
@@ -275,43 +366,46 @@ Default weights: confidence=0.5, recency=0.3, frequency=0.2
 Default staleAfter: 90 days
 
 Run via: store.Decay(ctx, config)
-Trigger: weekly cron job
+Trigger: daily background process
 Effect: low-scoring facts deprioritized in retrieval (not deleted)
 ```
 
 ## Memory Hygiene
 
-| Operation | Trigger | Action |
-|-----------|---------|--------|
-| Decay | Weekly cron | Score all facts, deprioritize stale |
-| Compact | Weekly cron | Merge redundant facts, clean superseded chains |
+| Operation     | Trigger       | Action                                       |
+| ------------- | ------------- | -------------------------------------------- |
+| Decay         | Daily         | Score all facts, deprioritize stale          |
+| Cron cleanup  | Every minute  | Delete expired crons                         |
 | Contradiction | On extraction | New fact supersedes old, old marked inactive |
-| Backup | Daily cron | SQLite snapshot → MinIO |
-| Audit | On demand | `/review` command — list recent facts for approval |
-| Gaps | Monthly cron | Check domain coverage, prompt for sparse domains |
+| Backup        | Daily cron    | SQLite snapshot → MinIO                      |
 
 ## Cross-Domain Query Examples
 
 **"Should I take this job offer?"**
+
 - Router: Primary D7 (Career) + D10 (Goals). Related D8, D9, D3.
 - Recall: current role, salary, professional goals, financial obligations, location preferences, stress patterns.
 - Graph: employer entity → commute edge → location entity → neighborhood facts.
 
 **"What should I eat tonight?"**
+
 - Router: Primary D11 (Preferences) + D2 (Health).
 - Recall: food preferences, dietary restrictions, allergies.
 - Graph: minimal — mostly standalone facts.
 
-**"Help me plan my OMSCS application"**
-- Router: Primary D10 (Goals) + D5 (Knowledge). Related D7, D8, D13.
-- Recall: OMSCS deadline, education history, current skills, career trajectory, application costs.
-- Graph: Georgia Tech entity → offers edge → OMSCS entity → deadline/requirements facts.
+**"Remind me to take my vitamins every morning"**
 
-## Open-Source Strategy
+- Router: Primary D12 (Routines) + D2 (Health).
+- Remember: stores fact in D12 with field="vitamins", value="take vitamins every morning"
+- Cron: creates cron with keyword="vitamins", schedule="0 8 \* \* \*"
+- When cron fires: recalls facts matching "vitamins", sends notification
 
-koramem is designed as a standalone, extractable package:
-- Zero dependency on Kora, PicoClaw, or any specific assistant framework
+## Architecture
+
+sheldonmem is designed as a standalone, extractable package:
+
+- Zero dependency on Sheldon or any specific assistant framework
 - Pluggable interfaces for LLM (Extractor), embedding (Embedder), routing (Router)
-- Ship with default implementations for Claude + Voyage AI
-- MIT license
-- README with examples for: personal assistant, chatbot memory, note-taking app
+- Single SQLite file with WAL journaling
+- Pure Go with sqlite-vec for vector search
+- AGPL-3.0 license

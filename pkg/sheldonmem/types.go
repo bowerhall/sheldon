@@ -74,3 +74,14 @@ type FactResult struct {
 	Fact       *Fact
 	Superseded *Fact // non-nil if this fact replaced an older one
 }
+
+// Cron represents a scheduled reminder
+type Cron struct {
+	ID        int64
+	Keyword   string     // search term for memory recall
+	Schedule  string     // cron expression "0 20 * * *"
+	ChatID    int64      // where to send notification
+	ExpiresAt *time.Time // auto-delete after this time (nil = never)
+	NextRun   time.Time  // pre-computed next fire time
+	CreatedAt time.Time
+}
