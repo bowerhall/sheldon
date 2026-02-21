@@ -6,8 +6,8 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                              SHELDON                                  │
-│                                                                       │
+│                              SHELDON                                 │
+│                                                                      │
 │  Telegram/Discord ──► Agent Loop ──► LLM (Kimi/Claude/OpenAI)        │
 │         │                 │                                          │
 │         │                 ├── SOUL.md (personality)                  │
@@ -22,14 +22,14 @@
 │         │                                                            │
 │         └──► sheldonmem (SQLite + sqlite-vec)                        │
 │                   ├── Entities (graph nodes)                         │
-│                   ├── Facts (domain-tagged, confidence-scored)       │
+│                   ├── Facts (domain-tagged, confidence-scored)        │
 │                   ├── Edges (typed relationships)                    │
 │                   └── Vectors (semantic search via Ollama)           │
-│                                                                       │
+│                                                                      │
 │  Ollama (sidecar)                                                    │
 │    ├── nomic-embed-text (embeddings)                                 │
 │    └── qwen2:0.5b (fact extraction)                                  │
-│                                                                       │
+│                                                                      │
 │  Coder Sandbox (ephemeral containers)                                │
 │    └── ollama launch claude --model kimi-k2.5                        │
 └──────────────────────────────────────────────────────────────────────┘
@@ -76,6 +76,7 @@ sheldon/
 ## Key Patterns
 
 ### LLM Providers
+
 ```go
 // internal/llm/llm.go - factory pattern
 model, _ := llm.New(llm.Config{
@@ -86,6 +87,7 @@ model, _ := llm.New(llm.Config{
 ```
 
 ### Tool Registration
+
 ```go
 // internal/tools/registry.go
 tools.RegisterCronTools(agentLoop.Registry(), cronStore)
@@ -94,6 +96,7 @@ tools.RegisterBrowserTools(agentLoop.Registry(), config)
 ```
 
 ### Memory Operations
+
 ```go
 // sheldonmem - fact storage with contradiction detection
 fact, _ := memory.AddFact(&entityID, domainID, "city", "Berlin", 0.9)
@@ -104,6 +107,7 @@ result, _ := memory.Recall(ctx, "user's location", []int{9}, 5)
 ```
 
 ### Coder Security Model
+
 ```
 Sheldon (has GIT_TOKEN)
   │
@@ -133,6 +137,7 @@ cd core && go build -o bin/sheldon ./cmd/sheldon
 ## Deployment
 
 Push to main triggers GitHub Actions:
+
 1. Build + push Docker images to GHCR
 2. Fetch secrets from Doppler
 3. SSH to VPS, deploy via docker-compose
@@ -141,22 +146,22 @@ Required Doppler secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `GHCR_TOKEN`, `
 
 ## The 14 Domains
 
-| ID | Domain | Layer | Rate of Change |
-|----|--------|-------|----------------|
-| 1 | Identity & Self | Core | Years |
-| 2 | Body & Health | Core | Months |
-| 3 | Mind & Emotions | Inner | Months |
-| 4 | Beliefs & Worldview | Inner | Years |
-| 5 | Knowledge & Skills | Inner | Months |
-| 6 | Relationships & Social | World | Months |
-| 7 | Work & Career | World | Months |
-| 8 | Finances & Assets | World | Days |
-| 9 | Place & Environment | World | Months |
-| 10 | Goals & Aspirations | Temporal | Weeks |
-| 11 | Preferences & Tastes | Meta | Years |
-| 12 | Rhythms & Routines | Temporal | Weeks |
-| 13 | Life Events & Decisions | Temporal | Append-only |
-| 14 | Unconscious Patterns | Meta | Years |
+| ID  | Domain                  | Layer    | Rate of Change |
+| --- | ----------------------- | -------- | -------------- |
+| 1   | Identity & Self         | Core     | Years          |
+| 2   | Body & Health           | Core     | Months         |
+| 3   | Mind & Emotions         | Inner    | Months         |
+| 4   | Beliefs & Worldview     | Inner    | Years          |
+| 5   | Knowledge & Skills      | Inner    | Months         |
+| 6   | Relationships & Social  | World    | Months         |
+| 7   | Work & Career           | World    | Months         |
+| 8   | Finances & Assets       | World    | Days           |
+| 9   | Place & Environment     | World    | Months         |
+| 10  | Goals & Aspirations     | Temporal | Weeks          |
+| 11  | Preferences & Tastes    | Meta     | Years          |
+| 12  | Rhythms & Routines      | Temporal | Weeks          |
+| 13  | Life Events & Decisions | Temporal | Append-only    |
+| 14  | Unconscious Patterns    | Meta     | Years          |
 
 ## Code Style
 
