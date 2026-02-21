@@ -126,7 +126,8 @@ jobs:
             fi
 
             # Create directories
-            mkdir -p /opt/sheldon/{data,skills,letsencrypt}
+            mkdir -p /opt/sheldon/{data,skills,letsencrypt,essence}
+            chown -R 1000:1000 /opt/sheldon/data
             touch /opt/sheldon/apps.yml
 
       - name: Generate .env file
@@ -173,6 +174,16 @@ jobs:
           key: ${{ steps.doppler.outputs.VPS_SSH_KEY }}
           source: ".env"
           target: "/opt/sheldon/"
+
+      - name: Copy essence files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ steps.doppler.outputs.VPS_HOST }}
+          username: ${{ steps.doppler.outputs.VPS_USER }}
+          key: ${{ steps.doppler.outputs.VPS_SSH_KEY }}
+          source: "core/essence/"
+          target: "/opt/sheldon/essence/"
+          strip_components: 2
 
       - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
