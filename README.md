@@ -2,11 +2,27 @@
 
 A personal AI assistant that remembers your entire life, runs on your own infrastructure, and can write and deploy code autonomously.
 
+## Why Sheldon?
+
+🚀 **Zero-cost embeddings & extraction** — Local Ollama models for semantic search and fact extraction. No per-request API fees.
+
+🧠 **Unified memory system** — SQLite + sqlite-vec in a single file. Entities, facts, relationships, vectors. No external databases.
+
+🔒 **Isolated code execution** — Coder runs in ephemeral Docker containers. Write, test, deploy apps safely.
+
+⚡ **One-click VPS deploy** — Push to GitHub, Doppler handles secrets, Actions deploys. ~€8/month on Hetzner.
+
+🗂️ **14 life domains** — Structured memory across Identity, Health, Relationships, Work, Finances, Goals, and more.
+
+💬 **Proactive check-ins** — Scheduled heartbeats with memory-augmented context. Sheldon reaches out when relevant.
+
+🏠 **Self-hosted** — Your data, your infrastructure. No cloud dependency for core functionality.
+
 ```
 You: "remind me to take meds every evening for two weeks"
-Sheldon: "Got it! I'll remind you about your meds every evening at 8pm for the next two weeks."
+Sheldon: "Got it! I'll remind you about your meds every evening at 8pm."
 
-[8:00 PM that evening]
+[8:00 PM]
 Sheldon: "Time to take your meds"
 ```
 
@@ -125,16 +141,6 @@ Watch progress: `https://github.com/YOUR_USERNAME/sheldon/actions`
 ### 6. Message Your Bot
 
 Open Telegram, find your bot, send a message. Sheldon is live.
-
-## Features
-
-- **Persistent Memory**: Remembers everything across 14 life domains
-- **Semantic Search**: sqlite-vec for vector similarity
-- **Code Generation**: Writes, tests, and deploys apps via isolated containers
-- **Scheduled Reminders**: Cron-based with memory-augmented context
-- **Web Browsing**: Research and fetch information
-- **Self-Hosted**: Your data stays on your infrastructure
-- **Zero API Cost for Embeddings**: Local Ollama models
 
 ## The 14 Domains
 
