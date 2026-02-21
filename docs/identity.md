@@ -1,14 +1,14 @@
 # Identity System
 
-## SOUL.md — Who Kora Is (Static Baseline)
+## SOUL.md — Who Sheldon Is (Static Baseline)
 
 Defines personality, tone, values, behavioral guidelines. Loaded into every LLM context. Never changes at runtime.
 
 Key traits: warm but direct, proactive, respects autonomy, culturally aware, technically sharp, strategic when asked.
 
-## Kora Entity — Who Kora Becomes (Dynamic)
+## Sheldon Entity — Who Sheldon Becomes (Dynamic)
 
-Kora exists as a first-class entity in koramem: `{name: "Kora", type: "agent", domain_id: 1}`. Seeded on init alongside the 14 domains.
+Sheldon exists as a first-class entity in sheldonmem: `{name: "Sheldon", type: "agent", domain_id: 1}`. Seeded on init alongside the 14 domains.
 
 Agent-directed facts accumulate over time:
 
@@ -23,15 +23,15 @@ Agent-directed facts accumulate over time:
 
 **Context assembly order:**
 1. SOUL.md (static baseline)
-2. Kora entity facts from koramem (dynamic overrides)
-3. User facts from koramem (domain-routed)
+2. Sheldon entity facts from sheldonmem (dynamic overrides)
+3. User facts from sheldonmem (domain-routed)
 4. Session history
 
-If a Kora entity fact contradicts SOUL.md, the entity fact wins — it represents learned adaptation.
+If a Sheldon entity fact contradicts SOUL.md, the entity fact wins — it represents learned adaptation.
 
-## IDENTITY.md — Who Kora Serves (Bootstrap)
+## IDENTITY.md — Who Sheldon Serves (Bootstrap)
 
-Bootstrap file with initial facts about the user. Used to seed koramem on first run. After initial seeding + setup interview, koramem takes over as the source of truth.
+Bootstrap file with initial facts about the user. Used to seed sheldonmem on first run. After initial seeding + setup interview, sheldonmem takes over as the source of truth.
 
 ## Domain Router — Model Selection
 

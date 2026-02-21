@@ -2,7 +2,7 @@
 
 ## System Architecture (v5)
 
-Sheldon is a single Go binary running on k3s. The memory system (sheldonmem) is an embedded Go package — no external services for memory operations.
+Sheldon is a single Go binary running on Docker Compose. The memory system (sheldonmem) is an embedded Go package — no external services for memory operations.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -46,9 +46,9 @@ Sheldon is a single Go binary running on k3s. The memory system (sheldonmem) is 
 │       SHELDONMEM          │  │         CODE GENERATION         │  │   STORAGE   │
 │    (SQLite + sqlite-vec)  │  │                                 │  │   (MinIO)   │
 │                           │  │  ┌───────────────────────────┐  │  │             │
-│  ┌─────────┐ ┌─────────┐  │  │  │     Ollama Launch Claude  │  │  │  • uploads  │
-│  │Entities │ │  Facts  │  │  │  │     (subprocess or k8s)   │  │  │  • backups  │
-│  │ (graph) │ │(14 doms)│  │  │  └─────────────┬─────────────┘  │  │  • files     │
+│  ┌─────────┐ ┌─────────┐  │  │  │     Ollama + Kimi K2.5    │  │  │  • uploads  │
+│  │Entities │ │  Facts  │  │  │  │  (subprocess or Docker)   │  │  │  • backups  │
+│  │ (graph) │ │(14 doms)│  │  │  └─────────────┬─────────────┘  │  │  • files    │
 │  └────┬────┘ └────┬────┘  │  │                │                │  └─────────────┘
 │       │           │       │  │                ▼                │
 │  ┌────┴───────────┴────┐  │  │  ┌───────────────────────────┐  │
@@ -61,7 +61,7 @@ Sheldon is a single Go binary running on k3s. The memory system (sheldonmem) is 
 │  │  (semantic search)  │  │  │  │  ┌──────┴───────┐         │  │
 │  └─────────────────────┘  │  │  │  ▼              ▼         │  │
 │                           │  │  │ NVIDIA NIM    Kimi API    │  │
-│  Single file: sheldon.db   │  │  │ (free tier)   (fallback)  │  │
+│  Single file: sheldon.db  │  │  │ (free tier)   (fallback)  │  │
 └───────────────────────────┘  │  │     │              │      │  │
                                │  │     └──────┬───────┘      │  │
                                │  │            ▼              │  │
@@ -81,25 +81,25 @@ Sheldon is a single Go binary running on k3s. The memory system (sheldonmem) is 
 │   │  via KIMI_API_KEY       │            │  via NVIDIA or Kimi API │        │
 │   └─────────────────────────┘            └─────────────────────────┘        │
 │                                                                             │
-│   Supported: claude, openai, kimi        Runs in isolated sandbox/k8s Job   │
+│   Supported: claude, openai, kimi        Runs in isolated sandbox/Docker    │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          INFRASTRUCTURE (VPS)                               │
 │                                                                             │
-│   Hetzner CX32 (8GB RAM, €8/mo) running k3s                                 │
+│   Hetzner CX32 (8GB RAM, €8/mo) running Docker Compose                      │
 │                                                                             │
-│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│   │   Sheldon   │  │   Ollama    │  │    MinIO    │  │  Embedder   │        │
-│   │    Pod      │  │    Pod      │  │    Pod      │  │ (optional)  │        │
-│   │             │  │             │  │             │  │             │        │
-│   │  main app   │  │  model host │  │  storage    │  │  sqlite-vec │        │
-│   └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
+│   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                         │
+│   │   Sheldon   │  │   Traefik   │  │  Deployed   │                         │
+│   │  Container  │  │   (proxy)   │  │    Apps     │                         │
+│   │             │  │             │  │             │                         │
+│   │  main app   │  │   routing   │  │  user apps  │                         │
+│   └─────────────┘  └─────────────┘  └─────────────┘                         │
 │          │                │                │                                │
 │          └────────────────┴────────────────┘                                │
 │                           │                                                 │
-│                    PersistentVolumes                                        │
-│                    /data/sheldon/*                                          │
+│                    Docker Volumes                                           │
+│                    ./data, ./apps.yml                                       │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -123,13 +123,13 @@ Sheldon is a single Go binary running on k3s. The memory system (sheldonmem) is 
 ```
 1. User requests code task via chat
 2. Agent calls write_code tool with prompt
-3. Bridge creates isolated workspace (sandbox or k8s Job)
-4. Ollama launches Claude Code with kimi-k2.5 model
+3. Bridge creates isolated workspace (sandbox or Docker container)
+4. Ollama launches with kimi-k2.5 model
    └── Model selection: NVIDIA NIM (free) → Kimi API (fallback)
-5. Claude Code writes/edits files in workspace
+5. Coder writes/edits files in workspace
 6. Output sanitized (API keys, tokens stripped)
 7. Files collected, workspace path returned
-8. Optional: build_image → deploy to k8s
+8. Optional: build_image → deploy via compose
 9. Optional: git commit/push to configured repo
 ```
 
@@ -152,13 +152,12 @@ Sheldon is a single Go binary running on k3s. The memory system (sheldonmem) is 
 | 13  | Life Events & Decisions | Temporal | Append-only    |
 | 14  | Unconscious Patterns    | Meta     | Years          |
 
-## Deployment Overlays
+## Deployment Modes
 
-| Overlay   | RAM | What's Included                     |
-| --------- | --- | ----------------------------------- |
-| `minimal` | 2GB | Sheldon only, no embeddings         |
-| `lite`    | 4GB | Sheldon + external Ollama (homelab) |
-| `full`    | 8GB | Sheldon + in-cluster Ollama + MinIO |
+| Mode       | RAM | What's Included                        |
+| ---------- | --- | -------------------------------------- |
+| `minimal`  | 2GB | Sheldon only, no web routing           |
+| `standard` | 4GB | Sheldon + Traefik + app deployment     |
 
 ## Cost Breakdown
 

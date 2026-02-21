@@ -8,11 +8,17 @@ type Config struct {
 	Extractor   LLMConfig
 	Embedder    EmbedderConfig
 	Coder       CoderConfig
+	Deployer    DeployerConfig
 	Storage     StorageConfig
 	Bot         BotConfig
 	Bots        MultiBot
 	Heartbeat   HeartbeatConfig
 	Budget      BudgetConfig
+}
+
+type DeployerConfig struct {
+	AppsFile string // path to apps.yml
+	Network  string // docker network name
 }
 
 type StorageConfig struct {
@@ -24,17 +30,15 @@ type StorageConfig struct {
 }
 
 type CoderConfig struct {
-	Enabled      bool
-	APIKey       string // NVIDIA NIM API key (primary)
-	FallbackKey  string // Moonshot Kimi API key (fallback)
-	Model        string // model to use (default: kimi-k2.5)
-	SandboxDir   string
-	SkillsDir    string // directory with skill patterns
-	UseK8sJobs   bool   // use ephemeral k8s Jobs instead of subprocess
-	K8sNamespace string // namespace for Jobs (default: sheldon)
-	K8sImage     string // code runner container image
-	ArtifactsPVC string // PVC name for artifacts
-	Git          GitConfig
+	Enabled     bool
+	APIKey      string // NVIDIA NIM API key (primary)
+	FallbackKey string // Moonshot Kimi API key (fallback)
+	Model       string // model to use (default: kimi-k2.5)
+	SandboxDir  string
+	SkillsDir   string // directory with skill patterns
+	Isolated    bool   // use ephemeral Docker containers for isolation
+	Image       string // coder container image (default: sheldon-coder-sandbox:latest)
+	Git         GitConfig
 }
 
 type GitConfig struct {

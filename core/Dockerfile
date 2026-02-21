@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /sheldon ./cmd/sheldon
 FROM alpine:3.19
 
 RUN apk update && \
-    apk add --no-cache ca-certificates tzdata nodejs npm docker-cli kubectl && \
+    apk add --no-cache ca-certificates tzdata nodejs npm docker-cli && \
     npm install -g @anthropic-ai/claude-code && \
     npm cache clean --force && \
     adduser -D -u 1000 sheldon && \

@@ -55,3 +55,12 @@ type StreamEvent struct {
 	Content string
 	Tool    string
 }
+
+// GitConfig holds git integration settings
+type GitConfig struct {
+	Enabled   bool
+	UserName  string
+	UserEmail string
+	OrgURL    string
+	Token     string
+}

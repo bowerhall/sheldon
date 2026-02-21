@@ -8,27 +8,27 @@
 ## Tasks
 
 ### 1. MinIO Deployment (Day 1)
-- Deploy MinIO in kora-storage namespace
-- Buckets: kora-backups, kora-exports, kora-artifacts
+- Deploy MinIO container
+- Buckets: sheldon-backups, sheldon-exports, sheldon-artifacts
 - Server-side encryption, separate credentials
 
 ### 2. Automated Backups (Day 1-2)
-- CronJob: daily SQLite snapshot (kora.db) → MinIO
+- Cron: daily SQLite snapshot (sheldon.db) → MinIO
 - Retention: 7 daily, 4 weekly
 - Test full restore procedure
 - SQLite backup is trivial: VACUUM INTO or file copy during WAL checkpoint
 
-### 3. Full RBAC (Day 2)
-- ServiceAccounts: kora-core, kora-deployer, kora-observer
-- Verify privilege escalation impossible
+### 3. Docker Network Isolation (Day 2)
+- Separate networks for storage vs apps
+- Verify container isolation
 
 ### 4. Network Policies (Day 3)
-- kora-storage: ingress only from kora-system
-- kora-services: egress to internet only
+- Storage: only accessible from sheldon container
+- Apps: egress to internet only
 
 ### 5. Monitoring (Day 4)
 - Prometheus + Grafana
-- Dashboards: pod resources, API costs, koramem fact counts, domain coverage
+- Dashboards: pod resources, API costs, sheldonmem fact counts, domain coverage
 - Alerts: high memory, budget threshold
 
 ## Success Criteria

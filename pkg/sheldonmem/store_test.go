@@ -33,20 +33,20 @@ func TestDomainsSeeded(t *testing.T) {
 	}
 }
 
-func TestKoraEntitySeeded(t *testing.T) {
+func TestSheldonEntitySeeded(t *testing.T) {
 	store, err := Open(":memory:")
 	if err != nil {
 		t.Fatalf("failed to open store: %v", err)
 	}
 	defer store.Close()
 
-	kora, err := store.FindEntityByName("Kora")
+	sheldon, err := store.FindEntityByName("Sheldon")
 	if err != nil {
-		t.Fatalf("failed to find Kora entity: %v", err)
+		t.Fatalf("failed to find Sheldon entity: %v", err)
 	}
 
-	if kora.EntityType != "agent" {
-		t.Errorf("expected 'agent', got '%s'", kora.EntityType)
+	if sheldon.EntityType != "agent" {
+		t.Errorf("expected 'agent', got '%s'", sheldon.EntityType)
 	}
 }
 
@@ -126,10 +126,10 @@ func TestAddEdge(t *testing.T) {
 	}
 	defer store.Close()
 
-	kora, _ := store.FindEntityByName("Kora")
+	sheldon, _ := store.FindEntityByName("Sheldon")
 	kadet, _ := store.CreateEntity("Kadet", "person", 1, "")
 
-	edge, err := store.AddEdge(kora.ID, kadet.ID, "serves", 1.0, "")
+	edge, err := store.AddEdge(sheldon.ID, kadet.ID, "serves", 1.0, "")
 	if err != nil {
 		t.Fatalf("failed to add edge: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestAddEdge(t *testing.T) {
 		t.Errorf("expected 'serves', got '%s'", edge.Relation)
 	}
 
-	edges, _ := store.GetEdgesFrom(kora.ID)
+	edges, _ := store.GetEdgesFrom(sheldon.ID)
 	if len(edges) != 1 {
 		t.Errorf("expected 1 edge, got %d", len(edges))
 	}

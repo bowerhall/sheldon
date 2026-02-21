@@ -74,7 +74,7 @@ func (s *Skills) GetRelevant(prompt string) []string {
 		"go-api":       {"go ", "golang", "api"},
 		"python-api":   {"python", "fastapi", "flask"},
 		"dockerfile":   {"docker", "container", "image"},
-		"k8s-manifest": {"kubernetes", "k8s", "deploy", "manifest"},
+		"compose":      {"compose", "deploy", "traefik"},
 		"git-workflow": {"git", "commit", "push", "repo", "project", "build"},
 	}
 

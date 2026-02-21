@@ -14,6 +14,7 @@ type Sandbox struct {
 	apiKey      string // NVIDIA NIM API key (primary)
 	fallbackKey string // Moonshot Kimi API key (fallback)
 	model       string // model to use (default: kimi-k2.5)
+	git         GitConfig
 }
 
 type Workspace struct {
@@ -22,6 +23,10 @@ type Workspace struct {
 }
 
 func NewSandbox(baseDir, apiKey, fallbackKey, model string) (*Sandbox, error) {
+	return NewSandboxWithGit(baseDir, apiKey, fallbackKey, model, GitConfig{})
+}
+
+func NewSandboxWithGit(baseDir, apiKey, fallbackKey, model string, git GitConfig) (*Sandbox, error) {
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return nil, fmt.Errorf("create sandbox dir: %w", err)
 	}
@@ -35,6 +40,7 @@ func NewSandbox(baseDir, apiKey, fallbackKey, model string) (*Sandbox, error) {
 		apiKey:      apiKey,
 		fallbackKey: fallbackKey,
 		model:       model,
+		git:         git,
 	}, nil
 }
 
@@ -77,6 +83,15 @@ func (s *Sandbox) CleanEnv() []string {
 	// Model to use
 	if s.model != "" {
 		env = append(env, "CODER_MODEL="+s.model)
+	}
+
+	// Git user config (NOT the token - coder should never have access to GIT_TOKEN)
+	// git clone/push is handled by Sheldon externally via GitOps
+	if s.git.UserName != "" {
+		env = append(env, "GIT_USER_NAME="+s.git.UserName)
+	}
+	if s.git.UserEmail != "" {
+		env = append(env, "GIT_USER_EMAIL="+s.git.UserEmail)
 	}
 
 	return env

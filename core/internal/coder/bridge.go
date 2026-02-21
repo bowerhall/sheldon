@@ -14,37 +14,36 @@ import (
 
 // CleanupWorkspaces removes workspaces older than maxAge
 func (b *Bridge) CleanupWorkspaces(maxAge time.Duration) (int, error) {
-	if b.jobRunner != nil {
-		// in k8s mode, cleanup is handled differently
-		return 0, nil
+	if b.useIsolated && b.dockerRunner != nil {
+		return b.dockerRunner.CleanupOld(maxAge)
 	}
 	return b.sandbox.CleanupOld(maxAge)
 }
 
 type Bridge struct {
-	sandbox   *Sandbox
-	jobRunner *JobRunner
-	skills    *Skills
-	useJobs   bool
+	sandbox      *Sandbox
+	dockerRunner *DockerRunner
+	skills       *Skills
+	useIsolated  bool
+	// git operations (handled externally, not by coder)
+	gitOps *GitOps
 }
 
 // BridgeConfig holds configuration for the Bridge
 type BridgeConfig struct {
-	SandboxDir   string
-	APIKey       string // NVIDIA NIM API key (primary)
-	FallbackKey  string // Moonshot Kimi API key (fallback)
-	Model        string // model to use (default: kimi-k2.5)
-	SkillsDir    string // directory with skill templates
-	UseK8sJobs   bool   // use k8s Jobs instead of subprocess
-	K8sNamespace string // namespace for Jobs
-	K8sImage     string // code runner container image
-	ArtifactsPVC string // PVC for artifacts
-	SecretName   string // secret containing API keys
+	SandboxDir  string
+	APIKey      string // NVIDIA NIM API key (primary)
+	FallbackKey string // Moonshot Kimi API key (fallback)
+	Model       string // model to use (default: kimi-k2.5)
+	SkillsDir   string // directory with skill templates
+	Isolated    bool   // use ephemeral Docker containers
+	Image       string // coder container image
 	// git integration
 	GitEnabled   bool
 	GitUserName  string
 	GitUserEmail string
 	GitOrgURL    string
+	GitToken     string
 }
 
 func NewBridge(sandboxDir, apiKey, fallbackKey string) (*Bridge, error) {
@@ -52,33 +51,42 @@ func NewBridge(sandboxDir, apiKey, fallbackKey string) (*Bridge, error) {
 		SandboxDir:  sandboxDir,
 		APIKey:      apiKey,
 		FallbackKey: fallbackKey,
-		UseK8sJobs:  false,
+		Isolated:    false,
 	})
 }
 
 // NewBridgeWithConfig creates a Bridge with full configuration
 func NewBridgeWithConfig(cfg BridgeConfig) (*Bridge, error) {
-	b := &Bridge{useJobs: cfg.UseK8sJobs}
+	gitCfg := GitConfig{
+		Enabled:   cfg.GitEnabled,
+		UserName:  cfg.GitUserName,
+		UserEmail: cfg.GitUserEmail,
+		OrgURL:    cfg.GitOrgURL,
+		Token:     cfg.GitToken,
+	}
+
+	b := &Bridge{
+		useIsolated: cfg.Isolated,
+		gitOps:      NewGitOps(gitCfg),
+	}
 
 	// load skills if directory is configured
 	if cfg.SkillsDir != "" {
 		b.skills = NewSkills(cfg.SkillsDir)
 	}
 
-	if cfg.UseK8sJobs {
-		b.jobRunner = NewJobRunnerWithConfig(JobRunnerConfig{
-			Namespace:    cfg.K8sNamespace,
-			Image:        cfg.K8sImage,
-			ArtifactsPVC: cfg.ArtifactsPVC,
-			APIKeySecret: cfg.SecretName,
-			GitEnabled:   cfg.GitEnabled,
-			GitUserName:  cfg.GitUserName,
-			GitUserEmail: cfg.GitUserEmail,
-			GitOrgURL:    cfg.GitOrgURL,
+	if cfg.Isolated {
+		b.dockerRunner = NewDockerRunner(DockerRunnerConfig{
+			Image:        cfg.Image,
+			ArtifactsDir: cfg.SandboxDir,
+			APIKey:       cfg.APIKey,
+			FallbackKey:  cfg.FallbackKey,
+			Model:        cfg.Model,
+			Git:          gitCfg,
 		})
-		logger.Info("coder bridge using k8s jobs", "namespace", cfg.K8sNamespace, "git", cfg.GitEnabled)
+		logger.Info("coder bridge using isolated containers", "image", cfg.Image)
 	} else {
-		sandbox, err := NewSandbox(cfg.SandboxDir, cfg.APIKey, cfg.FallbackKey, cfg.Model)
+		sandbox, err := NewSandboxWithGit(cfg.SandboxDir, cfg.APIKey, cfg.FallbackKey, cfg.Model, gitCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -98,9 +106,9 @@ func (b *Bridge) Execute(ctx context.Context, task Task) (*Result, error) {
 	// enrich prompt with relevant skills
 	task.Prompt = b.enrichPrompt(task.Prompt)
 
-	// use k8s Jobs if configured
-	if b.useJobs && b.jobRunner != nil {
-		return b.executeWithJob(ctx, task, cfg)
+	// use Docker containers if isolated mode
+	if b.useIsolated && b.dockerRunner != nil {
+		return b.executeWithDocker(ctx, task, cfg)
 	}
 
 	return b.executeWithSubprocess(ctx, task, cfg)
@@ -120,18 +128,59 @@ func (b *Bridge) enrichPrompt(prompt string) string {
 	return prompt + skills
 }
 
-func (b *Bridge) executeWithJob(ctx context.Context, task Task, cfg struct {
+// enrichPromptWithGitContext adds git repo context to the prompt
+// Note: The repo has already been cloned by Sheldon before passing to coder.
+// Coder should NOT have access to git push credentials.
+func (b *Bridge) enrichPromptWithGitContext(prompt, gitRepo string, repoCloned bool) string {
+	if gitRepo == "" {
+		return prompt
+	}
+
+	var gitContext strings.Builder
+	gitContext.WriteString("\n\n## Git Repository Context\n")
+	gitContext.WriteString(fmt.Sprintf("- Working on project: %s\n", gitRepo))
+
+	if repoCloned {
+		gitContext.WriteString("- The repository has been cloned to your workspace\n")
+		gitContext.WriteString("- Make your changes directly - git push will be handled automatically\n")
+	} else {
+		gitContext.WriteString("- This is a new project - create the files from scratch\n")
+	}
+
+	gitContext.WriteString("\n### Instructions:\n")
+	gitContext.WriteString("- Focus on writing code - do NOT run git clone/push commands\n")
+	gitContext.WriteString("- Use conventional commits locally if helpful (feat:, fix:, chore:)\n")
+	gitContext.WriteString("- Changes will be pushed automatically when you're done\n")
+
+	return prompt + gitContext.String()
+}
+
+func (b *Bridge) executeWithDocker(ctx context.Context, task Task, cfg struct {
 	MaxTurns int
 	Timeout  time.Duration
 }) (*Result, error) {
-	logger.Debug("claude code starting via job", "task", task.ID, "complexity", task.Complexity)
+	logger.Debug("coder starting via docker", "task", task.ID, "complexity", task.Complexity)
 
 	taskCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 
-	result, err := b.jobRunner.RunJob(taskCtx, JobConfig{
+	// Get workspace path for this task
+	workDir, _ := b.GetLocalWorkspacePath(ctx, task.ID)
+
+	// Clone repo before passing to coder (if GitRepo is set)
+	repoCloned := false
+	if task.GitRepo != "" && b.gitOps != nil {
+		if err := b.gitOps.CloneRepo(taskCtx, task.GitRepo, workDir); err != nil {
+			logger.Warn("git clone failed, proceeding without repo", "error", err, "repo", task.GitRepo)
+		} else {
+			repoCloned = true
+			logger.Debug("cloned repo for coder", "repo", task.GitRepo, "path", workDir)
+		}
+	}
+
+	result, err := b.dockerRunner.RunJob(taskCtx, JobConfig{
 		TaskID:   task.ID,
-		Prompt:   task.Prompt,
+		Prompt:   b.enrichPromptWithGitContext(task.Prompt, task.GitRepo, repoCloned),
 		MaxTurns: cfg.MaxTurns,
 		Timeout:  cfg.Timeout,
 		Context:  task.Context,
@@ -139,14 +188,24 @@ func (b *Bridge) executeWithJob(ctx context.Context, task Task, cfg struct {
 	})
 
 	if err != nil {
-		logger.Error("claude code job failed", "error", err, "task", task.ID)
+		logger.Error("coder docker job failed", "error", err, "task", task.ID)
 	} else {
-		logger.Debug("claude code job complete",
+		logger.Debug("coder docker job complete",
 			"task", task.ID,
 			"duration", result.Duration,
 			"files", len(result.Files),
 			"sanitized", result.Sanitized,
 		)
+
+		// Push changes after coder completes (if GitRepo is set)
+		if task.GitRepo != "" && b.gitOps != nil {
+			pushed, pushErr := b.gitOps.PushChanges(taskCtx, result.WorkspacePath, task.GitRepo, "sheldon/"+task.ID)
+			if pushErr != nil {
+				logger.Error("git push failed", "error", pushErr, "repo", task.GitRepo)
+			} else if pushed {
+				logger.Debug("pushed changes to repo", "repo", task.GitRepo, "branch", "sheldon/"+task.ID)
+			}
+		}
 	}
 
 	return result, err
@@ -167,6 +226,17 @@ func (b *Bridge) executeWithSubprocess(ctx context.Context, task Task, cfg struc
 		return nil, fmt.Errorf("create workspace: %w", err)
 	}
 
+	// Clone repo before passing to coder (if GitRepo is set)
+	repoCloned := false
+	if task.GitRepo != "" && b.gitOps != nil {
+		if err := b.gitOps.CloneRepo(taskCtx, task.GitRepo, ws.Path); err != nil {
+			logger.Warn("git clone failed, proceeding without repo", "error", err, "repo", task.GitRepo)
+		} else {
+			repoCloned = true
+			logger.Debug("cloned repo for coder", "repo", task.GitRepo, "path", ws.Path)
+		}
+	}
+
 	// don't cleanup - workspace persists for build_image/deploy
 	// cleanup happens via periodic cleanup or cleanup_images tool
 
@@ -176,7 +246,13 @@ func (b *Bridge) executeWithSubprocess(ctx context.Context, task Task, cfg struc
 
 	logger.Debug("claude code starting", "task", task.ID, "complexity", task.Complexity)
 
-	output, err := b.run(taskCtx, ws, task.Prompt, cfg.MaxTurns)
+	// Enrich prompt with git context if applicable
+	prompt := task.Prompt
+	if task.GitRepo != "" {
+		prompt = b.enrichPromptWithGitContext(prompt, task.GitRepo, repoCloned)
+	}
+
+	output, err := b.run(taskCtx, ws, prompt, cfg.MaxTurns)
 	if err != nil {
 		result.Error = err.Error()
 		logger.Error("claude code failed", "error", err, "task", task.ID)
@@ -198,6 +274,16 @@ func (b *Bridge) executeWithSubprocess(ctx context.Context, task Task, cfg struc
 		"files", len(files),
 		"sanitized", result.Sanitized,
 	)
+
+	// Push changes after coder completes (if GitRepo is set)
+	if task.GitRepo != "" && b.gitOps != nil && result.Error == "" {
+		pushed, pushErr := b.gitOps.PushChanges(taskCtx, ws.Path, task.GitRepo, "sheldon/"+task.ID)
+		if pushErr != nil {
+			logger.Error("git push failed", "error", pushErr, "repo", task.GitRepo)
+		} else if pushed {
+			logger.Debug("pushed changes to repo", "repo", task.GitRepo, "branch", "sheldon/"+task.ID)
+		}
+	}
 
 	return result, nil
 }
@@ -287,41 +373,64 @@ func (b *Bridge) ExecuteWithProgress(ctx context.Context, task Task, onProgress 
 	// enrich prompt with relevant skills
 	task.Prompt = b.enrichPrompt(task.Prompt)
 
-	// use k8s Jobs if configured
-	if b.useJobs && b.jobRunner != nil {
-		return b.executeWithJobProgress(ctx, task, cfg, onProgress)
+	// use Docker containers if isolated mode
+	if b.useIsolated && b.dockerRunner != nil {
+		return b.executeWithDockerProgress(ctx, task, cfg, onProgress)
 	}
 
 	return b.executeWithSubprocessProgress(ctx, task, cfg, onProgress)
 }
 
-func (b *Bridge) executeWithJobProgress(ctx context.Context, task Task, cfg struct {
+func (b *Bridge) executeWithDockerProgress(ctx context.Context, task Task, cfg struct {
 	MaxTurns int
 	Timeout  time.Duration
 }, onProgress func(StreamEvent)) (*Result, error) {
-	logger.Debug("claude code starting via job", "task", task.ID, "complexity", task.Complexity)
+	logger.Debug("coder starting via docker", "task", task.ID, "complexity", task.Complexity)
 
 	taskCtx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 
-	result, err := b.jobRunner.RunJob(taskCtx, JobConfig{
-		TaskID:     task.ID,
-		Prompt:     task.Prompt,
-		MaxTurns:   cfg.MaxTurns,
-		Timeout:    cfg.Timeout,
-		Context:    task.Context,
-		OnProgress: onProgress,
-		GitRepo:    task.GitRepo,
-	})
+	// Get workspace path for this task
+	workDir, _ := b.GetLocalWorkspacePath(ctx, task.ID)
+
+	// Clone repo before passing to coder (if GitRepo is set)
+	repoCloned := false
+	if task.GitRepo != "" && b.gitOps != nil {
+		if err := b.gitOps.CloneRepo(taskCtx, task.GitRepo, workDir); err != nil {
+			logger.Warn("git clone failed, proceeding without repo", "error", err, "repo", task.GitRepo)
+		} else {
+			repoCloned = true
+			logger.Debug("cloned repo for coder", "repo", task.GitRepo, "path", workDir)
+		}
+	}
+
+	result, err := b.dockerRunner.RunJobWithProgress(taskCtx, JobConfig{
+		TaskID:   task.ID,
+		Prompt:   b.enrichPromptWithGitContext(task.Prompt, task.GitRepo, repoCloned),
+		MaxTurns: cfg.MaxTurns,
+		Timeout:  cfg.Timeout,
+		Context:  task.Context,
+		GitRepo:  task.GitRepo,
+	}, onProgress)
 
 	if err != nil {
-		logger.Error("claude code job failed", "error", err, "task", task.ID)
+		logger.Error("coder docker job failed", "error", err, "task", task.ID)
 	} else {
-		logger.Debug("claude code job complete",
+		logger.Debug("coder docker job complete",
 			"task", task.ID,
 			"duration", result.Duration,
 			"files", len(result.Files),
 		)
+
+		// Push changes after coder completes (if GitRepo is set)
+		if task.GitRepo != "" && b.gitOps != nil {
+			pushed, pushErr := b.gitOps.PushChanges(taskCtx, result.WorkspacePath, task.GitRepo, "sheldon/"+task.ID)
+			if pushErr != nil {
+				logger.Error("git push failed", "error", pushErr, "repo", task.GitRepo)
+			} else if pushed {
+				logger.Debug("pushed changes to repo", "repo", task.GitRepo, "branch", "sheldon/"+task.ID)
+			}
+		}
 	}
 
 	return result, err
@@ -342,6 +451,17 @@ func (b *Bridge) executeWithSubprocessProgress(ctx context.Context, task Task, c
 		return nil, fmt.Errorf("create workspace: %w", err)
 	}
 
+	// Clone repo before passing to coder (if GitRepo is set)
+	repoCloned := false
+	if task.GitRepo != "" && b.gitOps != nil {
+		if err := b.gitOps.CloneRepo(taskCtx, task.GitRepo, ws.Path); err != nil {
+			logger.Warn("git clone failed, proceeding without repo", "error", err, "repo", task.GitRepo)
+		} else {
+			repoCloned = true
+			logger.Debug("cloned repo for coder", "repo", task.GitRepo, "path", ws.Path)
+		}
+	}
+
 	// don't cleanup - workspace persists for build_image/deploy
 
 	if err := b.sandbox.WriteContext(ws, task.Context); err != nil {
@@ -350,7 +470,13 @@ func (b *Bridge) executeWithSubprocessProgress(ctx context.Context, task Task, c
 
 	logger.Debug("claude code starting", "task", task.ID, "complexity", task.Complexity)
 
-	output, err := b.runWithProgress(taskCtx, ws, task.Prompt, cfg.MaxTurns, onProgress)
+	// Enrich prompt with git context if applicable
+	prompt := task.Prompt
+	if task.GitRepo != "" {
+		prompt = b.enrichPromptWithGitContext(prompt, task.GitRepo, repoCloned)
+	}
+
+	output, err := b.runWithProgress(taskCtx, ws, prompt, cfg.MaxTurns, onProgress)
 	if err != nil {
 		result.Error = err.Error()
 		logger.Error("claude code failed", "error", err, "task", task.ID)
@@ -365,6 +491,16 @@ func (b *Bridge) executeWithSubprocessProgress(ctx context.Context, task Task, c
 	files, _ := b.sandbox.CollectFiles(ws)
 	result.Files = files
 	result.WorkspacePath = ws.Path
+
+	// Push changes after coder completes (if GitRepo is set)
+	if task.GitRepo != "" && b.gitOps != nil && result.Error == "" {
+		pushed, pushErr := b.gitOps.PushChanges(taskCtx, ws.Path, task.GitRepo, "sheldon/"+task.ID)
+		if pushErr != nil {
+			logger.Error("git push failed", "error", pushErr, "repo", task.GitRepo)
+		} else if pushed {
+			logger.Debug("pushed changes to repo", "repo", task.GitRepo, "branch", "sheldon/"+task.ID)
+		}
+	}
 
 	return result, nil
 }
@@ -481,35 +617,25 @@ func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt stri
 }
 
 // GetLocalWorkspacePath returns the local filesystem path for artifacts.
-// For subprocess mode, this is the direct sandbox path.
-// For k8s mode, this copies artifacts from PVC to local temp dir.
 func (b *Bridge) GetLocalWorkspacePath(ctx context.Context, taskID string) (string, error) {
-	if !b.useJobs || b.jobRunner == nil {
-		// subprocess mode - path is already local
-		return b.sandbox.baseDir + "/" + taskID, nil
+	if b.useIsolated && b.dockerRunner != nil {
+		// docker mode - artifacts are in the configured artifacts dir
+		return b.dockerRunner.artifactsDir + "/" + taskID, nil
 	}
-
-	// k8s mode - copy artifacts to local temp
-	localDir := "/tmp/sheldon-artifacts/" + taskID
-	if err := b.jobRunner.CopyArtifacts(ctx, taskID, localDir); err != nil {
-		return "", fmt.Errorf("copy artifacts: %w", err)
-	}
-
-	return localDir, nil
+	// subprocess mode - path is in sandbox
+	return b.sandbox.baseDir + "/" + taskID, nil
 }
 
 // CleanupTask removes artifacts for a completed task
 func (b *Bridge) CleanupTask(ctx context.Context, taskID string) error {
-	if !b.useJobs || b.jobRunner == nil {
-		// subprocess mode - use sandbox cleanup
-		return b.sandbox.Cleanup(&Workspace{TaskID: taskID, Path: b.sandbox.baseDir + "/" + taskID})
+	if b.useIsolated && b.dockerRunner != nil {
+		return b.dockerRunner.CleanupArtifacts(taskID)
 	}
-
-	// k8s mode - cleanup PVC artifacts
-	return b.jobRunner.CleanupArtifacts(ctx, taskID)
+	// subprocess mode - use sandbox cleanup
+	return b.sandbox.Cleanup(&Workspace{TaskID: taskID, Path: b.sandbox.baseDir + "/" + taskID})
 }
 
-// IsUsingK8sJobs returns true if the bridge is configured to use k8s Jobs
-func (b *Bridge) IsUsingK8sJobs() bool {
-	return b.useJobs
+// IsUsingIsolatedContainers returns true if the bridge uses Docker containers
+func (b *Bridge) IsUsingIsolatedContainers() bool {
+	return b.useIsolated
 }

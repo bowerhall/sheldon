@@ -18,7 +18,7 @@
 - Kotlin/Jetpack Compose, same feature set
 
 ### 4. Generative UI (Weeks 4-5)
-- Kora returns structured JSON alongside text
+- Sheldon returns structured JSON alongside text
 - Apps render as interactive cards, charts, forms
 
 ### 5. Polish (Week 5-6)

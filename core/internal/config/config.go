@@ -44,6 +44,7 @@ func Load() (*Config, error) {
 	budgetConfig := loadBudgetConfig()
 	coderConfig := loadCoderConfig()
 	storageConfig := loadStorageConfig()
+	deployerConfig := loadDeployerConfig()
 
 	return &Config{
 		EssencePath: essencePath,
@@ -53,12 +54,30 @@ func Load() (*Config, error) {
 		Extractor:   extractorConfig,
 		Embedder:    embedderConfig,
 		Coder:       coderConfig,
+		Deployer:    deployerConfig,
 		Storage:     storageConfig,
 		Bot:         botConfig,
 		Bots:        multiBot,
 		Heartbeat:   heartbeatConfig,
 		Budget:      budgetConfig,
 	}, nil
+}
+
+func loadDeployerConfig() DeployerConfig {
+	appsFile := os.Getenv("DEPLOYER_APPS_FILE")
+	if appsFile == "" {
+		appsFile = "/opt/sheldon/apps.yml"
+	}
+
+	network := os.Getenv("DEPLOYER_NETWORK")
+	if network == "" {
+		network = "sheldon-net"
+	}
+
+	return DeployerConfig{
+		AppsFile: appsFile,
+		Network:  network,
+	}
 }
 
 func loadStorageConfig() StorageConfig {
@@ -97,22 +116,12 @@ func loadCoderConfig() CoderConfig {
 		sandboxDir = "/tmp/sheldon-sandbox"
 	}
 
-	// k8s Jobs mode settings
-	useK8sJobs := os.Getenv("CODER_USE_K8S_JOBS") == "true"
+	// isolated mode uses ephemeral Docker containers
+	isolated := os.Getenv("CODER_ISOLATED") == "true"
 
-	k8sNamespace := os.Getenv("CODER_K8S_NAMESPACE")
-	if k8sNamespace == "" {
-		k8sNamespace = "sheldon"
-	}
-
-	k8sImage := os.Getenv("CODER_K8S_IMAGE")
-	if k8sImage == "" {
-		k8sImage = "ghcr.io/bowerhall/sheldon-claude-code:latest"
-	}
-
-	artifactsPVC := os.Getenv("CODER_ARTIFACTS_PVC")
-	if artifactsPVC == "" {
-		artifactsPVC = "sheldon-coder-artifacts"
+	image := os.Getenv("CODER_IMAGE")
+	if image == "" {
+		image = "sheldon-coder-sandbox:latest"
 	}
 
 	skillsDir := os.Getenv("CODER_SKILLS_DIR")
@@ -133,17 +142,15 @@ func loadCoderConfig() CoderConfig {
 	enabled := apiKey != "" || fallbackKey != ""
 
 	return CoderConfig{
-		Enabled:      enabled,
-		APIKey:       apiKey,
-		FallbackKey:  fallbackKey,
-		Model:        model,
-		SandboxDir:   sandboxDir,
-		SkillsDir:    skillsDir,
-		UseK8sJobs:   useK8sJobs,
-		K8sNamespace: k8sNamespace,
-		K8sImage:     k8sImage,
-		ArtifactsPVC: artifactsPVC,
-		Git:          gitConfig,
+		Enabled:     enabled,
+		APIKey:      apiKey,
+		FallbackKey: fallbackKey,
+		Model:       model,
+		SandboxDir:  sandboxDir,
+		SkillsDir:   skillsDir,
+		Isolated:    isolated,
+		Image:       image,
+		Git:         gitConfig,
 	}
 }
 

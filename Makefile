@@ -1,102 +1,76 @@
 # Sheldon Makefile
 
-.PHONY: build build-sheldon build-claude-code deploy deploy-lite deploy-minimal deploy-full clean logs test
+.PHONY: build build-sheldon build-coder push run stop logs shell status clean test
 
-# Default overlay for local development
-OVERLAY ?= lite
+# Docker image names
+SHELDON_IMAGE ?= ghcr.io/bowerhall/sheldon:latest
+CODER_IMAGE ?= ghcr.io/bowerhall/sheldon-coder-sandbox:latest
 
 # Build all container images
-build: build-sheldon build-claude-code
+build: build-sheldon build-coder
 
 # Build main sheldon image
 build-sheldon:
 	@echo "Building sheldon image..."
-	docker build -t ghcr.io/bowerhall/sheldon:latest -f core/Dockerfile .
+	docker build -t $(SHELDON_IMAGE) -f core/Dockerfile .
 
-# Build ephemeral claude-code image
-build-claude-code:
-	@echo "Building sheldon-claude-code image..."
-	docker build -t ghcr.io/bowerhall/sheldon-claude-code:latest deploy/docker/claude-code/
+# Build coder sandbox image
+build-coder:
+	@echo "Building coder-sandbox image..."
+	docker build -t $(CODER_IMAGE) deploy/docker/coder-sandbox/
 
-# Push images to ghcr.io
-push: push-sheldon push-claude-code
+# Push images to registry
+push: push-sheldon push-coder
 
 push-sheldon:
-	docker push ghcr.io/bowerhall/sheldon:latest
+	docker push $(SHELDON_IMAGE)
 
-push-claude-code:
-	docker push ghcr.io/bowerhall/sheldon-claude-code:latest
+push-coder:
+	docker push $(CODER_IMAGE)
 
-# Deploy to local k8s cluster
-deploy:
-	@echo "Deploying with $(OVERLAY) overlay..."
-	kubectl apply -k deploy/k8s/overlays/$(OVERLAY)
-	@echo "Waiting for pods to be ready..."
-	kubectl wait --for=condition=ready pod -l app=sheldon -n sheldon --timeout=120s || true
-	@echo ""
-	@echo "Deployment status:"
-	kubectl get pods -n sheldon
+# Start services with Docker Compose
+run:
+	cd deploy/docker/standard && docker compose up -d
 
-deploy-lite:
-	$(MAKE) deploy OVERLAY=lite
+# Stop services
+stop:
+	cd deploy/docker/standard && docker compose down
 
-deploy-minimal:
-	$(MAKE) deploy OVERLAY=minimal
-
-deploy-full:
-	$(MAKE) deploy OVERLAY=full
-
-# Restart sheldon deployment (after rebuild)
+# Restart sheldon (after rebuild)
 restart:
-	kubectl rollout restart deployment/sheldon -n sheldon
-	kubectl rollout status deployment/sheldon -n sheldon
+	cd deploy/docker/standard && docker compose restart sheldon
 
 # View logs
 logs:
-	kubectl logs -f deployment/sheldon -n sheldon
+	cd deploy/docker/standard && docker compose logs -f sheldon
 
-# Follow logs with timestamps
-logs-ts:
-	kubectl logs -f deployment/sheldon -n sheldon --timestamps
+# View all logs
+logs-all:
+	cd deploy/docker/standard && docker compose logs -f
 
-# Get shell in sheldon pod
+# Get shell in sheldon container
 shell:
-	kubectl exec -it deployment/sheldon -n sheldon -- /bin/sh
+	cd deploy/docker/standard && docker compose exec sheldon /bin/sh
 
 # Check status
 status:
-	@echo "=== Namespaces ==="
-	kubectl get ns | grep sheldon
-	@echo ""
-	@echo "=== Pods ==="
-	kubectl get pods -n sheldon
-	@echo ""
-	@echo "=== Pods in sheldon-apps ==="
-	kubectl get pods -n sheldon-apps 2>/dev/null || echo "No pods in sheldon-apps"
-	@echo ""
-	@echo "=== PVCs ==="
-	kubectl get pvc -n sheldon
+	cd deploy/docker/standard && docker compose ps
 
-# Clean up deployment
+# Clean up
 clean:
-	kubectl delete -k deploy/k8s/overlays/$(OVERLAY) --ignore-not-found
-	kubectl delete namespace sheldon-apps --ignore-not-found
+	cd deploy/docker/standard && docker compose down -v
 
 # Run Go tests
 test:
 	cd core && go test ./...
 
-# Build and deploy (full cycle)
-all: build deploy
+# Build and run (full cycle)
+all: build run
 
-# Local development without k8s
+# Local development without Docker
 run-local:
 	cd core && go run ./cmd/sheldon
 
-# Check what would be deployed (dry run)
-dry-run:
-	kubectl apply -k deploy/k8s/overlays/$(OVERLAY) --dry-run=client
-
-# Show kustomize output
-show:
-	kubectl kustomize deploy/k8s/overlays/$(OVERLAY)
+# Pull latest images
+pull:
+	cd deploy/docker/standard && docker compose pull

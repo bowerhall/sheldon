@@ -1,6 +1,6 @@
 # IDENTITY.md — Bootstrap User Facts
 
-> These facts seed koramem on first run. Copy this to IDENTITY.md and fill in your details.
+> These facts seed sheldonmem on first run. Copy this to IDENTITY.md and fill in your details.
 > IDENTITY.md is gitignored - your personal data stays local.
 
 ## Domain 1: Identity

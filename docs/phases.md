@@ -2,11 +2,11 @@
 
 ## Overview
 
-Kora is built in concentric rings. Each phase is independently useful.
+Sheldon is built in concentric rings. Each phase is independently useful.
 
 ```
                     Phase 0 (1-2 weeks)
-                    The Brain + koramem
+                    The Brain + sheldonmem
                         │
               ┌─────────┼─────────┐
               ▼                   ▼
@@ -35,13 +35,13 @@ Kora is built in concentric rings. Each phase is independently useful.
 
 | Phase | Name | Timeline | What You Get |
 |-------|------|----------|-------------|
-| 0 | The Brain + koramem | 1-2 weeks | Telegram bot with 14-domain graph memory |
+| 0 | The Brain + sheldonmem | 1-2 weeks | Telegram bot with 14-domain graph memory |
 | 1 | Daily Driver | 3-5 days | Proactive briefings, reminders, review flow |
-| 2 | Action Skills | 1-1.5 weeks | Apartment hunter, strategy engine, Claude Code |
+| 2 | Action Skills | 1-1.5 weeks | Apartment hunter, strategy engine, Coder |
 | 3 | Infrastructure | 3-5 days | MinIO, backups, monitoring, full RBAC |
 | 4 | The Voice | 1 week | Bidirectional voice via Telegram |
 | 5 | Mac App | 2-3 weeks | Menu bar companion with voice |
-| 6 | Self-Extend | 2-3 weeks | Kora builds and deploys its own services |
+| 6 | Self-Extend | 2-3 weeks | Sheldon builds and deploys its own services |
 | 7 | Mobile | 4-6 weeks | iOS + Android + generative UI |
 
 ## Dependencies
@@ -56,7 +56,7 @@ Phases 4/5 and Phase 6 can run in parallel.
 | Component | Calls/Day | Model | Est. Cost |
 |-----------|-----------|-------|-----------|
 | Domain Router | 20-30 | Haiku | ~$0.15 |
-| koramem extraction | 20-30 | Haiku | ~$0.15 |
+| sheldonmem extraction | 20-30 | Haiku | ~$0.15 |
 | Embedding generation | 20-30 | Voyage AI | ~$0.10 |
 | Response generation | 20-30 | Sonnet | ~$2.00 |
 | Strategic decisions | 2-5 | Opus | ~$1.50 |
@@ -69,6 +69,5 @@ Phases 4/5 and Phase 6 can run in parallel.
 |-------|---------------|------|
 | 0-3 | Hetzner CX32 | ~€8/mo |
 | 4+ | Hetzner CX42 | ~€15/mo |
-| Future | Homelab hardware | ~€4/mo electricity |
 
-**Total monthly: ~€15-25.**
+**Total monthly: ~€8-15.**

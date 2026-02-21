@@ -9,11 +9,5 @@ type BuildResult struct {
 
 type DeployResult struct {
 	Resources []string
-	Namespace string
 	Status    string
-}
-
-type Config struct {
-	Kubeconfig string
-	Namespace  string
 }

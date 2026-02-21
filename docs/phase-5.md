@@ -7,7 +7,7 @@
 ## Tasks
 
 ### 1. Desktop API (Week 1)
-- WebSocket endpoint on Kora for real-time communication
+- WebSocket endpoint on Sheldon for real-time communication
 - Token-based auth (not Telegram user ID)
 - Endpoints: message, audio stream, status
 
@@ -22,6 +22,6 @@
 - Auto-launch on login
 
 ## Success Criteria
-- [ ] Kora lives in Mac menu bar
+- [ ] Sheldon lives in Mac menu bar
 - [ ] Voice conversations work from desktop
 - [ ] Keyboard shortcut activates instantly

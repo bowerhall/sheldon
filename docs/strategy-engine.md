@@ -6,7 +6,7 @@ Multi-framework decision analysis toolkit. Triggered when router classifies a me
 
 ## Frameworks
 
-1. **Pros/Cons Matrix** — weighted, with confidence scores from koramem
+1. **Pros/Cons Matrix** — weighted, with confidence scores from sheldonmem
 2. **BATNA Analysis** — best alternative to negotiated agreement
 3. **Regret Minimization** — "At 80, will I regret not doing this?"
 4. **Weighted Decision Matrix** — criteria × weight → score
@@ -15,7 +15,7 @@ Multi-framework decision analysis toolkit. Triggered when router classifies a me
 
 ## Context
 
-Pulls from all relevant domains via koramem.Recall. A career decision might pull D7 (Career), D10 (Goals), D8 (Finances), D9 (Place), D3 (Mind), D6 (Relationships). Graph traversal surfaces connected entities and constraints.
+Pulls from all relevant domains via sheldonmem.Recall. A career decision might pull D7 (Career), D10 (Goals), D8 (Finances), D9 (Place), D3 (Mind), D6 (Relationships). Graph traversal surfaces connected entities and constraints.
 
 ## Output
 

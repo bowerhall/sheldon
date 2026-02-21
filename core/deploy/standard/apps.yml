@@ -1,0 +1,16 @@
+# Sheldon-Managed Apps
+# This file is managed by Sheldon. Apps you ask Sheldon to deploy appear here.
+#
+# Usage:
+#   docker compose -f apps.yml up -d
+#
+# Sheldon will add services here when you say things like:
+#   "Deploy a todo app"
+#   "Create a simple API server"
+#   "Set up a postgres database"
+
+services: {}
+
+networks:
+  sheldon-net:
+    external: true

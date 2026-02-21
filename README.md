@@ -6,8 +6,8 @@ A personal AI assistant that remembers your life across 14 structured domains, r
 
 - **Persistent Memory**: Graph-based memory system (sheldonmem) stores facts, entities, and relationships in SQLite
 - **14 Life Domains**: Organizes knowledge across Identity, Health, Relationships, Work, Finances, Goals, and more
-- **Code Generation**: Integrated Claude Code for writing, testing, and deploying applications
-- **Self-Hosted**: Runs on your own k8s cluster (k3s on a cheap VPS works great)
+- **Code Generation**: Integrated Coder for writing, testing, and deploying applications
+- **Self-Hosted**: Runs on your own VPS with Docker Compose + Traefik
 - **Multi-Provider LLM**: Supports Claude, Kimi, and other providers
 - **Telegram & Discord**: Chat interfaces with long-polling (no inbound ports needed)
 - **Skills System**: Markdown-based skills for specialized tasks
@@ -60,45 +60,16 @@ cd core && go run ./cmd/sheldon
 
 ### VPS Deployment (Recommended)
 
-One-command install on a fresh Ubuntu VPS (Hetzner CX32, 8GB RAM, €8/mo recommended):
+We use Doppler for secrets management. Zero-touch deployment:
 
-```bash
-# SSH to your VPS, then:
-curl -fsSL https://raw.githubusercontent.com/bowerhall/sheldon/main/deploy/scripts/vps-install.sh | sudo bash
-```
+1. Sign up at [doppler.com](https://doppler.com) (free tier)
+2. Create project `sheldon`, add your secrets
+3. Add `DOPPLER_TOKEN` to GitHub Secrets
+4. Push to main
 
-Or manually:
+GitHub Actions will automatically provision your VPS, install Docker, and deploy.
 
-```bash
-# Clone and run install script
-git clone https://github.com/bowerhall/sheldon.git /opt/sheldon
-cd /opt/sheldon
-
-# Configure secrets
-cp deploy/k8s/base/secrets.yaml.example deploy/k8s/base/secrets.yaml
-# Edit secrets.yaml with your credentials (TELEGRAM_TOKEN, KIMI_API_KEY, etc.)
-
-# Run installer
-sudo ./deploy/scripts/vps-install.sh
-```
-
-### Manual Kubernetes Deployment
-
-```bash
-# Create namespace
-kubectl create namespace sheldon
-
-# Copy and configure secrets
-cp deploy/k8s/base/secrets.yaml.example deploy/k8s/base/secrets.yaml
-# Edit secrets.yaml with your credentials
-
-# Deploy (choose overlay based on resources)
-kubectl apply -k deploy/k8s/overlays/full     # 8GB+ RAM, in-cluster Ollama
-kubectl apply -k deploy/k8s/overlays/lite     # 4GB RAM, external Ollama
-kubectl apply -k deploy/k8s/overlays/minimal  # 2GB RAM, no embeddings
-```
-
-See [deploy/README.md](deploy/README.md) for detailed deployment options.
+See [docs/deployment.md](docs/deployment.md) for detailed setup.
 
 ## Configuration
 
@@ -149,16 +120,15 @@ sheldon/
 │   └── internal/
 │       ├── agent/          # Agent loop
 │       ├── bot/            # Telegram/Discord
-│       ├── coder/          # Claude Code integration
+│       ├── coder/          # Code generation
 │       ├── config/         # Configuration
-│       ├── deployer/       # K8s app deployment
+│       ├── deployer/       # Docker Compose deployment
 │       ├── llm/            # LLM providers
 │       ├── storage/        # MinIO client
 │       └── tools/          # Agent tools
 ├── pkg/sheldonmem/         # Memory package (standalone)
 ├── deploy/
-│   ├── k8s/                # Kubernetes manifests
-│   └── docker/             # Dockerfiles
+│   └── docker/             # Docker Compose configs
 ├── skills/                 # Skill definitions
 └── docs/                   # Documentation
 ```
@@ -169,8 +139,8 @@ sheldon/
 # Main application
 docker pull ghcr.io/bowerhall/sheldon:latest
 
-# Claude Code runner (for isolated code execution)
-docker pull ghcr.io/bowerhall/sheldon-claude-code:latest
+# Coder sandbox (for isolated code execution)
+docker pull ghcr.io/bowerhall/sheldon-coder-sandbox:latest
 ```
 
 ## Development
@@ -190,9 +160,9 @@ go vet ./...
 ## Security
 
 - No inbound ports required (Telegram/Discord use long-polling)
-- Network policies isolate components
-- Code generation runs in isolated k8s Jobs via Ollama + NVIDIA NIM
-- Credentials stored in k8s Secrets
+- Network isolation via Docker Compose networks
+- Code generation runs in ephemeral Docker containers
+- Credentials stored in .env file (not in repo)
 - Output sanitization for API keys and tokens
 
 ## License

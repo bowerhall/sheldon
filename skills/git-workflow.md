@@ -1,5 +1,43 @@
 # git workflow for project development
 
+## branching strategy
+
+### new projects
+for brand new repos, work directly on main:
+```bash
+git init
+git checkout -b main
+# ... work ...
+git push -u origin main
+```
+
+### existing repos (features, fixes, improvements)
+ALWAYS create a new branch from main:
+```bash
+# fetch latest
+git fetch origin
+git checkout main
+git pull origin main
+
+# create feature branch
+git checkout -b feat/add-voice-support
+# or
+git checkout -b fix/handle-timeout-errors
+# or
+git checkout -b chore/update-dependencies
+```
+
+### branch naming convention
+use conventional prefixes:
+- `feat/` - new features (feat/add-authentication)
+- `fix/` - bug fixes (fix/null-pointer-exception)
+- `chore/` - maintenance (chore/update-deps)
+- `docs/` - documentation (docs/add-api-reference)
+- `refactor/` - code restructuring (refactor/extract-service)
+- `test/` - test additions (test/add-integration-tests)
+
+use kebab-case, be descriptive but concise.
+
 ## initialization
 - run `git init` at the start of any new project
 - configure git if env vars are set:
@@ -9,64 +47,86 @@
   ```
 - add appropriate .gitignore for the language/framework
 
-## commit strategy (IMPORTANT)
-commit after EACH of these milestones:
-1. initial project structure (files, folders, config)
+## conventional commits (REQUIRED)
+
+format: `<type>: <description>`
+
+### types
+- `feat` - new feature for the user
+- `fix` - bug fix for the user
+- `docs` - documentation only
+- `style` - formatting, no code change
+- `refactor` - code change that neither fixes nor adds
+- `test` - adding or updating tests
+- `chore` - build process, deps, tooling
+
+### examples
+```
+feat: add user authentication with JWT
+fix: handle null response from weather API
+docs: add setup instructions to README
+refactor: extract email service from controller
+test: add unit tests for payment processor
+chore: update Go to 1.24
+```
+
+### rules
+- lowercase, no period at end
+- imperative mood ("add" not "added" or "adds")
+- max 72 characters
+- explain WHAT and WHY, not HOW
+
+## commit strategy
+commit after EACH milestone:
+1. initial project structure
 2. each feature or component completed and working
 3. each bug fix
 4. tests added/updated
 5. documentation updates
-6. deployment files (dockerfile, k8s manifests)
+6. deployment files
 
-## commit message format
-use conventional commits:
-- `feat: add weather api client`
-- `fix: handle null response from api`
-- `test: add unit tests for weather service`
-- `docs: add readme with setup instructions`
-- `chore: add dockerfile and k8s manifests`
-
-## workflow example
+## workflow example (existing repo)
 ```bash
-# after creating initial structure
-git add .
-git commit -m "feat: initial project structure"
+# start new feature
+git checkout main
+git pull origin main
+git checkout -b feat/add-weather-api
 
-# after implementing a feature
+# work and commit incrementally
 git add src/weather.py
-git commit -m "feat: add weather api integration"
+git commit -m "feat: add weather api client"
 
-# after adding tests
+git add src/weather.py
+git commit -m "feat: add caching for weather responses"
+
 git add tests/
 git commit -m "test: add weather service tests"
 
-# after fixing a bug
-git add src/weather.py
-git commit -m "fix: handle api timeout gracefully"
+git add Dockerfile docker-compose.yml
+git commit -m "chore: add dockerfile and compose config"
 
-# after adding deployment files
-git add Dockerfile k8s/
-git commit -m "chore: add dockerfile and k8s manifests"
+# push branch (NOT main)
+git push -u origin feat/add-weather-api
 ```
 
 ## pushing to remote
 if GIT_TOKEN, GIT_ORG_URL, and GIT_REPO_NAME are configured:
-```bash
-# set up remote with token auth (note: use @ before github.com, token goes in URL)
-git remote add origin https://${GIT_TOKEN}@${GIT_ORG_URL#https://}/${GIT_REPO_NAME}.git
 
-# push all commits
+### new project (push to main)
+```bash
+git remote add origin https://${GIT_TOKEN}@${GIT_ORG_URL#https://}/${GIT_REPO_NAME}.git
 git push -u origin main
 ```
 
-alternatively, if GIT_ORG_URL is "https://github.com/myorg":
+### existing repo (push feature branch)
 ```bash
-git remote add origin https://${GIT_TOKEN}@github.com/myorg/${GIT_REPO_NAME}.git
-git push -u origin main
+git remote add origin https://${GIT_TOKEN}@${GIT_ORG_URL#https://}/${GIT_REPO_NAME}.git
+git push -u origin feat/your-feature-name
 ```
 
 ## rules
-- never commit secrets, api keys, or .env files
+- NEVER commit secrets, api keys, or .env files
+- NEVER push directly to main on existing repos with branch protection
 - always test before committing
 - keep commits atomic (one logical change per commit)
-- write clear commit messages that explain WHY, not just WHAT
+- use conventional commit format consistently

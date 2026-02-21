@@ -1,10 +1,10 @@
 .PHONY: build run test clean
 
 build:
-	go build -o bin/kora ./cmd/kora
+	go build -o bin/sheldon ./cmd/sheldon
 
 run:
-	go run ./cmd/kora
+	go run ./cmd/sheldon
 
 test:
 	go test ./...

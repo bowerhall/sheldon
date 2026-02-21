@@ -114,15 +114,13 @@ func main() {
 			FallbackKey:  cfg.Coder.FallbackKey,
 			Model:        cfg.Coder.Model,
 			SkillsDir:    cfg.Coder.SkillsDir,
-			UseK8sJobs:   cfg.Coder.UseK8sJobs,
-			K8sNamespace: cfg.Coder.K8sNamespace,
-			K8sImage:     cfg.Coder.K8sImage,
-			ArtifactsPVC: cfg.Coder.ArtifactsPVC,
-			SecretName:   "sheldon-secrets",
+			Isolated:     cfg.Coder.Isolated,
+			Image:        cfg.Coder.Image,
 			GitEnabled:   cfg.Coder.Git.Enabled,
 			GitUserName:  cfg.Coder.Git.UserName,
 			GitUserEmail: cfg.Coder.Git.UserEmail,
 			GitOrgURL:    cfg.Coder.Git.OrgURL,
+			GitToken:     cfg.Coder.Git.Token,
 		}
 
 		bridge, err := coder.NewBridgeWithConfig(bridgeCfg)
@@ -137,12 +135,18 @@ func main() {
 			logger.Fatal("failed to create builder", "error", err)
 		}
 
-		deploy := deployer.NewDeployer("sheldon-apps")
-		tools.RegisterDeployerTools(agentLoop.Registry(), builder, deploy)
+		// register deployer tools
+		composeDeploy := deployer.NewComposeDeployer(cfg.Deployer.AppsFile, cfg.Deployer.Network)
+		domain := os.Getenv("DOMAIN")
+		if domain == "" {
+			domain = "localhost"
+		}
+		tools.RegisterComposeDeployerTools(agentLoop.Registry(), builder, composeDeploy, domain)
+		logger.Info("deployer enabled", "apps_file", cfg.Deployer.AppsFile)
 
 		mode := "subprocess"
-		if cfg.Coder.UseK8sJobs {
-			mode = "k8s-jobs"
+		if cfg.Coder.Isolated {
+			mode = "isolated"
 		}
 
 		logger.Info("coder enabled", "mode", mode, "model", cfg.Coder.Model, "sandbox", cfg.Coder.SandboxDir)
@@ -161,6 +165,12 @@ func main() {
 	// browser tools for web browsing
 	tools.RegisterBrowserTools(agentLoop.Registry(), tools.DefaultBrowserConfig())
 	logger.Info("browser tools enabled")
+
+	// github tools for PR management (if git token configured)
+	if cfg.Coder.Git.Token != "" {
+		tools.RegisterGitHubTools(agentLoop.Registry(), &cfg.Coder.Git)
+		logger.Info("github tools enabled", "org", cfg.Coder.Git.OrgURL)
+	}
 
 	// cron store for scheduled reminders
 	cronStore, err := cron.NewStore(memory.DB())

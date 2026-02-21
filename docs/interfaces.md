@@ -7,7 +7,7 @@
 
 ## Phase 5: Mac Menu Bar App
 - SwiftUI app, keyboard shortcut activation
-- WebSocket connection to Kora
+- WebSocket connection to Sheldon
 - Push-to-talk voice, chat history
 - Animated status indicator
 
@@ -19,6 +19,6 @@
 
 ## Future: Custom Generative UI
 - React-based web interface
-- Kora returns structured data alongside text
+- Sheldon returns structured data alongside text
 - Client renders as interactive components
 - Dashboard, charts, forms, card layouts

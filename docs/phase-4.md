@@ -7,9 +7,9 @@
 ## Tasks
 
 ### 1. Voice Server (Days 1-2)
-- Deploy Piper TTS in kora-voice namespace
-- STT: Whisper via existing PicoClaw capability or deploy whisper.cpp container
-- Internal ClusterIP service
+- Deploy Piper TTS container
+- STT: Whisper via whisper.cpp container
+- Add to docker-compose
 
 ### 2. Telegram Voice Integration (Days 3-4)
 - Receive Telegram voice messages → STT → text → agent loop → response
@@ -17,7 +17,7 @@
 - Streaming where possible
 
 ### 3. Voice Personality (Day 5)
-- Tune Piper voice model to match Kora's personality
+- Tune Piper voice model to match Sheldon's personality
 - Test conversation flow with voice
 
 ## Success Criteria

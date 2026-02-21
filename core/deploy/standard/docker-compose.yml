@@ -1,0 +1,100 @@
+# Sheldon Standard Setup
+# Includes: Sheldon + Traefik (reverse proxy) + app deployment capability
+#
+# Usage:
+#   1. Copy .env.example to .env and fill in values
+#   2. docker compose up -d
+#   3. Message your Telegram bot
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=sheldon-net"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Uncomment for Let's Encrypt HTTPS:
+      # - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      # - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      # - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Dashboard (remove in production)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - sheldon-net
+    labels:
+      - "traefik.enable=true"
+      # Dashboard (optional, remove in production)
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.entrypoints=web"
+
+  sheldon:
+    image: ${SHELDON_IMAGE:-ghcr.io/bowerhall/sheldon:latest}
+    container_name: sheldon
+    restart: unless-stopped
+    depends_on:
+      - traefik
+    volumes:
+      - ./data:/data
+      - ./skills:/data/skills
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # For app deployment
+      - ./apps.yml:/apps/apps.yml  # Sheldon-managed apps
+    environment:
+      # Required
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+
+      # Paths
+      - MEMORY_PATH=/data/sheldon.db
+      - ESSENCE_PATH=/app/essence
+
+      # Optional: Embeddings
+      - EMBEDDER_PROVIDER=${EMBEDDER_PROVIDER:-}
+      - EMBEDDER_BASE_URL=${EMBEDDER_BASE_URL:-}
+      - EMBEDDER_MODEL=${EMBEDDER_MODEL:-}
+
+      # Optional: Heartbeat
+      - HEARTBEAT_ENABLED=${HEARTBEAT_ENABLED:-false}
+      - HEARTBEAT_CHAT_ID=${HEARTBEAT_CHAT_ID:-}
+      - HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL:-8}
+
+      # Optional: Coder (isolated code generation)
+      - CODER_ENABLED=${CODER_ENABLED:-false}
+      - CODER_ISOLATED=${CODER_ISOLATED:-false}
+      - CODER_IMAGE=${CODER_IMAGE:-sheldon-coder-sandbox:latest}
+      - CODER_SANDBOX=/data/sandbox
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
+      - KIMI_API_KEY=${KIMI_API_KEY:-}
+      - CODER_MODEL=${CODER_MODEL:-kimi-k2.5}
+
+      # Optional: Git integration (for coder to push code)
+      - GIT_TOKEN=${GIT_TOKEN:-}
+      - GIT_USER_NAME=${GIT_USER_NAME:-Sheldon}
+      - GIT_USER_EMAIL=${GIT_USER_EMAIL:-}
+      - GIT_ORG_URL=${GIT_ORG_URL:-}
+
+      # Timezone
+      - TZ=${TZ:-UTC}
+    networks:
+      - sheldon-net
+    labels:
+      - "traefik.enable=true"
+      # Health endpoint (optional)
+      - "traefik.http.routers.sheldon.rule=Host(`${DOMAIN}`) && Path(`/health`)"
+      - "traefik.http.routers.sheldon.entrypoints=web"
+      - "traefik.http.services.sheldon.loadbalancer.server.port=8081"
+
+networks:
+  sheldon-net:
+    name: sheldon-net
+    driver: bridge
