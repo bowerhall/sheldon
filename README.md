@@ -27,7 +27,7 @@ Sheldon: "Time to take your meds"
                             │
                             ▼ :80/:443
 ┌───────────────────────────────────────────────────────────────┐
-│                         Traefik                               │
+│                         Traefik                                │
 │                    (reverse proxy + HTTPS)                    │
 └─────────────┬─────────────────────────────────┬───────────────┘
               │                                 │
@@ -125,6 +125,7 @@ git push origin main
 ```
 
 GitHub Actions will automatically:
+
 - Build and push Docker images
 - SSH into your VPS
 - Install Docker (first run)
@@ -136,15 +137,7 @@ Watch progress: `https://github.com/YOUR_USERNAME/sheldon/actions`
 
 Open Telegram, find your bot, send a message. Sheldon is live.
 
-## The 14 Domains
-
-| Layer | Domains |
-|-------|---------|
-| **Core** | Identity & Self, Body & Health |
-| **Inner** | Mind & Emotions, Beliefs & Worldview, Knowledge & Skills |
-| **World** | Relationships, Work & Career, Finances, Place & Environment |
-| **Temporal** | Goals & Aspirations, Rhythms & Routines, Life Events |
-| **Meta** | Preferences & Tastes, Unconscious Patterns |
+---
 
 ## Local Development
 
@@ -171,6 +164,18 @@ sheldon/
 ├── skills/                  # Markdown skill definitions
 └── docs/                    # Documentation
 ```
+
+## The 14 Life Domains
+
+Sheldon organizes memory across structured domains:
+
+| Layer        | Domains                                                     |
+| ------------ | ----------------------------------------------------------- |
+| **Core**     | Identity & Self, Body & Health                              |
+| **Inner**    | Mind & Emotions, Beliefs & Worldview, Knowledge & Skills    |
+| **World**    | Relationships, Work & Career, Finances, Place & Environment |
+| **Temporal** | Goals & Aspirations, Rhythms & Routines, Life Events        |
+| **Meta**     | Preferences & Tastes, Unconscious Patterns                  |
 
 ## License
 
