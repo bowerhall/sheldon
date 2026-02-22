@@ -13,6 +13,32 @@ A personal AI assistant that remembers your entire life, runs on your own infras
 - ⏰ **Scheduled agent triggers** — Cron + scheduler + reminder + task runner in one
 - 🏠 **Self-hosted** — Your data, your infrastructure
 
+## What Sheldon Can Do
+
+**Remembers things you may forget**
+- "What was the name of that book I wanted to read?"
+- "When did I last visit the dentist?"
+- Builds a knowledge graph across 14 life domains
+
+**Work on code with you**
+- "Build me a weather dashboard"
+- "Add dark mode to the app we made last week"
+- Creates branches and PRs, you review and merge
+
+**Browse and research**
+- "Find coworking spaces in Tokyo with 24/7 access"
+- "Summarize the reviews for this product"
+- Full browser automation, handles JS-heavy sites
+
+**Remind and check in**
+- "Remind me to take meds every evening"
+- "Check on me every 6 hours while I'm deep in this project"
+- Context-aware, not just dumb notifications
+
+**Deploy apps**
+- "Build me a bookmark manager and deploy it to bookmarks.mydomain.com"
+- Docker Compose orchestration under the hood
+
 ## Scheduled Agent Triggers
 
 Unlike traditional heartbeat systems that just send notifications, Sheldon's cron system **wakes the full agent** with context. The agent decides what to do: send a check-in, remind you about something, or start working on a task.
