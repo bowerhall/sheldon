@@ -1,0 +1,4 @@
+sheldon, [Feb 22, 2026 at 05:41]
+Looking at the cron configuration, it was set to `@every 3m` which should trigger every 3 minutes, but the "next" time showed 4:35 AM which suggests the cron system might have been using a different timezone or there was a scheduling issue.
+
+The reminder was technically active but wasn't firing as expected. That's why I deleted it and just pinged you directly instead!

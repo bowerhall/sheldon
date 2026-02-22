@@ -241,16 +241,16 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 		}
 
 		if len(resp.ToolCalls) == 0 {
-			logger.Debug("llm response (final)", "chars", len(resp.Content))
+			logger.Info("llm response (no tools)", "chars", len(resp.Content))
 			sess.AddMessage("assistant", resp.Content, nil, "")
 			return resp.Content, nil
 		}
 
-		logger.Debug("llm requested tools", "count", len(resp.ToolCalls))
+		logger.Info("llm requested tools", "count", len(resp.ToolCalls))
 		sess.AddMessage("assistant", resp.Content, resp.ToolCalls, "")
 
 		for _, tc := range resp.ToolCalls {
-			logger.Debug("executing tool", "name", tc.Name, "id", tc.ID)
+			logger.Info("executing tool", "name", tc.Name)
 
 			result, err := a.tools.Execute(ctx, tc.Name, tc.Arguments)
 			if err != nil {
