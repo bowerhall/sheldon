@@ -112,9 +112,9 @@ func (s *Store) GetDue() ([]Cron, error) {
 	rows, err := s.db.Query(`
 		SELECT id, keyword, schedule, chat_id, expires_at, paused_until, next_run, created_at
 		FROM crons
-		WHERE next_run <= datetime('now')
-		AND (expires_at IS NULL OR expires_at > datetime('now'))
-		AND (paused_until IS NULL OR paused_until <= datetime('now'))`)
+		WHERE datetime(next_run) <= datetime('now')
+		AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
+		AND (paused_until IS NULL OR datetime(paused_until) <= datetime('now'))`)
 	if err != nil {
 		return nil, err
 	}
@@ -130,8 +130,8 @@ func (s *Store) GetByChat(chatID int64) ([]Cron, error) {
 		SELECT id, keyword, schedule, chat_id, expires_at, paused_until, next_run, created_at
 		FROM crons
 		WHERE chat_id = ?
-		AND (expires_at IS NULL OR expires_at > datetime('now'))
-		ORDER BY next_run ASC`,
+		AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))
+		ORDER BY datetime(next_run) ASC`,
 		chatID)
 	if err != nil {
 		return nil, err
@@ -162,7 +162,7 @@ func (s *Store) DeleteByKeyword(keyword string, chatID int64) error {
 
 // DeleteExpired removes all crons past their expiry date
 func (s *Store) DeleteExpired() (int, error) {
-	result, err := s.db.Exec(`DELETE FROM crons WHERE expires_at IS NOT NULL AND expires_at <= datetime('now')`)
+	result, err := s.db.Exec(`DELETE FROM crons WHERE expires_at IS NOT NULL AND datetime(expires_at) <= datetime('now')`)
 	if err != nil {
 		return 0, err
 	}
@@ -236,7 +236,7 @@ func (s *Store) GetByKeyword(keyword string, chatID int64) (*Cron, error) {
 		SELECT id, keyword, schedule, chat_id, expires_at, paused_until, next_run, created_at
 		FROM crons
 		WHERE keyword = ? AND chat_id = ?
-		AND (expires_at IS NULL OR expires_at > datetime('now'))`,
+		AND (expires_at IS NULL OR datetime(expires_at) > datetime('now'))`,
 		keyword, chatID)
 
 	var c Cron
