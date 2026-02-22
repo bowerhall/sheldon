@@ -17,7 +17,8 @@
 │         │                       ├── write_code (→ Coder Sandbox)     │
 │         │                       ├── deploy_app (→ Docker Compose)    │
 │         │                       ├── set_cron / list_crons            │
-│         │                       ├── search_web / browse_url          │
+│         │                       ├── browse / search_web (→ Browser)  │
+│         │                       ├── save_memory                      │
 │         │                       └── save_skill / list_skills         │
 │         │                                                            │
 │         └──► sheldonmem (SQLite + sqlite-vec)                        │
@@ -28,10 +29,13 @@
 │                                                                      │
 │  Ollama (sidecar)                                                    │
 │    ├── nomic-embed-text (embeddings)                                 │
-│    └── qwen2:0.5b (fact extraction)                                  │
+│    └── qwen2.5:3b (fact extraction)                                  │
 │                                                                      │
 │  Coder Sandbox (ephemeral containers)                                │
-│    └── ollama launch claude --model kimi-k2.5                        │
+│    └── Claude Code CLI + Kimi K2.5                                   │
+│                                                                      │
+│  Browser Sandbox (ephemeral containers)                              │
+│    └── agent-browser + Chromium                                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -50,8 +54,10 @@ sheldon/
 │   └── internal/
 │       ├── agent/         # agent loop, context builder, cron runner
 │       ├── bot/           # telegram, discord
+│       ├── browser/       # sandboxed browser automation
 │       ├── coder/         # code generation bridge, git ops
 │       ├── config/        # env config, runtime config
+│       ├── conversation/  # recent message buffer (FIFO)
 │       ├── cron/          # cron storage
 │       ├── deployer/      # docker compose deployer
 │       ├── embedder/      # ollama embeddings
@@ -90,9 +96,9 @@ model, _ := llm.New(llm.Config{
 
 ```go
 // internal/tools/registry.go
-tools.RegisterCronTools(agentLoop.Registry(), cronStore)
+tools.RegisterCronTools(agentLoop.Registry(), cronStore, timezone)
 tools.RegisterCoderTool(agentLoop.Registry(), bridge, memory)
-tools.RegisterBrowserTools(agentLoop.Registry(), config)
+tools.RegisterUnifiedBrowserTools(agentLoop.Registry(), browserRunner, config)
 ```
 
 ### Memory Operations

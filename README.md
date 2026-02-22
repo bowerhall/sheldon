@@ -7,6 +7,7 @@ A personal AI assistant that remembers your entire life, runs on your own infras
 - 🚀 **Zero-cost embeddings** — Local Ollama models, no API fees
 - 🧠 **Unified memory** — SQLite + sqlite-vec, single file, no external DB
 - 🔒 **Isolated coder** — Ephemeral Docker containers for safe code execution
+- 🌐 **Browser automation** — Sandboxed agent-browser for JS-heavy sites
 - ⚡ **One-click deploy** — Push to GitHub → deployed on VPS (~€8/mo)
 - 🗂️ **14 life domains** — Structured memory across your entire life
 - ⏰ **Scheduled agent triggers** — Cron + scheduler + reminder + task runner in one
@@ -77,18 +78,20 @@ Sheldon: "Done! Deployed to weather.yourdomain.com"
 │               ▼         │         ┌───────────────────────────┐
 │         ┌─────────┐     │         │         Ollama            │
 │         │ Tools   │     │◄───────►│  - nomic-embed-text       │
-│         └────┬────┘     │         │  - qwen2:0.5b             │
+│         └────┬────┘     │         │  - qwen2.5:3b             │
 │              │          │         │  (embeddings + extraction)│
 │              ▼          │         └───────────────────────────┘
 │     ┌──────────────┐    │
 │     │  sheldonmem  │    │         ┌───────────────────────────┐
 │     │   (SQLite)   │    │         │    Coder Sandbox          │
 │     │              │    │────────►│  (ephemeral containers)   │
-│     │ • Entities   │    │         │  ollama launch claude     │
+│     │ • Entities   │    │         │  Claude Code CLI + Kimi   │
 │     │ • Facts      │    │         └───────────────────────────┘
 │     │ • Vectors    │    │
-│     └──────────────┘    │
-└─────────────────────────┘
+│     │ • Convo buf  │    │         ┌───────────────────────────┐
+│     └──────────────┘    │────────►│    Browser Sandbox        │
+│                         │         │  (agent-browser + Chrome) │
+└─────────────────────────┘         └───────────────────────────┘
 
 All containers on sheldon-net. Single VPS. ~€8/month.
 ```
