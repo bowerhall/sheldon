@@ -20,8 +20,8 @@ A personal AI assistant that remembers your entire life, runs on your own infras
 - "When did I last visit the dentist?"
 - Builds a knowledge graph across 14 life domains
 
-**Work on code with you**
-- "Build me a weather dashboard"
+**Build and deploy apps with you**
+- "Build me a bookmark manager and deploy it to bookmarks.mydomain.com"
 - "Add dark mode to the app we made last week"
 - Creates branches and PRs, you review and merge
 
@@ -34,10 +34,6 @@ A personal AI assistant that remembers your entire life, runs on your own infras
 - "Remind me to take meds every evening"
 - "Check on me every 6 hours while I'm deep in this project"
 - Context-aware, not just dumb notifications
-
-**Deploy apps**
-- "Build me a bookmark manager and deploy it to bookmarks.mydomain.com"
-- Docker Compose orchestration under the hood
 
 ## Scheduled Agent Triggers
 
