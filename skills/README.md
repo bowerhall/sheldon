@@ -20,7 +20,6 @@ metadata:
         - REQUIRED_ENV_VAR
     alwaysActive: false
 ---
-
 # Skill Content
 
 Instructions and examples here...
@@ -29,21 +28,23 @@ Instructions and examples here...
 ## Included Skills
 
 ### Coder Skills
-| Skill | Description |
-|-------|-------------|
-| `general` | Coding guidelines, always active |
-| `go-api` | Go API patterns with net/http |
-| `python-api` | FastAPI patterns |
-| `dockerfile` | Multi-stage Docker builds |
-| `compose` | Docker Compose with Traefik |
+
+| Skill          | Description                        |
+| -------------- | ---------------------------------- |
+| `general`      | Coding guidelines, always active   |
+| `go-api`       | Go API patterns with net/http      |
+| `python-api`   | FastAPI patterns                   |
+| `dockerfile`   | Multi-stage Docker builds          |
+| `compose`      | Docker Compose with Traefik        |
 | `git-workflow` | Branching and conventional commits |
 
 ### Agent Skills
-| Skill | Description |
-|-------|-------------|
-| `strategy-engine` | Multi-framework decision analysis (pros/cons, BATNA, pre-mortem) |
-| `apartment-hunter` | Apartment search, filtering, and Bewerbung generation |
-| `financial-advisor` | Budget tracking, spending analysis, financial planning |
+
+| Skill               | Description                                                      |
+| ------------------- | ---------------------------------------------------------------- |
+| `strategy-engine`   | Multi-framework decision analysis (pros/cons, BATNA, pre-mortem) |
+| `apartment-hunter`  | Apartment search, filtering, and Bewerbung generation            |
+| `financial-advisor` | Budget tracking, spending analysis, financial planning           |
 
 ## How Skills Work
 

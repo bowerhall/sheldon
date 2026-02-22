@@ -22,6 +22,7 @@ Decision analysis toolkit for complex choices. Use when the user faces a signifi
 ## Preparation
 
 Before analysis, recall context from relevant domains:
+
 - D7 (Work & Career) for job decisions
 - D8 (Finances) for money-related choices
 - D9 (Place) for location decisions
@@ -75,12 +76,12 @@ Map out consequences 2-3 steps ahead. Career change → new skills → new netwo
 
 For multi-option choices:
 
-| Criteria (weight) | Option A | Option B | Option C |
-|-------------------|----------|----------|----------|
-| Salary (4)        | 8        | 6        | 9        |
-| Growth (5)        | 7        | 9        | 5        |
-| Location (3)      | 6        | 8        | 7        |
-| **Weighted Total**| 85       | 93       | 79       |
+| Criteria (weight)  | Option A | Option B | Option C |
+| ------------------ | -------- | -------- | -------- |
+| Salary (4)         | 8        | 6        | 9        |
+| Growth (5)         | 7        | 9        | 5        |
+| Location (3)       | 6        | 8        | 7        |
+| **Weighted Total** | 85       | 93       | 79       |
 
 ## Output Format
 
