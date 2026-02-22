@@ -55,6 +55,10 @@ jobs:
             context: core/deploy/coder-sandbox
             file: core/deploy/coder-sandbox/Dockerfile
             image: bowerhall/sheldon-coder-sandbox
+          - name: browser-sandbox
+            context: core/deploy/browser-sandbox
+            file: core/deploy/browser-sandbox/Dockerfile
+            image: bowerhall/sheldon-browser-sandbox
 
     steps:
       - name: Checkout
@@ -142,6 +146,8 @@ jobs:
           CODER_ENABLED=${{ steps.doppler.outputs.CODER_ENABLED }}
           CODER_ISOLATED=${{ steps.doppler.outputs.CODER_ISOLATED }}
           CODER_MODEL=${{ steps.doppler.outputs.CODER_MODEL }}
+          CODER_IMAGE=${{ steps.doppler.outputs.CODER_IMAGE }}
+          BROWSER_SANDBOX_IMAGE=${{ steps.doppler.outputs.BROWSER_SANDBOX_IMAGE }}
           NVIDIA_API_KEY=${{ steps.doppler.outputs.NVIDIA_API_KEY }}
           KIMI_API_KEY=${{ steps.doppler.outputs.KIMI_API_KEY }}
           GIT_TOKEN=${{ steps.doppler.outputs.GIT_TOKEN }}
@@ -192,7 +198,14 @@ jobs:
             # Login to registry
             echo "${{ steps.doppler.outputs.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Pull and start
+            # Pull images (compose services + sandbox images)
             docker compose pull
+            docker pull ghcr.io/bowerhall/sheldon-coder-sandbox:latest
+            docker pull ghcr.io/bowerhall/sheldon-browser-sandbox:latest
+
+            # Tag sandbox images locally so defaults work without env vars
+            docker tag ghcr.io/bowerhall/sheldon-coder-sandbox:latest sheldon-coder-sandbox:latest
+            docker tag ghcr.io/bowerhall/sheldon-browser-sandbox:latest sheldon-browser-sandbox:latest
+
             docker compose up -d
             docker compose ps
