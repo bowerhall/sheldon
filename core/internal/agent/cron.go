@@ -122,7 +122,7 @@ Respond naturally - the user will see your message.`, c.Keyword, currentTime, fa
 	}
 
 	// calculate next run
-	nextRun, err := cron.ComputeNextRun(c.Schedule)
+	nextRun, err := r.crons.ComputeNextRun(c.Schedule)
 	if err != nil {
 		logger.Error("failed to compute next run", "schedule", c.Schedule, "error", err)
 		return

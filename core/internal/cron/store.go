@@ -22,11 +22,13 @@ type Cron struct {
 
 // Store manages cron persistence
 type Store struct {
-	db *sql.DB
+	db       *sql.DB
+	timezone *time.Location
 }
 
-// cronParser is configured for standard 5-field cron expressions
-var cronParser = cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+// cronParser is configured for 6-field cron expressions (with seconds)
+// Format: second minute hour day-of-month month day-of-week
+var cronParser = cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 
 const schema = `
 CREATE TABLE IF NOT EXISTS crons (
@@ -49,8 +51,11 @@ ALTER TABLE crons ADD COLUMN paused_until DATETIME;
 `
 
 // NewStore creates a cron store using the provided database connection
-func NewStore(db *sql.DB) (*Store, error) {
-	s := &Store{db: db}
+func NewStore(db *sql.DB, timezone *time.Location) (*Store, error) {
+	if timezone == nil {
+		timezone = time.UTC
+	}
+	s := &Store{db: db, timezone: timezone}
 
 	if err := s.migrate(); err != nil {
 		return nil, err
@@ -75,10 +80,12 @@ func (s *Store) Create(keyword, schedule string, chatID int64, expiresAt *time.T
 	// validate cron expression
 	sched, err := cronParser.Parse(schedule)
 	if err != nil {
-		return nil, fmt.Errorf("invalid cron schedule: %w", err)
+		return nil, fmt.Errorf("invalid cron schedule '%s': %w", schedule, err)
 	}
 
-	nextRun := sched.Next(time.Now())
+	// interpret cron expression in user's timezone, then convert to UTC for storage
+	// this ensures "8pm" means 8pm in the user's timezone, not UTC
+	nextRun := sched.Next(time.Now().In(s.timezone)).UTC()
 
 	result, err := s.db.Exec(`
 		INSERT INTO crons (keyword, schedule, chat_id, expires_at, next_run)
@@ -248,11 +255,12 @@ func (s *Store) GetByKeyword(keyword string, chatID int64) (*Cron, error) {
 }
 
 // ComputeNextRun calculates the next run time from a cron schedule
-func ComputeNextRun(schedule string) (time.Time, error) {
+func (s *Store) ComputeNextRun(schedule string) (time.Time, error) {
 	sched, err := cronParser.Parse(schedule)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, fmt.Errorf("invalid cron schedule '%s': %w", schedule, err)
 	}
 
-	return sched.Next(time.Now()), nil
+	// interpret cron expression in user's timezone, convert to UTC for storage
+	return sched.Next(time.Now().In(s.timezone)).UTC(), nil
 }

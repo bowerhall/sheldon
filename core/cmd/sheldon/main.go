@@ -174,12 +174,13 @@ func main() {
 	}
 
 	// cron store for scheduled reminders
-	cronStore, err := cron.NewStore(memory.DB())
+	cronTz, _ := time.LoadLocation(cfg.Timezone)
+	cronStore, err := cron.NewStore(memory.DB(), cronTz)
 	if err != nil {
 		logger.Fatal("failed to create cron store", "error", err)
 	}
 	tools.RegisterCronTools(agentLoop.Registry(), cronStore)
-	logger.Info("cron tools enabled")
+	logger.Info("cron tools enabled", "timezone", cfg.Timezone)
 
 	// minio storage (optional)
 	if cfg.Storage.Enabled {

@@ -19,6 +19,7 @@ import (
 )
 
 const maxToolIterations = 10
+const maxToolFailures = 3
 
 func New(model, extractor llm.LLM, memory *sheldonmem.Store, essencePath, timezone string) *Agent {
 	systemPrompt := loadSystemPrompt(essencePath)
@@ -184,6 +185,7 @@ func (a *Agent) loadSkill(name string) string {
 
 func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string, error) {
 	availableTools := a.tools.Tools()
+	toolFailures := make(map[string]int) // track consecutive failures per tool
 
 	for i := range maxToolIterations {
 		logger.Debug("agent loop iteration", "iteration", i, "messages", len(sess.Messages()))
@@ -216,7 +218,22 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 
 			result, err := a.tools.Execute(ctx, tc.Name, tc.Arguments)
 			if err != nil {
-				result = "Error: " + err.Error()
+				toolFailures[tc.Name]++
+				logger.Warn("tool execution failed", "name", tc.Name, "error", err, "failures", toolFailures[tc.Name])
+
+				// circuit breaker: if same tool fails 3 times, abort with clear feedback
+				if toolFailures[tc.Name] >= maxToolFailures {
+					errorMsg := fmt.Sprintf("I tried using '%s' %d times but it kept failing. Last error: %s. I'm stopping to avoid spinning in circles. Please check the issue or try a different approach.", tc.Name, maxToolFailures, err.Error())
+					logger.Error("circuit breaker triggered", "tool", tc.Name, "failures", toolFailures[tc.Name])
+					sess.AddMessage("tool", errorMsg, nil, tc.ID)
+					return errorMsg, nil
+				}
+
+				// provide clear, actionable error message
+				result = fmt.Sprintf("[TOOL ERROR] %s failed (attempt %d/%d): %s", tc.Name, toolFailures[tc.Name], maxToolFailures, err.Error())
+			} else {
+				// reset failure count on success
+				toolFailures[tc.Name] = 0
 			}
 
 			logger.Debug("tool result", "name", tc.Name, "chars", len(result))
