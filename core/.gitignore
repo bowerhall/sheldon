@@ -1,4 +1,4 @@
 bin/
 *.db
 .env
-sheldon
+/sheldon
