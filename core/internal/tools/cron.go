@@ -26,7 +26,10 @@ type PauseCronArgs struct {
 	Until   string `json:"until"`
 }
 
-func RegisterCronTools(registry *Registry, cronStore *cron.Store) {
+func RegisterCronTools(registry *Registry, cronStore *cron.Store, timezone *time.Location) {
+	if timezone == nil {
+		timezone = time.UTC
+	}
 	// set_cron tool
 	setCronTool := llm.Tool{
 		Name:        "set_cron",
@@ -82,7 +85,7 @@ func RegisterCronTools(registry *Registry, cronStore *cron.Store) {
 
 		return fmt.Sprintf("Reminder '%s' scheduled. Next: %s%s",
 			c.Keyword,
-			c.NextRun.Format("Mon Jan 2 3:04 PM"),
+			c.NextRun.In(timezone).Format("Mon Jan 2 3:04 PM"),
 			expiryInfo), nil
 	})
 
@@ -116,15 +119,15 @@ func RegisterCronTools(registry *Registry, cronStore *cron.Store) {
 		for _, c := range crons {
 			status := ""
 			if c.PausedUntil != nil && c.PausedUntil.After(time.Now()) {
-				status = fmt.Sprintf(" [PAUSED until %s]", c.PausedUntil.Format("Mon Jan 2 3:04 PM"))
+				status = fmt.Sprintf(" [PAUSED until %s]", c.PausedUntil.In(timezone).Format("Mon Jan 2 3:04 PM"))
 			}
 			expiryInfo := ""
 			if c.ExpiresAt != nil {
-				expiryInfo = fmt.Sprintf(" (expires %s)", c.ExpiresAt.Format("Jan 2"))
+				expiryInfo = fmt.Sprintf(" (expires %s)", c.ExpiresAt.In(timezone).Format("Jan 2"))
 			}
 			fmt.Fprintf(&sb, "- %s: next %s, schedule '%s'%s%s\n",
 				c.Keyword,
-				c.NextRun.Format("Mon Jan 2 3:04 PM"),
+				c.NextRun.In(timezone).Format("Mon Jan 2 3:04 PM"),
 				c.Schedule,
 				status,
 				expiryInfo)
@@ -209,7 +212,7 @@ func RegisterCronTools(registry *Registry, cronStore *cron.Store) {
 			return "", fmt.Errorf("failed to pause cron: %w", err)
 		}
 
-		return fmt.Sprintf("Trigger '%s' paused until %s.", params.Keyword, until.Format("Mon Jan 2 3:04 PM")), nil
+		return fmt.Sprintf("Trigger '%s' paused until %s.", params.Keyword, until.In(timezone).Format("Mon Jan 2 3:04 PM")), nil
 	})
 
 	// resume_cron tool (unpause)

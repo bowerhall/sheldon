@@ -180,7 +180,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to create cron store", "error", err)
 	}
-	tools.RegisterCronTools(agentLoop.Registry(), cronStore)
+	tools.RegisterCronTools(agentLoop.Registry(), cronStore, cronTz)
 	logger.Info("cron tools enabled", "timezone", cfg.Timezone)
 
 	// conversation buffer for recent message continuity
