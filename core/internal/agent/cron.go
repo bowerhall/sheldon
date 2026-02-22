@@ -33,11 +33,12 @@ func NewCronRunner(crons *cron.Store, memory *sheldonmem.Store, trigger TriggerF
 
 // Run starts the cron checker loop
 func (r *CronRunner) Run(ctx context.Context) {
-	ticker := time.NewTicker(time.Minute)
+	// check every 10 seconds to support sub-minute schedules
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	// initial check after short delay
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 	r.checkDueCrons(ctx)
 
 	for {

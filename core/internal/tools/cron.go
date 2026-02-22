@@ -40,7 +40,7 @@ func RegisterCronTools(registry *Registry, cronStore *cron.Store) {
 				},
 				"schedule": map[string]any{
 					"type":        "string",
-					"description": "Cron expression (6 fields with seconds): second minute hour day-of-month month day-of-week. Examples: '0 0 20 * * *' (8pm daily), '*/30 * * * * *' (every 30 seconds), '0 0 9 * * 1-5' (9am weekdays), '0 0 */6 * * *' (every 6 hours). Also supports: '@every 30s', '@every 5m', '@hourly', '@daily'",
+					"description": "Cron expression (6 fields with seconds): second minute hour day-of-month month day-of-week. Examples: '0 0 20 * * *' (8pm daily), '*/30 * * * * *' (every 30 seconds), '0 0 9 * * 1-5' (9am weekdays), '0 0 */6 * * *' (every 6 hours). For intervals use: '@every 30s', '@every 1m', '@every 5m', '@hourly', '@daily'. Note: seconds field is 0-59, so use '@every 60s' not '*/60' for every minute.",
 				},
 				"expires_in": map[string]any{
 					"type":        "string",
