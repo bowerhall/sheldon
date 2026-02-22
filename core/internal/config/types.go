@@ -57,9 +57,10 @@ type LLMConfig struct {
 }
 
 type EmbedderConfig struct {
-	Provider string
-	BaseURL  string
-	Model    string
+	Provider   string
+	BaseURL    string
+	Model      string
+	Dimensions int // embedding vector dimensions (default: 1024)
 }
 
 type BotConfig struct {

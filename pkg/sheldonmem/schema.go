@@ -1,6 +1,9 @@
 package sheldonmem
 
-const VectorDimensions = 768
+import "fmt"
+
+// VectorDimensions is set during Open() based on config
+var VectorDimensions = 1024
 
 const schema = `
 CREATE TABLE IF NOT EXISTS domains (
@@ -56,9 +59,11 @@ CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
 CREATE INDEX IF NOT EXISTS idx_edges_relation ON edges(relation);
 `
 
-const vecSchema = `
+func vecSchema() string {
+	return fmt.Sprintf(`
 CREATE VIRTUAL TABLE IF NOT EXISTS vec_facts USING vec0(
     fact_id INTEGER PRIMARY KEY,
-    embedding FLOAT[768]
+    embedding FLOAT[%d]
 );
-`
+`, VectorDimensions)
+}
