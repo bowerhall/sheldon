@@ -16,7 +16,115 @@ type RecallArgs struct {
 	Depth   int    `json:"depth,omitempty"`
 }
 
+type SaveMemoryArgs struct {
+	Field      string  `json:"field"`
+	Value      string  `json:"value"`
+	Domain     string  `json:"domain,omitempty"`
+	Confidence float64 `json:"confidence,omitempty"`
+}
+
+var domainNameToID = map[string]int{
+	"identity":      1,
+	"health":        2,
+	"mind":          3,
+	"beliefs":       4,
+	"knowledge":     5,
+	"relationships": 6,
+	"career":        7,
+	"finances":      8,
+	"place":         9,
+	"goals":         10,
+	"preferences":   11,
+	"routines":      12,
+	"events":        13,
+	"patterns":      14,
+}
+
 func RegisterMemoryTools(registry *Registry, memory *sheldonmem.Store) {
+	// save_memory tool - explicit memory storage
+	saveTool := llm.Tool{
+		Name: "save_memory",
+		Description: `Save a specific fact to long-term memory.
+
+IMPORTANT: Only use this tool when the user EXPLICITLY asks you to remember something.
+Examples of when to use:
+- "Remember that my cat's name is Luna"
+- "Save this: I'm allergic to peanuts"
+- "Don't forget I have a meeting at 3pm tomorrow"
+- "Please remember my anniversary is March 15th"
+
+Do NOT use this tool:
+- During normal conversation (facts are auto-extracted)
+- When user mentions something casually without asking you to remember
+- For information you're inferring rather than being told directly
+
+The user must signal intent to save with words like "remember", "save", "don't forget", "note that", etc.`,
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"field": map[string]any{
+					"type":        "string",
+					"description": "Short key for the fact (e.g., 'cat_name', 'allergy', 'anniversary')",
+				},
+				"value": map[string]any{
+					"type":        "string",
+					"description": "The information to remember",
+				},
+				"domain": map[string]any{
+					"type":        "string",
+					"description": "Category: identity, health, mind, beliefs, knowledge, relationships, career, finances, place, goals, preferences, routines, events, patterns. Default: knowledge",
+				},
+				"confidence": map[string]any{
+					"type":        "number",
+					"description": "How certain is this fact? 0.0-1.0. Use 1.0 for explicit user statements. Default: 1.0",
+				},
+			},
+			"required": []string{"field", "value"},
+		},
+	}
+
+	registry.Register(saveTool, func(ctx context.Context, args string) (string, error) {
+		var params SaveMemoryArgs
+		if err := json.Unmarshal([]byte(args), &params); err != nil {
+			return "", fmt.Errorf("invalid arguments: %w", err)
+		}
+
+		domain := params.Domain
+		if domain == "" {
+			domain = "knowledge"
+		}
+
+		domainID, ok := domainNameToID[domain]
+		if !ok {
+			domainID = 5 // default to knowledge
+		}
+
+		confidence := params.Confidence
+		if confidence <= 0 {
+			confidence = 1.0 // explicit saves are high confidence
+		}
+
+		// get user entity from context
+		chatID := ChatIDFromContext(ctx)
+		entityName := fmt.Sprintf("user_telegram_%d", chatID)
+
+		entity, err := memory.FindEntityByName(entityName)
+		if err != nil {
+			return "", fmt.Errorf("could not find user entity: %w", err)
+		}
+
+		result, err := memory.AddFact(&entity.ID, domainID, params.Field, params.Value, confidence)
+		if err != nil {
+			return "", fmt.Errorf("failed to save: %w", err)
+		}
+
+		if result.Superseded != nil {
+			return fmt.Sprintf("Updated: %s = %s (was: %s)", params.Field, params.Value, result.Superseded.Value), nil
+		}
+
+		return fmt.Sprintf("Saved: %s = %s", params.Field, params.Value), nil
+	})
+
 	recallTool := llm.Tool{
 		Name:        "recall_memory",
 		Description: "Search your memory for relevant facts about the user. Use this when you need to remember something about the user's preferences, history, relationships, or any personal information they've shared.",
