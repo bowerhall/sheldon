@@ -202,16 +202,10 @@ func loadHeartbeatConfig() HeartbeatConfig {
 }
 
 func loadEmbedderConfig() EmbedderConfig {
-	dimensions := 1024 // default for mxbai-embed-large
-	if dim, err := strconv.Atoi(os.Getenv("EMBEDDER_DIMENSIONS")); err == nil && dim > 0 {
-		dimensions = dim
-	}
-
 	return EmbedderConfig{
-		Provider:   os.Getenv("EMBEDDER_PROVIDER"),
-		BaseURL:    os.Getenv("EMBEDDER_URL"),
-		Model:      os.Getenv("EMBEDDER_MODEL"),
-		Dimensions: dimensions,
+		Provider: os.Getenv("EMBEDDER_PROVIDER"),
+		BaseURL:  os.Getenv("EMBEDDER_URL"),
+		Model:    os.Getenv("EMBEDDER_MODEL"),
 	}
 }
 

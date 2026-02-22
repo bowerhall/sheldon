@@ -56,8 +56,7 @@ services:
       # Embeddings (Ollama runs alongside)
       - EMBEDDER_PROVIDER=ollama
       - EMBEDDER_URL=http://ollama:11434
-      - EMBEDDER_MODEL=mxbai-embed-large
-      - EMBEDDER_DIMENSIONS=1024
+      - EMBEDDER_MODEL=nomic-embed-text
 
       # Extractor (local model via Ollama - no API cost)
       - EXTRACTOR_PROVIDER=ollama
@@ -90,7 +89,7 @@ services:
     networks:
       - sheldon-net
     # Pull models on first start (embeddings + extraction)
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull mxbai-embed-large && ollama pull qwen2:0.5b && wait"]
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && ollama pull qwen2:0.5b && wait"]
 
 networks:
   sheldon-net:

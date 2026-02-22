@@ -81,11 +81,6 @@ func main() {
 		logger.Fatal("failed to create extractor", "error", err)
 	}
 
-	// set embedding dimensions before opening memory (affects vector table schema)
-	if cfg.Embedder.Dimensions > 0 {
-		sheldonmem.SetVectorDimensions(cfg.Embedder.Dimensions)
-	}
-
 	memory, err := sheldonmem.Open(cfg.MemoryPath)
 	if err != nil {
 		logger.Fatal("failed to open memory", "error", err)

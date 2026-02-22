@@ -7,11 +7,6 @@ import (
 	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
-// SetVectorDimensions sets the embedding dimensions (must be called before Open)
-func SetVectorDimensions(dim int) {
-	VectorDimensions = dim
-}
-
 func Open(path string) (*Store, error) {
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
@@ -37,7 +32,7 @@ func (s *Store) migrate() error {
 		return err
 	}
 
-	if _, err := s.db.Exec(vecSchema()); err != nil {
+	if _, err := s.db.Exec(vecSchema); err != nil {
 		return err
 	}
 
