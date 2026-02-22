@@ -1,4 +1,0 @@
-sheldon, [Feb 22, 2026 at 02:00]
-Hmm, the cron shows next as Mon Jan 1 12:00 AM which looks wrong. The schedule format might not be parsing correctly — I used `*/60 * * * * *` (every 60 seconds) but it seems to have defaulted to something else.
-
-This is actually a good catch for testing edge cases in your system! The cron parser might be stricter about the format than expected.

@@ -1,4 +1,0 @@
-sheldon, [Feb 22, 2026 at 01:57]
-Done! I've set a reminder to trigger every 60 seconds for the next 3 minutes with the keyword "drink-water-reminder". When it fires, I'll search memory for that keyword and remind you to hydrate.
-
-This should give us a good baseline test of how the memory-retrieval system handles simple temporal triggers. We'll see how smoothly it pulls the context when the cron activates.
