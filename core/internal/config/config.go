@@ -17,7 +17,7 @@ func Load() (*Config, error) {
 		memoryPath = "sheldon.db"
 	}
 
-	timezone := os.Getenv("SHELDON_TIMEZONE")
+	timezone := os.Getenv("TZ")
 	if timezone == "" {
 		timezone = "UTC"
 	}
