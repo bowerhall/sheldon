@@ -43,6 +43,7 @@ func Load() (*Config, error) {
 	multiBot := loadMultiBotConfig()
 	budgetConfig := loadBudgetConfig()
 	coderConfig := loadCoderConfig()
+	browserConfig := loadBrowserConfig()
 	storageConfig := loadStorageConfig()
 	deployerConfig := loadDeployerConfig()
 
@@ -54,6 +55,7 @@ func Load() (*Config, error) {
 		Extractor:   extractorConfig,
 		Embedder:    embedderConfig,
 		Coder:       coderConfig,
+		Browser:     browserConfig,
 		Deployer:    deployerConfig,
 		Storage:     storageConfig,
 		Bot:         botConfig,
@@ -187,6 +189,20 @@ func loadMultiBotConfig() MultiBot {
 			Enabled: discordToken != "",
 			Token:   discordToken,
 		},
+	}
+}
+
+func loadBrowserConfig() BrowserConfig {
+	sandboxEnabled := os.Getenv("BROWSER_SANDBOX_ENABLED") == "true"
+
+	image := os.Getenv("BROWSER_SANDBOX_IMAGE")
+	if image == "" {
+		image = "sheldon-browser-sandbox:latest"
+	}
+
+	return BrowserConfig{
+		SandboxEnabled: sandboxEnabled,
+		Image:          image,
 	}
 }
 

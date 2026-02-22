@@ -8,12 +8,18 @@ type Config struct {
 	Extractor   LLMConfig
 	Embedder    EmbedderConfig
 	Coder       CoderConfig
+	Browser     BrowserConfig
 	Deployer    DeployerConfig
 	Storage     StorageConfig
 	Bot         BotConfig
 	Bots        MultiBot
 	Heartbeat   HeartbeatConfig
 	Budget      BudgetConfig
+}
+
+type BrowserConfig struct {
+	SandboxEnabled bool   // use isolated Docker container for browser automation
+	Image          string // browser sandbox image (default: sheldon-browser-sandbox:latest)
 }
 
 type DeployerConfig struct {

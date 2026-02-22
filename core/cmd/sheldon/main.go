@@ -12,6 +12,7 @@ import (
 	"github.com/bowerhall/sheldon/internal/agent"
 	"github.com/bowerhall/sheldon/internal/alerts"
 	"github.com/bowerhall/sheldon/internal/bot"
+	"github.com/bowerhall/sheldon/internal/browser"
 	"github.com/bowerhall/sheldon/internal/budget"
 	"github.com/bowerhall/sheldon/internal/coder"
 	"github.com/bowerhall/sheldon/internal/config"
@@ -167,6 +168,15 @@ func main() {
 	// browser tools for web browsing
 	tools.RegisterBrowserTools(agentLoop.Registry(), tools.DefaultBrowserConfig())
 	logger.Info("browser tools enabled")
+
+	// browser sandbox for isolated JS-rendering browser automation
+	if cfg.Browser.SandboxEnabled {
+		browserRunner := browser.NewRunner(browser.Config{
+			Image: cfg.Browser.Image,
+		})
+		tools.RegisterBrowserSandboxTools(agentLoop.Registry(), browserRunner)
+		logger.Info("browser sandbox enabled", "image", cfg.Browser.Image)
+	}
 
 	// github tools for PR management (if git token configured)
 	if cfg.Coder.Git.Token != "" {
