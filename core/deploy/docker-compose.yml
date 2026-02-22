@@ -61,7 +61,7 @@ services:
       # Extractor (local model via Ollama - no API cost)
       - EXTRACTOR_PROVIDER=ollama
       - EXTRACTOR_BASE_URL=http://ollama:11434
-      - EXTRACTOR_MODEL=qwen2:0.5b
+      - EXTRACTOR_MODEL=qwen2.5:3b
 
       # Coder LLM (uses KIMI_API_KEY by default, or set NVIDIA_API_KEY)
       - NVIDIA_API_KEY=${NVIDIA_API_KEY:-}
@@ -89,7 +89,7 @@ services:
     networks:
       - sheldon-net
     # Pull models on first start (embeddings + extraction)
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && ollama pull qwen2:0.5b && wait"]
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && ollama pull qwen2.5:3b && wait"]
 
 networks:
   sheldon-net:
