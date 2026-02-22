@@ -95,14 +95,17 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 		if err != nil {
 			logger.Warn("failed to load recent messages", "error", err)
 		} else if len(recent) > 0 {
-			logger.Info("loading recent conversation", "chatID", chatID, "messages", len(recent))
-			for i, m := range recent {
-				preview := m.Content
-				if len(preview) > 50 {
-					preview = preview[:50] + "..."
+			// skip leading assistant messages - conversation must start with user
+			startIdx := 0
+			for startIdx < len(recent) && recent[startIdx].Role != "user" {
+				startIdx++
+			}
+			if startIdx < len(recent) {
+				loaded := recent[startIdx:]
+				logger.Info("loading recent conversation", "chatID", chatID, "messages", len(loaded), "skipped", startIdx)
+				for _, m := range loaded {
+					sess.AddMessage(m.Role, m.Content, nil, "")
 				}
-				logger.Info("loaded message", "index", i, "role", m.Role, "preview", preview)
-				sess.AddMessage(m.Role, m.Content, nil, "")
 			}
 		} else {
 			logger.Debug("no recent messages found", "chatID", chatID)
