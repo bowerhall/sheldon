@@ -1,4 +1,0 @@
-sheldon, [Feb 22, 2026 at 05:41]
-The cron system seems to have a timezone mismatch - when I set `@every 3m`, it scheduled the next trigger for 4:35 AM instead of 3 minutes from now. This suggests the cron scheduler is using a different timezone or has some configuration issue with relative time expressions.
-
-Instead of the expected "every 3 minutes starting now", it was waiting for the next absolute 3-minute interval on whatever timezone it's configured for.
