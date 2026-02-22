@@ -96,11 +96,9 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 			logger.Warn("failed to load recent messages", "error", err)
 		} else if len(recent) > 0 {
 			logger.Info("loading recent conversation", "chatID", chatID, "messages", len(recent))
-			sess.AddMessage("system", "[Recent conversation for context - do not re-process:]", nil, "")
 			for _, m := range recent {
 				sess.AddMessage(m.Role, m.Content, nil, "")
 			}
-			sess.AddMessage("system", "[End of recent context. New message follows:]", nil, "")
 		} else {
 			logger.Debug("no recent messages found", "chatID", chatID)
 		}
