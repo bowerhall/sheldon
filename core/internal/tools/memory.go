@@ -73,6 +73,14 @@ func RegisterMemoryTools(registry *Registry, memory *sheldonmem.Store) {
 			sb.WriteString("Facts:\n")
 			for _, f := range result.Facts {
 				fmt.Fprintf(&sb, "- %s: %s\n", f.Field, f.Value)
+
+				// check for superseded (contradicting) values
+				superseded, _ := memory.GetSupersededFacts(f.Field, f.EntityID)
+				if len(superseded) > 0 {
+					for _, old := range superseded {
+						fmt.Fprintf(&sb, "  ↳ (previously: %s, changed %s)\n", old.Value, old.CreatedAt.Format("Jan 2"))
+					}
+				}
 			}
 		}
 

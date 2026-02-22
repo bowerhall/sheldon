@@ -23,6 +23,8 @@ const (
 	querySearchFactsPrefix = `SELECT id, entity_id, domain_id, field, value, confidence, access_count, active, created_at FROM facts WHERE active = 1 AND (value LIKE ? OR field LIKE ?) AND domain_id IN (`
 	querySearchFactsSuffix = `) ORDER BY (confidence * 0.7 + (1.0 / (julianday('now') - julianday(COALESCE(last_accessed, created_at)) + 1)) * 0.3) DESC LIMIT 20`
 
+	queryGetSupersededFacts = `SELECT id, entity_id, domain_id, field, value, confidence, access_count, active, created_at FROM facts WHERE active = 0 AND field = ? AND entity_id IS ? ORDER BY created_at DESC LIMIT 3`
+
 	queryInsertEdge         = `INSERT INTO edges (source_id, target_id, relation, strength, metadata) VALUES (?, ?, ?, ?, ?)`
 	queryGetEdgesFrom       = `SELECT id, source_id, target_id, relation, strength, metadata, created_at FROM edges WHERE source_id = ?`
 	queryGetEdgesTo         = `SELECT id, source_id, target_id, relation, strength, metadata, created_at FROM edges WHERE target_id = ?`

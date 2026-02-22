@@ -176,6 +176,25 @@ func (s *Store) findSimilarFact(ctx context.Context, entityID int64, domainID in
 	return &f, nil
 }
 
+// GetSupersededFacts returns previous values for a field (inactive facts)
+func (s *Store) GetSupersededFacts(field string, entityID *int64) ([]*Fact, error) {
+	rows, err := s.db.Query(queryGetSupersededFacts, field, entityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var facts []*Fact
+	for rows.Next() {
+		var f Fact
+		if err := rows.Scan(&f.ID, &f.EntityID, &f.DomainID, &f.Field, &f.Value, &f.Confidence, &f.AccessCount, &f.Active, &f.CreatedAt); err != nil {
+			return nil, err
+		}
+		facts = append(facts, &f)
+	}
+	return facts, nil
+}
+
 func (s *Store) SearchFacts(query string, domainIDs []int) ([]*Fact, error) {
 	if len(domainIDs) == 0 {
 		return nil, nil
