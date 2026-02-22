@@ -96,7 +96,12 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 			logger.Warn("failed to load recent messages", "error", err)
 		} else if len(recent) > 0 {
 			logger.Info("loading recent conversation", "chatID", chatID, "messages", len(recent))
-			for _, m := range recent {
+			for i, m := range recent {
+				preview := m.Content
+				if len(preview) > 50 {
+					preview = preview[:50] + "..."
+				}
+				logger.Info("loaded message", "index", i, "role", m.Role, "preview", preview)
 				sess.AddMessage(m.Role, m.Content, nil, "")
 			}
 		} else {
