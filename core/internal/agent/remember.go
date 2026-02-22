@@ -82,7 +82,6 @@ func (a *Agent) remember(ctx context.Context, sessionID string, messages []llm.M
 	}
 
 	userEntityID := a.getOrCreateUserEntity(sessionID)
-	var contradictions []Contradiction
 
 	for _, fact := range facts {
 		domainID, ok := domainSlugToID[fact.Domain]
@@ -97,61 +96,14 @@ func (a *Agent) remember(ctx context.Context, sessionID string, messages []llm.M
 		}
 
 		if result.Superseded != nil {
-			contradictions = append(contradictions, Contradiction{
-				Field:    fact.Field,
-				OldValue: result.Superseded.Value,
-				NewValue: fact.Value,
-			})
+			// contradictions are handled at recall time, not here
 			logger.Info("fact superseded", "field", fact.Field, "old", result.Superseded.Value, "new", fact.Value)
 		} else {
 			logger.Info("fact remembered", "field", fact.Field, "value", fact.Value, "domain", fact.Domain)
 		}
 	}
-
-	if len(contradictions) > 0 && a.notify != nil {
-		chatID := extractChatID(sessionID)
-		if chatID != 0 {
-			message := a.formatContradictionAlert(ctx, contradictions)
-			a.notify(chatID, message)
-		}
-	}
 }
 
-func extractChatID(sessionID string) int64 {
-	parts := strings.SplitN(sessionID, ":", 2)
-	if len(parts) != 2 {
-		return 0
-	}
-	var chatID int64
-	fmt.Sscanf(parts[1], "%d", &chatID)
-	return chatID
-}
-
-const contradictionPrompt = `You just noticed some inconsistencies between what you previously knew and what the user just said. Ask them about it naturally in your own words.
-
-Changes detected:
-%s
-
-Keep it brief (1-2 sentences). Be curious, not accusatory. You've already updated your memory with the new info - just checking if they meant to change it.`
-
-func (a *Agent) formatContradictionAlert(ctx context.Context, contradictions []Contradiction) string {
-	var changes strings.Builder
-	for _, c := range contradictions {
-		fmt.Fprintf(&changes, "- %s: was \"%s\", now \"%s\"\n", c.Field, c.OldValue, c.NewValue)
-	}
-
-	prompt := fmt.Sprintf(contradictionPrompt, changes.String())
-
-	response, err := a.extractor.Chat(ctx, a.systemPrompt, []llm.Message{
-		{Role: "user", Content: prompt},
-	})
-	if err != nil {
-		return fmt.Sprintf("I noticed you changed %s from \"%s\" to \"%s\" - just checking that's right?",
-			contradictions[0].Field, contradictions[0].OldValue, contradictions[0].NewValue)
-	}
-
-	return response
-}
 
 func (a *Agent) getOrCreateUserEntity(sessionID string) int64 {
 	parts := strings.SplitN(sessionID, ":", 2)
