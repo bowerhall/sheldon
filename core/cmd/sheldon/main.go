@@ -165,18 +165,16 @@ func main() {
 	agentLoop.SetSkillsDir(skillsDir)
 	logger.Info("skills enabled", "dir", skillsDir)
 
-	// browser tools for web browsing
-	tools.RegisterBrowserTools(agentLoop.Registry(), tools.DefaultBrowserConfig())
-	logger.Info("browser tools enabled")
-
-	// browser sandbox for isolated JS-rendering browser automation
+	// browser tools - prefer sandbox with JS rendering, fallback to HTTP
+	var browserRunner *browser.Runner
 	if cfg.Browser.SandboxEnabled {
-		browserRunner := browser.NewRunner(browser.Config{
+		browserRunner = browser.NewRunner(browser.Config{
 			Image: cfg.Browser.Image,
 		})
-		tools.RegisterBrowserSandboxTools(agentLoop.Registry(), browserRunner)
 		logger.Info("browser sandbox enabled", "image", cfg.Browser.Image)
 	}
+	tools.RegisterUnifiedBrowserTools(agentLoop.Registry(), browserRunner, tools.DefaultBrowserConfig())
+	logger.Info("browser tools enabled", "sandbox", cfg.Browser.SandboxEnabled)
 
 	// github tools for PR management (if git token configured)
 	if cfg.Coder.Git.Token != "" {
