@@ -170,6 +170,23 @@ func (s *Store) DeleteExpired() (int, error) {
 	return int(n), nil
 }
 
+// parseTime tries multiple formats to parse SQLite datetime strings
+func parseTime(s string) time.Time {
+	formats := []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02T15:04:05Z",
+		"2006-01-02 15:04:05",
+		"2006-01-02T15:04:05",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
 // scanCrons is a helper to scan cron rows
 func (s *Store) scanCrons(rows *sql.Rows) ([]Cron, error) {
 	var crons []Cron
@@ -184,21 +201,21 @@ func (s *Store) scanCrons(rows *sql.Rows) ([]Cron, error) {
 		}
 
 		if expiresAt != nil {
-			t, _ := time.Parse("2006-01-02 15:04:05", *expiresAt)
+			t := parseTime(*expiresAt)
 			c.ExpiresAt = &t
 		}
 
 		if pausedUntil != nil {
-			t, _ := time.Parse("2006-01-02 15:04:05", *pausedUntil)
+			t := parseTime(*pausedUntil)
 			c.PausedUntil = &t
 		}
 
 		if nextRun != nil {
-			c.NextRun, _ = time.Parse("2006-01-02 15:04:05", *nextRun)
+			c.NextRun = parseTime(*nextRun)
 		}
 
 		if createdAt != nil {
-			c.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", *createdAt)
+			c.CreatedAt = parseTime(*createdAt)
 		}
 
 		crons = append(crons, c)
@@ -234,21 +251,21 @@ func (s *Store) GetByKeyword(keyword string, chatID int64) (*Cron, error) {
 	}
 
 	if expiresAt != nil {
-		t, _ := time.Parse("2006-01-02 15:04:05", *expiresAt)
+		t := parseTime(*expiresAt)
 		c.ExpiresAt = &t
 	}
 
 	if pausedUntil != nil {
-		t, _ := time.Parse("2006-01-02 15:04:05", *pausedUntil)
+		t := parseTime(*pausedUntil)
 		c.PausedUntil = &t
 	}
 
 	if nextRun != nil {
-		c.NextRun, _ = time.Parse("2006-01-02 15:04:05", *nextRun)
+		c.NextRun = parseTime(*nextRun)
 	}
 
 	if createdAt != nil {
-		c.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", *createdAt)
+		c.CreatedAt = parseTime(*createdAt)
 	}
 
 	return &c, nil
