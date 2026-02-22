@@ -193,7 +193,8 @@ func loadMultiBotConfig() MultiBot {
 }
 
 func loadBrowserConfig() BrowserConfig {
-	sandboxEnabled := os.Getenv("BROWSER_SANDBOX_ENABLED") == "true"
+	// sandbox enabled by default, set BROWSER_SANDBOX_ENABLED=false to disable
+	sandboxEnabled := os.Getenv("BROWSER_SANDBOX_ENABLED") != "false"
 
 	image := os.Getenv("BROWSER_SANDBOX_IMAGE")
 	if image == "" {
