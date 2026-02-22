@@ -17,6 +17,7 @@ type RecallArgs struct {
 }
 
 type SaveMemoryArgs struct {
+	Subject    string  `json:"subject,omitempty"`
 	Field      string  `json:"field"`
 	Value      string  `json:"value"`
 	Domain     string  `json:"domain,omitempty"`
@@ -48,10 +49,10 @@ func RegisterMemoryTools(registry *Registry, memory *sheldonmem.Store) {
 
 IMPORTANT: Only use this tool when the user EXPLICITLY asks you to remember something.
 Examples of when to use:
-- "Remember that my cat's name is Luna"
-- "Save this: I'm allergic to peanuts"
-- "Don't forget I have a meeting at 3pm tomorrow"
-- "Please remember my anniversary is March 15th"
+- "Remember that my cat's name is Luna" (subject: user)
+- "Sheldon, remember you should use more humor" (subject: sheldon)
+- "Save this: I'm allergic to peanuts" (subject: user)
+- "Don't forget you promised to be more concise" (subject: sheldon)
 
 Do NOT use this tool:
 - During normal conversation (facts are auto-extracted)
@@ -62,9 +63,13 @@ The user must signal intent to save with words like "remember", "save", "don't f
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
+				"subject": map[string]any{
+					"type":        "string",
+					"description": "Who is this fact about? 'user' for facts about the user, 'sheldon' for facts about yourself (behavior, style, promises). Default: user",
+				},
 				"field": map[string]any{
 					"type":        "string",
-					"description": "Short key for the fact (e.g., 'cat_name', 'allergy', 'anniversary')",
+					"description": "Short key for the fact (e.g., 'cat_name', 'allergy', 'communication_style')",
 				},
 				"value": map[string]any{
 					"type":        "string",
@@ -104,13 +109,24 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			confidence = 1.0 // explicit saves are high confidence
 		}
 
-		// get user entity from context
-		chatID := ChatIDFromContext(ctx)
-		entityName := fmt.Sprintf("user_telegram_%d", chatID)
+		// determine which entity to save to
+		subject := strings.ToLower(params.Subject)
+		var entity *sheldonmem.Entity
+		var err error
 
-		entity, err := memory.FindEntityByName(entityName)
-		if err != nil {
-			return "", fmt.Errorf("could not find user entity: %w", err)
+		if subject == "sheldon" || subject == "self" || subject == "assistant" {
+			entity, err = memory.FindEntityByName("Sheldon")
+			if err != nil {
+				return "", fmt.Errorf("could not find Sheldon entity: %w", err)
+			}
+		} else {
+			// default to user
+			chatID := ChatIDFromContext(ctx)
+			entityName := fmt.Sprintf("user_telegram_%d", chatID)
+			entity, err = memory.FindEntityByName(entityName)
+			if err != nil {
+				return "", fmt.Errorf("could not find user entity: %w", err)
+			}
 		}
 
 		result, err := memory.AddFact(&entity.ID, domainID, params.Field, params.Value, confidence)
@@ -118,11 +134,16 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			return "", fmt.Errorf("failed to save: %w", err)
 		}
 
-		if result.Superseded != nil {
-			return fmt.Sprintf("Updated: %s = %s (was: %s)", params.Field, params.Value, result.Superseded.Value), nil
+		subjectLabel := "user"
+		if subject == "sheldon" || subject == "self" || subject == "assistant" {
+			subjectLabel = "self"
 		}
 
-		return fmt.Sprintf("Saved: %s = %s", params.Field, params.Value), nil
+		if result.Superseded != nil {
+			return fmt.Sprintf("Updated (%s): %s = %s (was: %s)", subjectLabel, params.Field, params.Value, result.Superseded.Value), nil
+		}
+
+		return fmt.Sprintf("Saved (%s): %s = %s", subjectLabel, params.Field, params.Value), nil
 	})
 
 	recallTool := llm.Tool{

@@ -10,10 +10,15 @@ import (
 	"github.com/bowerhall/sheldon/internal/logger"
 )
 
-const extractPrompt = `You are a fact extractor. Analyze the conversation and extract any facts worth remembering about the user or topics discussed.
+const extractPrompt = `You are a fact extractor. Analyze the conversation and extract facts worth remembering.
+
+Extract facts about:
+1. The USER - their preferences, information, life details
+2. SHELDON (the assistant) - instructions about how to behave, communication style, things to remember about himself
 
 Return a JSON array of facts. Each fact should have:
-- "field": short key (e.g., "name", "city", "preference", "interest")
+- "subject": either "user" or "sheldon" (who is this fact about?)
+- "field": short key (e.g., "name", "city", "communication_style", "humor_preference")
 - "value": the actual information
 - "domain": one of: identity, health, mind, beliefs, knowledge, relationships, career, finances, place, goals, preferences, routines, events, patterns
 - "confidence": 0.0-1.0 based on how certain the fact is
@@ -23,8 +28,8 @@ If no facts are worth remembering, return an empty array: []
 
 Example output:
 [
-  {"field": "name", "value": "John", "domain": "identity", "confidence": 0.95},
-  {"field": "favorite_color", "value": "blue", "domain": "preferences", "confidence": 0.8}
+  {"subject": "user", "field": "name", "value": "John", "domain": "identity", "confidence": 0.95},
+  {"subject": "sheldon", "field": "humor_style", "value": "use dad jokes", "domain": "preferences", "confidence": 0.9}
 ]
 
 Conversation:
@@ -33,6 +38,7 @@ Conversation:
 Extract facts (JSON only, no explanation):`
 
 type extractedFact struct {
+	Subject    string  `json:"subject"`
 	Field      string  `json:"field"`
 	Value      string  `json:"value"`
 	Domain     string  `json:"domain"`
@@ -80,6 +86,7 @@ func (a *Agent) rememberExchange(ctx context.Context, sessionID string, userMess
 	}
 
 	userEntityID := a.getOrCreateUserEntity(sessionID)
+	sheldonEntityID := a.getSheldonEntityID()
 
 	for _, fact := range facts {
 		domainID, ok := domainSlugToID[fact.Domain]
@@ -87,18 +94,41 @@ func (a *Agent) rememberExchange(ctx context.Context, sessionID string, userMess
 			domainID = 1
 		}
 
-		result, err := a.memory.AddFact(&userEntityID, domainID, fact.Field, fact.Value, fact.Confidence)
+		// determine which entity to save to
+		var entityID int64
+		subject := strings.ToLower(fact.Subject)
+		if subject == "sheldon" || subject == "assistant" {
+			entityID = sheldonEntityID
+		} else {
+			entityID = userEntityID
+		}
+
+		if entityID == 0 {
+			logger.Error("no entity ID for fact", "subject", fact.Subject)
+			continue
+		}
+
+		result, err := a.memory.AddFact(&entityID, domainID, fact.Field, fact.Value, fact.Confidence)
 		if err != nil {
 			logger.Error("failed to store fact", "error", err, "field", fact.Field)
 			continue
 		}
 
 		if result.Superseded != nil {
-			logger.Info("fact superseded", "field", fact.Field, "old", result.Superseded.Value, "new", fact.Value)
+			logger.Info("fact superseded", "subject", subject, "field", fact.Field, "old", result.Superseded.Value, "new", fact.Value)
 		} else {
-			logger.Info("fact remembered", "field", fact.Field, "value", fact.Value, "domain", fact.Domain)
+			logger.Info("fact remembered", "subject", subject, "field", fact.Field, "value", fact.Value, "domain", fact.Domain)
 		}
 	}
+}
+
+func (a *Agent) getSheldonEntityID() int64 {
+	entity, err := a.memory.FindEntityByName("Sheldon")
+	if err != nil {
+		logger.Error("failed to find Sheldon entity", "error", err)
+		return 0
+	}
+	return entity.ID
 }
 
 
