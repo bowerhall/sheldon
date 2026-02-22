@@ -5,6 +5,7 @@ import (
 
 	"github.com/bowerhall/sheldon/internal/alerts"
 	"github.com/bowerhall/sheldon/internal/budget"
+	"github.com/bowerhall/sheldon/internal/conversation"
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldon/internal/session"
 	"github.com/bowerhall/sheldon/internal/tools"
@@ -20,6 +21,7 @@ type Agent struct {
 	llm          llm.LLM
 	extractor    llm.LLM
 	memory       *sheldonmem.Store
+	convo        *conversation.Store
 	sessions     *session.Store
 	tools        *tools.Registry
 	systemPrompt string
@@ -32,4 +34,8 @@ type Agent struct {
 
 func (a *Agent) SetSkillsDir(dir string) {
 	a.skillsDir = dir
+}
+
+func (a *Agent) SetConversationStore(store *conversation.Store) {
+	a.convo = store
 }

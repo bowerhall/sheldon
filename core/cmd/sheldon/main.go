@@ -15,6 +15,7 @@ import (
 	"github.com/bowerhall/sheldon/internal/budget"
 	"github.com/bowerhall/sheldon/internal/coder"
 	"github.com/bowerhall/sheldon/internal/config"
+	"github.com/bowerhall/sheldon/internal/conversation"
 	"github.com/bowerhall/sheldon/internal/cron"
 	"github.com/bowerhall/sheldon/internal/deployer"
 	"github.com/bowerhall/sheldon/internal/embedder"
@@ -181,6 +182,14 @@ func main() {
 	}
 	tools.RegisterCronTools(agentLoop.Registry(), cronStore)
 	logger.Info("cron tools enabled", "timezone", cfg.Timezone)
+
+	// conversation buffer for recent message continuity
+	convoStore, err := conversation.NewStore(memory.DB())
+	if err != nil {
+		logger.Fatal("failed to create conversation store", "error", err)
+	}
+	agentLoop.SetConversationStore(convoStore)
+	logger.Info("conversation buffer enabled", "max_messages", 12)
 
 	// minio storage (optional)
 	if cfg.Storage.Enabled {

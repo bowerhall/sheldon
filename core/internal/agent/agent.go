@@ -80,6 +80,7 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 	logger.Debug("message received", "session", sessionID)
 
 	sess := a.sessions.Get(sessionID)
+	chatID := a.parseChatID(sessionID)
 
 	// prevent concurrent processing of same session
 	if !sess.TryAcquire() {
@@ -87,6 +88,20 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 		return "I'm still working on your previous request. I'll get to this once I'm done!", nil
 	}
 	defer sess.Release()
+
+	// load recent conversation history for continuity
+	if len(sess.Messages()) == 0 && a.convo != nil {
+		recent, err := a.convo.GetRecent(chatID)
+		if err != nil {
+			logger.Warn("failed to load recent messages", "error", err)
+		} else if len(recent) > 0 {
+			sess.AddMessage("system", "[Recent conversation for context - do not re-process:]", nil, "")
+			for _, m := range recent {
+				sess.AddMessage(m.Role, m.Content, nil, "")
+			}
+			sess.AddMessage("system", "[End of recent context. New message follows:]", nil, "")
+		}
+	}
 
 	if len(sess.Messages()) == 0 && a.isNewUser(sessionID) {
 		logger.Info("new user detected, triggering interview", "session", sessionID)
@@ -105,7 +120,6 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 	}
 
 	// add chatID to context for tool notifications
-	chatID := a.parseChatID(sessionID)
 	ctx = context.WithValue(ctx, tools.ChatIDKey, chatID)
 
 	response, err := a.runAgentLoop(ctx, sess)
@@ -114,7 +128,18 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 		return "", err
 	}
 
-	go a.remember(ctx, sessionID, sess.Messages())
+	// save to recent conversation buffer
+	if a.convo != nil {
+		if err := a.convo.Add(chatID, "user", userMessage); err != nil {
+			logger.Warn("failed to save user message to conversation buffer", "error", err)
+		}
+		if err := a.convo.Add(chatID, "assistant", response); err != nil {
+			logger.Warn("failed to save assistant response to conversation buffer", "error", err)
+		}
+	}
+
+	// extract facts only from the new exchange (not the buffer)
+	go a.rememberExchange(ctx, sessionID, userMessage, response)
 
 	return response, nil
 }
@@ -266,8 +291,7 @@ func (a *Agent) ProcessSystemTrigger(ctx context.Context, sessionID string, trig
 		return "", err
 	}
 
-	// Remember this interaction
-	go a.remember(ctx, sessionID, sess.Messages())
+	// system triggers don't extract facts - they're internal prompts, not user input
 
 	return response, nil
 }

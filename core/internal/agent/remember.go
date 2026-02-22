@@ -56,12 +56,10 @@ var domainSlugToID = map[string]int{
 	"patterns":      14,
 }
 
-func (a *Agent) remember(ctx context.Context, sessionID string, messages []llm.Message) {
-	if len(messages) < 2 {
-		return
-	}
-
-	conversation := formatConversation(messages)
+// rememberExchange extracts facts only from the latest user message and response
+// This avoids re-extracting from the conversation buffer
+func (a *Agent) rememberExchange(ctx context.Context, sessionID string, userMessage, assistantResponse string) {
+	conversation := fmt.Sprintf("user: %s\nassistant: %s\n", userMessage, assistantResponse)
 	prompt := fmt.Sprintf(extractPrompt, conversation)
 
 	response, err := a.extractor.Chat(ctx, "", []llm.Message{{Role: "user", Content: prompt}})
@@ -96,7 +94,6 @@ func (a *Agent) remember(ctx context.Context, sessionID string, messages []llm.M
 		}
 
 		if result.Superseded != nil {
-			// contradictions are handled at recall time, not here
 			logger.Info("fact superseded", "field", fact.Field, "old", result.Superseded.Value, "new", fact.Value)
 		} else {
 			logger.Info("fact remembered", "field", fact.Field, "value", fact.Value, "domain", fact.Domain)
