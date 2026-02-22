@@ -28,6 +28,7 @@ Instructions and examples here...
 
 ## Included Skills
 
+### Coder Skills
 | Skill | Description |
 |-------|-------------|
 | `general` | Coding guidelines, always active |
@@ -36,6 +37,13 @@ Instructions and examples here...
 | `dockerfile` | Multi-stage Docker builds |
 | `compose` | Docker Compose with Traefik |
 | `git-workflow` | Branching and conventional commits |
+
+### Agent Skills
+| Skill | Description |
+|-------|-------------|
+| `strategy-engine` | Multi-framework decision analysis (pros/cons, BATNA, pre-mortem) |
+| `apartment-hunter` | Apartment search, filtering, and Bewerbung generation |
+| `financial-advisor` | Budget tracking, spending analysis, financial planning |
 
 ## How Skills Work
 

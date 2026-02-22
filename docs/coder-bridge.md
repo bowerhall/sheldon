@@ -20,16 +20,16 @@ Sheldon Agent Loop (Sonnet|Opus)
   ├── calls claude_code tool
   │     │
   │     ▼
-  │   ┌─────────────────────────────────────────────────┐
-  │   │  Claude Code Agent Loop (separate subprocess)   │
-  │   │                                                 │
-  │   │  reads files → writes code → runs it →           │
-  │   │  sees errors → fixes → runs again →              │
-  │   │  iterates until done or max_turns reached       │
-  │   │                                                 │
-  │   │  Tools: Read, Write, Edit, Bash, Grep, Glob     │
-  │   │  Model: inherited from Sheldon's routing decision│
-  │   └─────────────────────────────────────────────────┘
+  │   ┌───────────────────────────────────────────────────┐
+  │   │  Claude Code Agent Loop (separate subprocess)     │
+  │   │                                                   │
+  │   │  reads files → writes code → runs it →             │
+  │   │  sees errors → fixes → runs again →                │
+  │   │  iterates until done or max_turns reached         │
+  │   │                                                   │
+  │   │  Tools: Read, Write, Edit, Bash, Grep, Glob       │
+  │   │  Model: inherited from Sheldon's routing decision │
+  │   └───────────────────────────────────────────────────┘
   │     │
   │     ▼
   ├── receives structured result (files created, stdout, errors)

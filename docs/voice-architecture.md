@@ -7,46 +7,46 @@ Sheldon's voice interface uses a split architecture: STT runs locally on the Mac
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│  MAC APP                                                            │
+┌────────────────────────────────────────────────────────────────────┐
+│  MAC APP                                                           │
 │  ┌─────────────────────────────────────────────────────────────┐   │
-│  │  User speaks                                                 │   │
-│  │       │                                                      │   │
-│  │       ▼                                                      │   │
+│  │  User speaks                                                │   │
+│  │       │                                                     │   │
+│  │       ▼                                                     │   │
 │  │  ┌──────────────┐                                           │   │
 │  │  │ whisper.cpp  │  STT (local, ~500MB model)                │   │
 │  │  │ tiny/base    │  Only needs to understand YOUR voice      │   │
 │  │  └──────────────┘                                           │   │
-│  │       │                                                      │   │
-│  │       ▼ (text)                                               │   │
-│  └───────┼──────────────────────────────────────────────────────┘   │
-│          │                                                          │
-└──────────┼──────────────────────────────────────────────────────────┘
+│  │       │                                                     │   │
+│  │       ▼ (text)                                              │   │
+│  └───────┼─────────────────────────────────────────────────────┘   │
+│          │                                                         │
+└──────────┼─────────────────────────────────────────────────────────┘
            │ WebSocket/HTTP
            ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│  VPS (Hetzner CX32, 8GB)                                             │
+┌─────────────────────────────────────────────────────────────────────┐
+│  VPS (Hetzner CX32, 8GB)                                            │
 │  ┌────────────────────────────────────────────────────────────────┐ │
-│  │  Sheldon                                                        │ │
-│  │       │                                                         │ │
-│  │       ▼ (response text)                                         │ │
+│  │  Sheldon                                                       │ │
+│  │       │                                                        │ │
+│  │       ▼ (response text)                                        │ │
 │  │  ┌──────────────┐                                              │ │
-│  │  │  Piper TTS   │  Configurable voices                         │ │
+│  │  │  Piper TTS   │  Configurable voices                          │ │
 │  │  │  (~100MB)    │  User picks how Sheldon sounds               │ │
 │  │  └──────────────┘                                              │ │
-│  │       │                                                         │ │
-│  │       ▼ (audio stream)                                          │ │
-│  └───────┼─────────────────────────────────────────────────────────┘ │
-│          │                                                           │
-└──────────┼───────────────────────────────────────────────────────────┘
+│  │       │                                                        │ │
+│  │       ▼ (audio stream)                                         │ │
+│  └───────┼────────────────────────────────────────────────────────┘ │
+│          │                                                          │
+└──────────┼──────────────────────────────────────────────────────────┘
            │
            ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│  MAC APP                                                             │
+┌─────────────────────────────────────────────────────────────────────┐
+│  MAC APP                                                            │
 │  ┌────────────────────────────────────────────────────────────────┐ │
 │  │  Audio playback (streams as it arrives)                        │ │
 │  └────────────────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Speech-to-Text (STT) - Mac App
@@ -54,22 +54,26 @@ Sheldon's voice interface uses a split architecture: STT runs locally on the Mac
 **Location**: Bundled with Mac app (whisper.cpp)
 
 **Model**: Whisper tiny or base
+
 - tiny: ~75MB, fastest, good for single speaker
 - base: ~150MB, better accuracy
 
 **Why a small model is fine**:
+
 - Only needs to understand ONE voice (yours)
 - No multi-accent support needed
 - Can be fine-tuned on your speech patterns over time
 - Larger models offer multi-speaker/accent support you don't need
 
 **Why client-side**:
+
 - **Privacy**: Speech never leaves your device
 - **Latency**: Instant transcription, no network round-trip
 - **Offline**: Works without internet (text queues until connected)
 - **Resources**: Offloads compute from VPS
 
 **Implementation**: whisper.cpp binary bundled with app
+
 - C++ binary, no Python runtime needed
 - ~50MB binary + model file
 - Fast startup, low memory when idle
@@ -79,24 +83,28 @@ Sheldon's voice interface uses a split architecture: STT runs locally on the Mac
 **Location**: Docker container on VPS
 
 **Model**: Piper TTS
+
 - Lightweight: ~50-100MB per voice
 - Fast CPU inference (no GPU needed)
 - High quality output
 - Multiple voice options
 
 **Why server-side**:
+
 - Lighter than STT models
 - Audio streaming masks network latency
 - Centralized voice configuration
 - VPS can easily handle it alongside Sheldon
 
 **Configurable voices**:
+
 - User selects Sheldon's voice in settings
 - Options: different accents, genders, tones
 - Piper has 100+ pretrained voices
 - Can add custom voices later (voice cloning)
 
 **Voice selection examples**:
+
 ```
 voices/
 ├── en_US-lessac-medium.onnx    # American male
@@ -118,10 +126,10 @@ App quit        → process exits
 
 ## Resource Summary
 
-| Component | Location | Memory | Latency |
-|-----------|----------|--------|---------|
-| Whisper STT | Mac (local) | ~150MB active (base model) | Instant |
-| Piper TTS | VPS (Docker) | ~100MB | ~50-100ms + stream |
+| Component   | Location     | Memory                     | Latency            |
+| ----------- | ------------ | -------------------------- | ------------------ |
+| Whisper STT | Mac (local)  | ~150MB active (base model) | Instant            |
+| Piper TTS   | VPS (Docker) | ~100MB                     | ~50-100ms + stream |
 
 **VPS total for voice**: ~100MB additional. 8GB CX32 is plenty.
 
@@ -138,6 +146,7 @@ App quit        → process exits
 9. Mac app plays audio as it arrives
 
 **Total latency**: ~200-500ms from speech end to audio start
+
 - STT: instant (local)
 - Network to VPS: ~20-50ms
 - Sheldon thinking: ~100-300ms

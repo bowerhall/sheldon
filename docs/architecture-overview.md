@@ -48,7 +48,7 @@ Sheldon is a single Go binary running on Docker Compose. The memory system (shel
 │                           │  │  ┌───────────────────────────┐  │  │             │
 │  ┌─────────┐ ┌─────────┐  │  │  │     Ollama + Kimi K2.5    │  │  │  • uploads  │
 │  │Entities │ │  Facts  │  │  │  │  (subprocess or Docker)   │  │  │  • backups  │
-│  │ (graph) │ │(14 doms)│  │  │  └─────────────┬─────────────┘  │  │  • files    │
+│  │ (graph) │ │(14 doms)│  │  │  └─────────────┬─────────────┘  │  │  • files     │
 │  └────┬────┘ └────┬────┘  │  │                │                │  └─────────────┘
 │       │           │       │  │                ▼                │
 │  ┌────┴───────────┴────┐  │  │  ┌───────────────────────────┐  │
@@ -61,7 +61,7 @@ Sheldon is a single Go binary running on Docker Compose. The memory system (shel
 │  │  (semantic search)  │  │  │  │  ┌──────┴───────┐         │  │
 │  └─────────────────────┘  │  │  │  ▼              ▼         │  │
 │                           │  │  │ NVIDIA NIM    Kimi API    │  │
-│  Single file: sheldon.db  │  │  │ (free tier)   (fallback)  │  │
+│  Single file: sheldon.db   │  │  │ (free tier)   (fallback)  │  │
 └───────────────────────────┘  │  │     │              │      │  │
                                │  │     └──────┬───────┘      │  │
                                │  │            ▼              │  │
@@ -90,7 +90,7 @@ Sheldon is a single Go binary running on Docker Compose. The memory system (shel
 │   Hetzner CX32 (8GB RAM, €8/mo) running Docker Compose                      │
 │                                                                             │
 │   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                         │
-│   │   Sheldon   │  │   Traefik   │  │  Deployed   │                         │
+│   │   Sheldon   │  │   Traefik    │  │  Deployed   │                         │
 │   │  Container  │  │   (proxy)   │  │    Apps     │                         │
 │   │             │  │             │  │             │                         │
 │   │  main app   │  │   routing   │  │  user apps  │                         │
@@ -154,10 +154,10 @@ Sheldon is a single Go binary running on Docker Compose. The memory system (shel
 
 ## Deployment Modes
 
-| Mode       | RAM | What's Included                        |
-| ---------- | --- | -------------------------------------- |
-| `minimal`  | 2GB | Sheldon only, no web routing           |
-| `standard` | 4GB | Sheldon + Traefik + app deployment     |
+| Mode       | RAM | What's Included                    |
+| ---------- | --- | ---------------------------------- |
+| `minimal`  | 2GB | Sheldon only, no web routing       |
+| `standard` | 4GB | Sheldon + Traefik + app deployment |
 
 ## Cost Breakdown
 
