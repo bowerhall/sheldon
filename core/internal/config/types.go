@@ -36,15 +36,14 @@ type StorageConfig struct {
 }
 
 type CoderConfig struct {
-	Enabled     bool
-	APIKey      string // NVIDIA NIM API key (primary)
-	FallbackKey string // Moonshot Kimi API key (fallback)
-	Model       string // model to use (default: kimi-k2.5)
-	SandboxDir  string
-	SkillsDir   string // directory with skill patterns
-	Isolated    bool   // use ephemeral Docker containers for isolation
-	Image       string // coder container image (default: sheldon-coder-sandbox:latest)
-	Git         GitConfig
+	Enabled    bool
+	APIKey     string // Anthropic API key for Claude Code CLI
+	Model      string // model to use (default: claude-sonnet-4-20250514)
+	SandboxDir string
+	SkillsDir  string // directory with skill patterns
+	Isolated   bool   // use ephemeral Docker containers for isolation
+	Image      string // coder container image (default: sheldon-coder-sandbox:latest)
+	Git        GitConfig
 }
 
 type GitConfig struct {

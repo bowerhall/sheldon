@@ -101,16 +101,13 @@ func loadStorageConfig() StorageConfig {
 }
 
 func loadCoderConfig() CoderConfig {
-	// Primary: NVIDIA NIM API key (free tier)
-	apiKey := os.Getenv("NVIDIA_API_KEY")
+	// Anthropic API key for Claude Code CLI
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 
-	// Fallback: Moonshot Kimi API key
-	fallbackKey := os.Getenv("KIMI_API_KEY")
-
-	// Model to use (default: kimi-k2.5)
+	// Model to use (default: claude-sonnet-4-20250514)
 	model := os.Getenv("CODER_MODEL")
 	if model == "" {
-		model = "kimi-k2.5"
+		model = "claude-sonnet-4-20250514"
 	}
 
 	sandboxDir := os.Getenv("CODER_SANDBOX")
@@ -140,19 +137,15 @@ func loadCoderConfig() CoderConfig {
 	}
 	gitConfig.Enabled = gitConfig.Token != "" && gitConfig.OrgURL != ""
 
-	// enabled if we have any API key (NVIDIA or Kimi fallback)
-	enabled := apiKey != "" || fallbackKey != ""
-
 	return CoderConfig{
-		Enabled:     enabled,
-		APIKey:      apiKey,
-		FallbackKey: fallbackKey,
-		Model:       model,
-		SandboxDir:  sandboxDir,
-		SkillsDir:   skillsDir,
-		Isolated:    isolated,
-		Image:       image,
-		Git:         gitConfig,
+		Enabled:    apiKey != "",
+		APIKey:     apiKey,
+		Model:      model,
+		SandboxDir: sandboxDir,
+		SkillsDir:  skillsDir,
+		Isolated:   isolated,
+		Image:      image,
+		Git:        gitConfig,
 	}
 }
 
