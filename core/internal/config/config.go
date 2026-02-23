@@ -97,7 +97,7 @@ func loadStorageConfig() StorageConfig {
 		Enabled:   true,
 		Endpoint:  endpoint,
 		AccessKey: os.Getenv("STORAGE_ACCESS_KEY"),
-		SecretKey: os.Getenv("STORAGE_SECRET_KEY"),
+		SecretKey: os.Getenv("STORAGE_SHELDON_PASSWORD"),
 		UseSSL:    os.Getenv("STORAGE_USE_SSL") == "true",
 	}
 }

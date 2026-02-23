@@ -238,8 +238,8 @@ cd sheldon
 | `GHCR_TOKEN` | GitHub PAT with `write:packages` scope |
 | `TELEGRAM_TOKEN` | From @BotFather |
 | `KIMI_API_KEY` | From Moonshot |
-| `MINIO_ROOT_PASSWORD` | Your admin password for storage console |
-| `STORAGE_SECRET_KEY` | Sheldon's storage password (isolated access) |
+| `STORAGE_ADMIN_PASSWORD` | Your admin password for storage console |
+| `STORAGE_SHELDON_PASSWORD` | Sheldon's storage password (isolated) |
 | `TZ` | Your timezone (e.g., `UTC`) |
 
 **Optional:**

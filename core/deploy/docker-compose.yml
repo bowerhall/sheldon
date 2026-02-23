@@ -72,7 +72,7 @@ services:
       - STORAGE_ENABLED=true
       - STORAGE_ENDPOINT=minio:9000
       - STORAGE_ACCESS_KEY=sheldon
-      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}
+      - STORAGE_SHELDON_PASSWORD=${STORAGE_SHELDON_PASSWORD}
       - STORAGE_USE_SSL=false
 
       # Git integration (optional)
@@ -110,7 +110,7 @@ services:
     environment:
       # Admin credentials (for human access via console)
       - MINIO_ROOT_USER=admin
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - STORAGE_ADMIN_PASSWORD=${STORAGE_ADMIN_PASSWORD}
     networks:
       - sheldon-net
     labels:
@@ -129,13 +129,13 @@ services:
     depends_on:
       - minio
     environment:
-      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
-      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}
+      - STORAGE_ADMIN_PASSWORD=${STORAGE_ADMIN_PASSWORD}
+      - STORAGE_SHELDON_PASSWORD=${STORAGE_SHELDON_PASSWORD}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         sleep 5
-        mc alias set minio http://minio:9000 admin $${MINIO_ROOT_PASSWORD}
+        mc alias set minio http://minio:9000 admin $${STORAGE_ADMIN_PASSWORD}
 
         # Create buckets
         mc mb --ignore-existing minio/sheldon-user
@@ -167,7 +167,7 @@ services:
         mc admin policy create minio sheldon-policy /tmp/sheldon-policy.json 2>/dev/null || mc admin policy info minio sheldon-policy
 
         # Create sheldon user if not exists
-        mc admin user add minio sheldon $${STORAGE_SECRET_KEY} 2>/dev/null || true
+        mc admin user add minio sheldon $${STORAGE_SHELDON_PASSWORD} 2>/dev/null || true
         mc admin policy attach minio sheldon-policy --user sheldon
 
         echo "MinIO init complete: sheldon user created with limited access"
