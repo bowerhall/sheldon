@@ -31,6 +31,26 @@ services:
     networks:
       - sheldon-net
 
+  # Docker socket proxy - limits what Sheldon can do with docker
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: docker-proxy
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1      # list, create, start, stop containers
+      - IMAGES=1          # pull images
+      - NETWORKS=1        # connect to networks
+      - POST=1            # allow POST requests (create containers)
+      - VOLUMES=0         # no volume management API
+      - SERVICES=0        # no swarm services
+      - TASKS=0           # no swarm tasks
+      - SECRETS=0         # no secrets API
+      - CONFIGS=0         # no configs API
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - sheldon-net
+
   sheldon:
     image: ${SHELDON_IMAGE:-ghcr.io/bowerhall/sheldon:latest}
     container_name: sheldon
@@ -38,12 +58,15 @@ services:
     depends_on:
       - ollama
       - minio-init
+      - docker-proxy
     volumes:
       - ./data:/data
       - ./skills:/data/skills
       - ./essence:/app/essence:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
+      # Docker via proxy (limited access)
+      - DOCKER_HOST=tcp://docker-proxy:2375
+
       # Required
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
       - KIMI_API_KEY=${KIMI_API_KEY}
