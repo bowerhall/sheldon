@@ -194,6 +194,8 @@ jobs:
           GIT_USER_EMAIL=${{ steps.doppler.outputs.GIT_USER_EMAIL }}
           GIT_ORG_URL=${{ steps.doppler.outputs.GIT_ORG_URL }}
           TZ=${{ steps.doppler.outputs.TZ }}
+          STORAGE_ADMIN_PASSWORD=${{ steps.doppler.outputs.STORAGE_ADMIN_PASSWORD }}
+          STORAGE_SHELDON_PASSWORD=${{ steps.doppler.outputs.STORAGE_SHELDON_PASSWORD }}
           EOF
 
       - name: Copy docker-compose.yml
