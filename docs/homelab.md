@@ -6,50 +6,51 @@ This guide covers running Sheldon across multiple machines with private networki
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Your Private Network                      │
-│                       (Tailscale)                            │
-│                                                              │
+│                    Your Private Network                     │
+│                       (Tailscale)                           │
+│                                                             │
 │   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
 │   │   VPS       │    │  GPU Server │    │  NAS/MinIO  │     │
 │   │  Sheldon    │◄──►│   Ollama    │◄──►│   Storage   │     │
 │   │  Headscale  │    │   Agent     │    │             │     │
 │   └─────────────┘    └─────────────┘    └─────────────┘     │
-│                                                              │
+│                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 **Use cases:**
+
 - Run Ollama on a GPU machine at home, Sheldon on a cheap VPS
 - Store backups and files on your NAS
 - Add/remove machines without exposing ports to the internet
 
 ## Capabilities
 
-| Capability | Host (VPS) | Remote (via Headscale) |
-|------------|------------|------------------------|
-| **App Management** | | |
-| Deploy apps | `deploy_app` | - |
-| Remove apps | `remove_app` | - |
-| List apps | `list_apps` | - |
-| App status/logs | `app_status`, `app_logs` | - |
-| Build images | `build_image` | - |
-| **Container Management** | | |
-| List all containers | - | `list_containers` |
-| Restart/Stop/Start | - | `restart_container`, etc. |
-| View logs | - | `container_logs` |
-| System stats | - | `remote_status` |
-| **Ollama** | | |
-| Use for inference | Direct | Via `ollama_host` config |
-| Pull models | `pull_model` | - |
-| **Code** | | |
-| Write code | `write_code` | - |
-| **Storage** | | |
-| Files | MinIO tools | Same (MinIO on VPS) |
-| Backup memory | `backup_memory` | Same |
-| **Network** | | |
-| Create auth keys | Human only | N/A |
+| Capability               | Host (VPS)               | Remote (via Headscale)    |
+| ------------------------ | ------------------------ | ------------------------- |
+| **App Management**       |                          |                           |
+| Deploy apps              | `deploy_app`             | -                         |
+| Remove apps              | `remove_app`             | -                         |
+| List apps                | `list_apps`              | -                         |
+| App status/logs          | `app_status`, `app_logs` | -                         |
+| Build images             | `build_image`            | -                         |
+| **Container Management** |                          |                           |
+| List all containers      | -                        | `list_containers`         |
+| Restart/Stop/Start       | -                        | `restart_container`, etc. |
+| View logs                | -                        | `container_logs`          |
+| System stats             | -                        | `remote_status`           |
+| **Ollama**               |                          |                           |
+| Use for inference        | Direct                   | Via `ollama_host` config  |
+| Pull models              | `pull_model`             | -                         |
+| **Code**                 |                          |                           |
+| Write code               | `write_code`             | -                         |
+| **Storage**              |                          |                           |
+| Files                    | MinIO tools              | Same (MinIO on VPS)       |
+| Backup memory            | `backup_memory`          | Same                      |
+| **Network**              |                          |                           |
+| Create auth keys         | Human only               | N/A                       |
 
-**Note:** On the host VPS, Sheldon manages apps he deploys (via `apps.yml`). On remote machines, Sheldon can manage *all* containers including infrastructure.
+**Note:** On the host VPS, Sheldon manages apps he deploys (via `apps.yml`). On remote machines, Sheldon can manage _all_ containers including infrastructure.
 
 ---
 
@@ -59,12 +60,12 @@ Headscale is an open-source Tailscale control server. It creates a private WireG
 
 ### Why Headscale?
 
-| Feature | Tailscale.com | Headscale |
-|---------|---------------|-----------|
-| Control | Tailscale Inc | You |
-| Cost | Free tier limits | Free forever |
-| Privacy | They see metadata | Fully private |
-| Setup | Easier | Slightly harder |
+| Feature | Tailscale.com     | Headscale       |
+| ------- | ----------------- | --------------- |
+| Control | Tailscale Inc     | You             |
+| Cost    | Free tier limits  | Free forever    |
+| Privacy | They see metadata | Fully private   |
+| Setup   | Easier            | Slightly harder |
 
 ### Setup
 
@@ -75,6 +76,7 @@ HEADSCALE_URL=https://hs.yourdomain.com
 ```
 
 **DNS setup:**
+
 ```
 A    hs.yourdomain.com    → your-vps-ip
 ```
@@ -108,6 +110,7 @@ HEADSCALE_URL=https://hs.yourdomain.com AUTHKEY=abc123 \
 ```
 
 This will:
+
 1. Install Docker and Tailscale
 2. Ask for a machine name
 3. Join your Headscale network using the auth key
@@ -122,11 +125,13 @@ curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/agen
 ### Switching Ollama Host
 
 Tell Sheldon:
+
 ```
 "Switch ollama to gpu-server"
 ```
 
 Or use the tool directly:
+
 ```
 set_config ollama_host http://gpu-server:11434
 ```
@@ -135,12 +140,12 @@ set_config ollama_host http://gpu-server:11434
 
 Sheldon can manage containers on any connected machine:
 
-| Command | What it does |
-|---------|--------------|
-| "List containers on gpu-server" | Shows all Docker containers |
-| "Restart ollama on gpu-server" | Restarts the ollama container |
-| "Check if minio is running" | Gets container status |
-| "Show ollama logs" | Gets recent container logs |
+| Command                         | What it does                  |
+| ------------------------------- | ----------------------------- |
+| "List containers on gpu-server" | Shows all Docker containers   |
+| "Restart ollama on gpu-server"  | Restarts the ollama container |
+| "Check if minio is running"     | Gets container status         |
+| "Show ollama logs"              | Gets recent container logs    |
 
 ---
 
@@ -161,6 +166,7 @@ STORAGE_USE_SSL=false
 ```
 
 If running MinIO on a separate machine:
+
 ```env
 STORAGE_ENDPOINT=nas.your-tailnet:9000
 ```
@@ -169,42 +175,46 @@ STORAGE_ENDPOINT=nas.your-tailnet:9000
 
 Sheldon uses three buckets:
 
-| Bucket | Purpose |
-|--------|---------|
-| `sheldon-user` | User files (documents, exports) |
-| `sheldon-agent` | Agent files (notes, artifacts) |
-| `sheldon-backups` | Memory database backups |
+| Bucket            | Purpose                         |
+| ----------------- | ------------------------------- |
+| `sheldon-user`    | User files (documents, exports) |
+| `sheldon-agent`   | Agent files (notes, artifacts)  |
+| `sheldon-backups` | Memory database backups         |
 
 ### Tools
 
-| Tool | Description |
-|------|-------------|
-| `upload_file` | Store a file |
-| `download_file` | Retrieve a file |
-| `list_files` | List stored files |
-| `delete_file` | Remove a file |
-| `share_link` | Generate temporary download URL (up to 7 days) |
-| `fetch_url` | Download from URL and store (up to 100MB) |
-| `backup_memory` | Backup Sheldon's memory database |
+| Tool            | Description                                    |
+| --------------- | ---------------------------------------------- |
+| `upload_file`   | Store a file                                   |
+| `download_file` | Retrieve a file                                |
+| `list_files`    | List stored files                              |
+| `delete_file`   | Remove a file                                  |
+| `share_link`    | Generate temporary download URL (up to 7 days) |
+| `fetch_url`     | Download from URL and store (up to 100MB)      |
+| `backup_memory` | Backup Sheldon's memory database               |
 
 ### Examples
 
 **Store a note:**
+
 ```
 "Save this as notes/meeting.md: [content]"
 ```
 
 **Share a file:**
+
 ```
 "Give me a download link for exports/report.pdf"
 ```
 
 **Backup memory:**
+
 ```
 "Backup your memory"
 ```
 
 **Archive a webpage:**
+
 ```
 "Download https://example.com/doc.pdf and save it"
 ```
@@ -221,12 +231,12 @@ Sheldon uses three buckets:
 
 ### Permission Boundaries
 
-| Action | Who can do it |
-|--------|---------------|
-| Create pre-auth keys | Human only (via CLI) |
-| Join network | Machine with valid key |
-| Manage containers | Sheldon (via homelab-agent) |
-| Access storage | Sheldon (via MinIO) |
+| Action               | Who can do it               |
+| -------------------- | --------------------------- |
+| Create pre-auth keys | Human only (via CLI)        |
+| Join network         | Machine with valid key      |
+| Manage containers    | Sheldon (via homelab-agent) |
+| Access storage       | Sheldon (via MinIO)         |
 
 ### What Sheldon CAN'T Do
 
@@ -277,25 +287,25 @@ curl http://minio:9000/minio/health/live
 
 The homelab-agent runs on each machine and exposes a simple HTTP API:
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/status` | GET | System stats (CPU, memory, disk) |
-| `/containers` | GET | List all containers |
-| `/containers/{name}` | GET | Container status |
-| `/containers/{name}/restart` | POST | Restart container |
-| `/containers/{name}/stop` | POST | Stop container |
-| `/containers/{name}/start` | POST | Start container |
-| `/containers/{name}/logs` | GET | Container logs |
+| Endpoint                     | Method | Description                      |
+| ---------------------------- | ------ | -------------------------------- |
+| `/health`                    | GET    | Health check                     |
+| `/status`                    | GET    | System stats (CPU, memory, disk) |
+| `/containers`                | GET    | List all containers              |
+| `/containers/{name}`         | GET    | Container status                 |
+| `/containers/{name}/restart` | POST   | Restart container                |
+| `/containers/{name}/stop`    | POST   | Stop container                   |
+| `/containers/{name}/start`   | POST   | Start container                  |
+| `/containers/{name}/logs`    | GET    | Container logs                   |
 
 ### Port Conventions
 
-| Port | Service |
-|------|---------|
-| 8080 | Homelab agent |
-| 11434 | Ollama |
-| 9000 | MinIO API |
-| 9001 | MinIO Console |
+| Port  | Service       |
+| ----- | ------------- |
+| 8080  | Homelab agent |
+| 11434 | Ollama        |
+| 9000  | MinIO API     |
+| 9001  | MinIO Console |
 
 ### Docker Images
 
