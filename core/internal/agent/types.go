@@ -5,6 +5,7 @@ import (
 
 	"github.com/bowerhall/sheldon/internal/alerts"
 	"github.com/bowerhall/sheldon/internal/budget"
+	"github.com/bowerhall/sheldon/internal/config"
 	"github.com/bowerhall/sheldon/internal/conversation"
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldon/internal/session"
@@ -16,6 +17,9 @@ type NotifyFunc func(chatID int64, message string)
 
 // TriggerFunc processes a system trigger through the agent loop and returns the response
 type TriggerFunc func(chatID int64, sessionID string, prompt string) (string, error)
+
+// LLMFactory creates a new LLM instance based on current runtime config
+type LLMFactory func() (llm.LLM, error)
 
 type Agent struct {
 	llm          llm.LLM
@@ -30,6 +34,10 @@ type Agent struct {
 	budget       *budget.Tracker
 	alerts       *alerts.Alerter
 	skillsDir    string
+
+	llmFactory    LLMFactory
+	runtimeConfig *config.RuntimeConfig
+	lastLLMHash   string
 }
 
 func (a *Agent) SetSkillsDir(dir string) {

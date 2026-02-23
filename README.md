@@ -80,6 +80,74 @@ Sheldon: "Done! Deployed to weather.yourdomain.com"
 - 🎚️ **Runtime control** — "go quiet for 3 hours" via conversation, not config
 - 🔗 **Memory-linked** — Updates to facts automatically reflect in reminders
 
+## Multi-Machine / Homelab
+
+Run Sheldon across multiple machines with private networking. Use a beefy GPU at home for Ollama while Sheldon runs on a cheap VPS.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                 Private Network (Tailscale)              │
+│                                                          │
+│   VPS (€8/mo)          Home GPU            NAS           │
+│   ┌─────────┐         ┌─────────┐       ┌─────────┐     │
+│   │ Sheldon │◄───────►│ Ollama  │       │  MinIO  │     │
+│   │Headscale│         │  Agent  │       │ Backups │     │
+│   └─────────┘         └─────────┘       └─────────┘     │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Add a machine in one command:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/invite.sh | sudo bash
+```
+
+**Switch Ollama to your GPU server:**
+
+```
+"Switch ollama to gpu-server"
+```
+
+**Manage containers remotely:**
+
+```
+"Restart ollama on gpu-server"
+"Show minio logs"
+"List containers on nas"
+```
+
+See [docs/homelab.md](docs/homelab.md) for full setup guide.
+
+---
+
+## Storage & Backups
+
+S3-compatible storage via MinIO for files, backups, and sharing.
+
+**Store and retrieve files:**
+```
+"Save this as notes/ideas.md"
+"Download my resume from storage"
+```
+
+**Share with expiring links:**
+```
+"Give me a download link for report.pdf that expires in 24 hours"
+```
+
+**Backup memory:**
+```
+"Backup your memory"
+→ Creates timestamped backup in MinIO
+```
+
+**Archive web content:**
+```
+"Download https://example.com/doc.pdf and save it"
+```
+
+---
+
 ## Architecture
 
 ```

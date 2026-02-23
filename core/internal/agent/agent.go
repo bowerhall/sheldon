@@ -11,6 +11,7 @@ import (
 
 	"github.com/bowerhall/sheldon/internal/alerts"
 	"github.com/bowerhall/sheldon/internal/budget"
+	"github.com/bowerhall/sheldon/internal/config"
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldon/internal/logger"
 	"github.com/bowerhall/sheldon/internal/session"
@@ -58,6 +59,44 @@ func (a *Agent) SetAlerter(alerter *alerts.Alerter) {
 	a.alerts = alerter
 }
 
+func (a *Agent) SetLLMFactory(factory LLMFactory, rc *config.RuntimeConfig) {
+	a.llmFactory = factory
+	a.runtimeConfig = rc
+	a.lastLLMHash = a.currentLLMHash()
+}
+
+func (a *Agent) currentLLMHash() string {
+	if a.runtimeConfig == nil {
+		return ""
+	}
+	provider := a.runtimeConfig.Get("llm_provider")
+	model := a.runtimeConfig.Get("llm_model")
+	return provider + ":" + model
+}
+
+func (a *Agent) refreshLLMIfNeeded() error {
+	if a.llmFactory == nil || a.runtimeConfig == nil {
+		return nil
+	}
+
+	currentHash := a.currentLLMHash()
+	if currentHash == a.lastLLMHash {
+		return nil
+	}
+
+	newLLM, err := a.llmFactory()
+	if err != nil {
+		logger.Error("failed to create new LLM instance", "error", err)
+		return err
+	}
+
+	a.llm = newLLM
+	a.lastLLMHash = currentHash
+	logger.Info("LLM instance refreshed", "config", currentHash)
+
+	return nil
+}
+
 func (a *Agent) Registry() *tools.Registry {
 	return a.tools
 }
@@ -78,6 +117,10 @@ func loadSystemPrompt(essencePath string) string {
 
 func (a *Agent) Process(ctx context.Context, sessionID string, userMessage string) (string, error) {
 	logger.Debug("message received", "session", sessionID)
+
+	if err := a.refreshLLMIfNeeded(); err != nil {
+		logger.Warn("failed to refresh LLM, using existing instance", "error", err)
+	}
 
 	sess := a.sessions.Get(sessionID)
 	chatID := a.parseChatID(sessionID)

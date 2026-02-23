@@ -59,6 +59,10 @@ jobs:
             context: core/deploy/browser-sandbox
             file: core/deploy/browser-sandbox/Dockerfile
             suffix: sheldon-browser-sandbox
+          - name: homelab-agent
+            context: core
+            file: core/deploy/homelab-agent/Dockerfile
+            suffix: sheldon-homelab-agent
 
     steps:
       - name: Checkout

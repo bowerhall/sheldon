@@ -2,6 +2,17 @@ package llm
 
 import "fmt"
 
+// OpenAI-compatible providers and their base URLs
+// To add a new provider: add entry here + add {PROVIDER}_API_KEY to Doppler
+var openAICompatibleProviders = map[string]string{
+	"mistral":  "https://api.mistral.ai/v1",
+	"groq":     "https://api.groq.com/openai/v1",
+	"together": "https://api.together.xyz/v1",
+	"deepseek": "https://api.deepseek.com/v1",
+	"fireworks": "https://api.fireworks.ai/inference/v1",
+	"perplexity": "https://api.perplexity.ai",
+}
+
 func New(cfg Config) (LLM, error) {
 	switch cfg.Provider {
 	case "claude":
@@ -41,6 +52,33 @@ func New(cfg Config) (LLM, error) {
 		// Ollama's OpenAI-compatible endpoint
 		return newOpenAICompatible("ollama", baseURL+"/v1", model), nil
 	default:
+		// check if it's an OpenAI-compatible provider
+		if baseURL, ok := openAICompatibleProviders[cfg.Provider]; ok {
+			if cfg.BaseURL != "" {
+				baseURL = cfg.BaseURL
+			}
+			return newOpenAICompatible(cfg.APIKey, baseURL, cfg.Model), nil
+		}
 		return nil, fmt.Errorf("unknown provider: %s", cfg.Provider)
+	}
+}
+
+// KnownProviders returns all known provider IDs
+func KnownProviders() []string {
+	providers := []string{"claude", "openai", "kimi", "ollama"}
+	for p := range openAICompatibleProviders {
+		providers = append(providers, p)
+	}
+	return providers
+}
+
+// IsKnownProvider checks if a provider is recognized
+func IsKnownProvider(provider string) bool {
+	switch provider {
+	case "claude", "openai", "kimi", "ollama":
+		return true
+	default:
+		_, ok := openAICompatibleProviders[provider]
+		return ok
 	}
 }

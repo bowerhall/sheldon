@@ -131,7 +131,6 @@ func (a *Agent) getSheldonEntityID() int64 {
 	return entity.ID
 }
 
-
 func (a *Agent) getOrCreateUserEntity(sessionID string) int64 {
 	parts := strings.SplitN(sessionID, ":", 2)
 	entityName := sessionID

@@ -24,16 +24,22 @@ type RuntimeData struct {
 	ExtractorModel    string `json:"extractor_model,omitempty"`
 	EmbedderProvider  string `json:"embedder_provider,omitempty"`
 	EmbedderModel     string `json:"embedder_model,omitempty"`
+	CoderProvider     string `json:"coder_provider,omitempty"`
+	CoderModel        string `json:"coder_model,omitempty"`
+	OllamaHost        string `json:"ollama_host,omitempty"`
 }
 
 // AllowedKeys defines which config keys can be changed at runtime
 var AllowedKeys = map[string]string{
-	"llm_provider":       "LLM provider (e.g., kimi, anthropic, openai)",
+	"llm_provider":       "LLM provider (e.g., kimi, claude, openai, ollama)",
 	"llm_model":          "LLM model name (e.g., kimi-k2-0711-preview, claude-sonnet-4-20250514)",
 	"extractor_provider": "Extractor provider for memory extraction",
 	"extractor_model":    "Extractor model name",
 	"embedder_provider":  "Embedder provider (e.g., ollama, voyage)",
 	"embedder_model":     "Embedder model name (e.g., nomic-embed-text)",
+	"coder_provider":     "Coder provider for code generation (e.g., kimi, claude)",
+	"coder_model":        "Coder model name (e.g., kimi-k2.5:cloud)",
+	"ollama_host":        "Ollama server URL (e.g., http://localhost:11434, http://gpu-monster:11434)",
 }
 
 // NewRuntimeConfig creates a runtime config, loading from file if exists
@@ -86,6 +92,25 @@ func (rc *RuntimeConfig) Get(key string) string {
 			return rc.data.EmbedderModel
 		}
 		return os.Getenv("EMBEDDER_MODEL")
+	case "coder_provider":
+		if rc.data.CoderProvider != "" {
+			return rc.data.CoderProvider
+		}
+		return os.Getenv("CODER_PROVIDER")
+	case "coder_model":
+		if rc.data.CoderModel != "" {
+			return rc.data.CoderModel
+		}
+		return os.Getenv("CODER_MODEL")
+	case "ollama_host":
+		if rc.data.OllamaHost != "" {
+			return rc.data.OllamaHost
+		}
+		host := os.Getenv("OLLAMA_HOST")
+		if host == "" {
+			return "http://localhost:11434"
+		}
+		return host
 	}
 	return ""
 }
@@ -112,6 +137,12 @@ func (rc *RuntimeConfig) Set(key, value string) error {
 		rc.data.EmbedderProvider = value
 	case "embedder_model":
 		rc.data.EmbedderModel = value
+	case "coder_provider":
+		rc.data.CoderProvider = value
+	case "coder_model":
+		rc.data.CoderModel = value
+	case "ollama_host":
+		rc.data.OllamaHost = value
 	default:
 		return fmt.Errorf("unknown key: %s", key)
 	}
@@ -165,6 +196,15 @@ func (rc *RuntimeConfig) Overrides() map[string]string {
 	}
 	if rc.data.EmbedderModel != "" {
 		result["embedder_model"] = rc.data.EmbedderModel
+	}
+	if rc.data.CoderProvider != "" {
+		result["coder_provider"] = rc.data.CoderProvider
+	}
+	if rc.data.CoderModel != "" {
+		result["coder_model"] = rc.data.CoderModel
+	}
+	if rc.data.OllamaHost != "" {
+		result["ollama_host"] = rc.data.OllamaHost
 	}
 	return result
 }

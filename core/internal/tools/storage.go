@@ -5,8 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldon/internal/storage"
@@ -223,6 +227,187 @@ func RegisterStorageTools(registry *Registry, client *storage.Client) {
 		}
 
 		return fmt.Sprintf("deleted %s from %s", params.Path, params.Space), nil
+	})
+
+	// share link tool
+	shareTool := llm.Tool{
+		Name:        "share_link",
+		Description: "Generate a temporary shareable link for a file. The link expires after the specified duration.",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"space": map[string]any{
+					"type":        "string",
+					"enum":        []string{"user", "agent"},
+					"description": "Storage space: 'user' for user files, 'agent' for agent files",
+				},
+				"path": map[string]any{
+					"type":        "string",
+					"description": "File path to share",
+				},
+				"expires_hours": map[string]any{
+					"type":        "integer",
+					"description": "Hours until link expires (default: 24, max: 168 = 7 days)",
+				},
+			},
+			"required": []string{"space", "path"},
+		},
+	}
+
+	registry.Register(shareTool, func(ctx context.Context, args string) (string, error) {
+		var params struct {
+			Space        string `json:"space"`
+			Path         string `json:"path"`
+			ExpiresHours int    `json:"expires_hours"`
+		}
+		if err := json.Unmarshal([]byte(args), &params); err != nil {
+			return "", fmt.Errorf("invalid arguments: %w", err)
+		}
+
+		bucket := client.UserBucket()
+		if params.Space == "agent" {
+			bucket = client.AgentBucket()
+		}
+
+		expiry := 24 * time.Hour
+		if params.ExpiresHours > 0 {
+			if params.ExpiresHours > 168 {
+				params.ExpiresHours = 168
+			}
+			expiry = time.Duration(params.ExpiresHours) * time.Hour
+		}
+
+		url, err := client.PresignedURL(ctx, bucket, params.Path, expiry)
+		if err != nil {
+			return "", err
+		}
+
+		return fmt.Sprintf("shareable link (expires in %d hours):\n%s", int(expiry.Hours()), url), nil
+	})
+
+	// fetch URL tool
+	fetchTool := llm.Tool{
+		Name:        "fetch_url",
+		Description: "Download a file from a URL and save it to storage. Useful for archiving web content or downloading attachments.",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"url": map[string]any{
+					"type":        "string",
+					"description": "URL to download from",
+				},
+				"space": map[string]any{
+					"type":        "string",
+					"enum":        []string{"user", "agent"},
+					"description": "Storage space: 'user' for user files, 'agent' for agent files",
+				},
+				"path": map[string]any{
+					"type":        "string",
+					"description": "Destination path in storage (e.g., 'downloads/file.pdf')",
+				},
+			},
+			"required": []string{"url", "space", "path"},
+		},
+	}
+
+	registry.Register(fetchTool, func(ctx context.Context, args string) (string, error) {
+		var params struct {
+			URL   string `json:"url"`
+			Space string `json:"space"`
+			Path  string `json:"path"`
+		}
+		if err := json.Unmarshal([]byte(args), &params); err != nil {
+			return "", fmt.Errorf("invalid arguments: %w", err)
+		}
+
+		bucket := client.UserBucket()
+		if params.Space == "agent" {
+			bucket = client.AgentBucket()
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "GET", params.URL, nil)
+		if err != nil {
+			return "", fmt.Errorf("create request: %w", err)
+		}
+		req.Header.Set("User-Agent", "Sheldon/1.0")
+
+		httpClient := &http.Client{Timeout: 5 * time.Minute}
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			return "", fmt.Errorf("download failed: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return "", fmt.Errorf("download failed: HTTP %d", resp.StatusCode)
+		}
+
+		// limit to 100MB
+		const maxSize = 100 * 1024 * 1024
+		data, err := io.ReadAll(io.LimitReader(resp.Body, maxSize))
+		if err != nil {
+			return "", fmt.Errorf("read response: %w", err)
+		}
+
+		contentType := resp.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = guessContentType(params.Path)
+		}
+
+		if err := client.Upload(ctx, bucket, params.Path, data, contentType); err != nil {
+			return "", err
+		}
+
+		return fmt.Sprintf("downloaded %s to %s/%s (%d bytes)", params.URL, params.Space, params.Path, len(data)), nil
+	})
+}
+
+// RegisterBackupTool registers the memory backup tool (requires memory path)
+func RegisterBackupTool(registry *Registry, client *storage.Client, memoryPath string) {
+	tool := llm.Tool{
+		Name:        "backup_memory",
+		Description: "Create a backup of Sheldon's memory database. Stores a timestamped copy in the backups bucket.",
+		Parameters: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+	}
+
+	registry.Register(tool, func(ctx context.Context, args string) (string, error) {
+		if err := client.InitBackupBucket(ctx); err != nil {
+			return "", fmt.Errorf("init backup bucket: %w", err)
+		}
+
+		// read the database file
+		data, err := os.ReadFile(memoryPath)
+		if err != nil {
+			return "", fmt.Errorf("read memory db: %w", err)
+		}
+
+		// also try to read WAL file if it exists
+		walPath := memoryPath + "-wal"
+		walData, _ := os.ReadFile(walPath)
+
+		// create timestamped backup name
+		timestamp := time.Now().Format("2006-01-02_15-04-05")
+		backupName := fmt.Sprintf("memory_%s.db", timestamp)
+
+		if err := client.Upload(ctx, client.BackupBucket(), backupName, data, "application/x-sqlite3"); err != nil {
+			return "", err
+		}
+
+		result := fmt.Sprintf("backup created: %s (%d bytes)", backupName, len(data))
+
+		// backup WAL if present
+		if len(walData) > 0 {
+			walBackupName := fmt.Sprintf("memory_%s.db-wal", timestamp)
+			if err := client.Upload(ctx, client.BackupBucket(), walBackupName, walData, "application/octet-stream"); err != nil {
+				return "", err
+			}
+			result += fmt.Sprintf("\nWAL backed up: %s (%d bytes)", walBackupName, len(walData))
+		}
+
+		return result, nil
 	})
 }
 
