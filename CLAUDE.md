@@ -19,6 +19,7 @@
 │         │                       ├── set_cron / list_crons            │
 │         │                       ├── browse / search_web (→ Browser)  │
 │         │                       ├── switch_model / list_models       │
+│         │                       ├── pull_model / remove_model        │
 │         │                       └── save_skill / list_skills         │
 │         │                                                            │
 │         └──► sheldonmem (SQLite + sqlite-vec)                        │

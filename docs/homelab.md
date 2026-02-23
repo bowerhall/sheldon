@@ -126,17 +126,13 @@ curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/agen
 
 ### Switching Ollama Host
 
-Tell Sheldon:
+Set `OLLAMA_HOST` in Doppler to your GPU server's Headscale IP:
 
 ```
-"Switch ollama to gpu-server"
+OLLAMA_HOST=http://100.64.0.5:11434
 ```
 
-Or use the tool directly:
-
-```
-set_config ollama_host http://gpu-server:11434
-```
+Then redeploy. The `ollama_host` config is locked from runtime changes for security (prevents rogue server attacks).
 
 ### Managing Machines
 

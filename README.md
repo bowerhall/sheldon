@@ -79,6 +79,7 @@ Sheldon: "Done! Deployed to weather.yourdomain.com"
 - 🛠️ **Can take action** — Not just notify, but actually do work
 - 🎚️ **Runtime control** — "go quiet for 3 hours" via conversation, not config
 - 🔗 **Memory-linked** — Updates to facts automatically reflect in reminders
+- ⏱️ **One-time or recurring** — "remind me at 3pm" auto-deletes after firing
 
 ## Multi-Machine / Homelab
 
@@ -314,6 +315,7 @@ Sheldon uses a unified provider system for all LLM needs. Set one API key per pr
 "Use gpt-4o for the coder"
 "List available models"
 "Pull llama3.2"
+"Remove the unused model"
 ```
 
 **Components that use models:**
