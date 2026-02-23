@@ -23,8 +23,11 @@ type BrowserConfig struct {
 }
 
 type DeployerConfig struct {
-	AppsFile string // path to apps.yml
-	Network  string // docker network name
+	AppsFile     string // container path to apps.yml
+	HostAppsFile string // host path for docker compose commands
+	PathPrefix   string // container path prefix (e.g., /data)
+	HostPrefix   string // host path prefix (e.g., /opt/sheldon/data)
+	Network      string // docker network name
 }
 
 type StorageConfig struct {

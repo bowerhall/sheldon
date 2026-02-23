@@ -78,6 +78,11 @@ services:
       - SHELDON_ESSENCE=/app/essence
       - CODER_SANDBOX=/data/sandbox
       - CODER_HOST_SANDBOX=/opt/sheldon/data/sandbox
+      # Deployer paths (container → host translation for docker compose)
+      - DEPLOYER_APPS_FILE=/data/apps.yml
+      - DEPLOYER_HOST_APPS_FILE=/opt/sheldon/data/apps.yml
+      - DEPLOYER_PATH_PREFIX=/data
+      - DEPLOYER_HOST_PREFIX=/opt/sheldon/data
 
       # Embeddings (Ollama runs alongside)
       - EMBEDDER_PROVIDER=ollama

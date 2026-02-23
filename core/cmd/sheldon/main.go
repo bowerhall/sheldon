@@ -140,7 +140,13 @@ func main() {
 		}
 
 		// register deployer tools
-		composeDeploy := deployer.NewComposeDeployer(cfg.Deployer.AppsFile, cfg.Deployer.Network)
+		composeDeploy := deployer.NewComposeDeployer(deployer.ComposeDeployerConfig{
+			AppsFile:     cfg.Deployer.AppsFile,
+			HostAppsFile: cfg.Deployer.HostAppsFile,
+			PathPrefix:   cfg.Deployer.PathPrefix,
+			HostPrefix:   cfg.Deployer.HostPrefix,
+			Network:      cfg.Deployer.Network,
+		})
 		domain := os.Getenv("DOMAIN")
 		if domain == "" {
 			domain = "localhost"

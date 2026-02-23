@@ -68,8 +68,17 @@ func Load() (*Config, error) {
 func loadDeployerConfig() DeployerConfig {
 	appsFile := os.Getenv("DEPLOYER_APPS_FILE")
 	if appsFile == "" {
-		appsFile = "/opt/sheldon/apps.yml"
+		appsFile = "/data/apps.yml"
 	}
+
+	hostAppsFile := os.Getenv("DEPLOYER_HOST_APPS_FILE")
+
+	// path prefix translation for container → host paths
+	pathPrefix := os.Getenv("DEPLOYER_PATH_PREFIX")
+	if pathPrefix == "" {
+		pathPrefix = "/data"
+	}
+	hostPrefix := os.Getenv("DEPLOYER_HOST_PREFIX")
 
 	network := os.Getenv("DEPLOYER_NETWORK")
 	if network == "" {
@@ -77,8 +86,11 @@ func loadDeployerConfig() DeployerConfig {
 	}
 
 	return DeployerConfig{
-		AppsFile: appsFile,
-		Network:  network,
+		AppsFile:     appsFile,
+		HostAppsFile: hostAppsFile,
+		PathPrefix:   pathPrefix,
+		HostPrefix:   hostPrefix,
+		Network:      network,
 	}
 }
 

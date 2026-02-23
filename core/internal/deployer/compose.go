@@ -14,8 +14,11 @@ import (
 
 // ComposeDeployer deploys apps using docker compose
 type ComposeDeployer struct {
-	appsFile string // path to apps.yml
-	network  string // docker network name
+	appsFile     string // container path to apps.yml (for file I/O)
+	hostAppsFile string // host path for docker compose commands
+	pathPrefix   string // container path prefix (e.g., /data)
+	hostPrefix   string // host path prefix (e.g., /opt/sheldon/data)
+	network      string // docker network name
 }
 
 // ComposeService represents a service in docker compose
@@ -42,18 +45,44 @@ type ComposeNetwork struct {
 	External bool `yaml:"external,omitempty"`
 }
 
+// ComposeDeployerConfig holds configuration for ComposeDeployer
+type ComposeDeployerConfig struct {
+	AppsFile     string // container path for apps.yml
+	HostAppsFile string // host path for docker compose -f
+	PathPrefix   string // container path prefix (e.g., /data)
+	HostPrefix   string // host path prefix (e.g., /opt/sheldon/data)
+	Network      string // docker network name
+}
+
 // NewComposeDeployer creates a new compose deployer
-func NewComposeDeployer(appsFile string, network string) *ComposeDeployer {
-	if appsFile == "" {
-		appsFile = "/opt/sheldon/apps.yml"
+func NewComposeDeployer(cfg ComposeDeployerConfig) *ComposeDeployer {
+	if cfg.AppsFile == "" {
+		cfg.AppsFile = "/data/apps.yml"
 	}
-	if network == "" {
-		network = "sheldon-net"
+	if cfg.HostAppsFile == "" {
+		cfg.HostAppsFile = cfg.AppsFile // fallback if not in container
+	}
+	if cfg.Network == "" {
+		cfg.Network = "sheldon-net"
 	}
 	return &ComposeDeployer{
-		appsFile: appsFile,
-		network:  network,
+		appsFile:     cfg.AppsFile,
+		hostAppsFile: cfg.HostAppsFile,
+		pathPrefix:   cfg.PathPrefix,
+		hostPrefix:   cfg.HostPrefix,
+		network:      cfg.Network,
 	}
+}
+
+// toHostPath converts a container path to host path
+func (d *ComposeDeployer) toHostPath(containerPath string) string {
+	if d.pathPrefix == "" || d.hostPrefix == "" {
+		return containerPath
+	}
+	if strings.HasPrefix(containerPath, d.pathPrefix) {
+		return strings.Replace(containerPath, d.pathPrefix, d.hostPrefix, 1)
+	}
+	return containerPath
 }
 
 // Deploy adds a service to apps.yml and runs docker compose up
@@ -72,7 +101,8 @@ func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string
 
 	// check if there's a Dockerfile
 	if _, err := os.Stat(filepath.Join(appDir, "Dockerfile")); err == nil {
-		service.Build = appDir
+		// use host path for docker compose build context
+		service.Build = d.toHostPath(appDir)
 	} else {
 		// no Dockerfile, assume image name matches app name
 		service.Image = name + ":latest"
@@ -166,7 +196,7 @@ func (d *ComposeDeployer) List(ctx context.Context) ([]string, error) {
 
 // Status returns the status of a service
 func (d *ComposeDeployer) Status(ctx context.Context, name string) (string, error) {
-	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.appsFile, "ps", name, "--format", "{{.Status}}")
+	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.hostAppsFile, "ps", name, "--format", "{{.Status}}")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("get status: %w", err)
@@ -176,7 +206,7 @@ func (d *ComposeDeployer) Status(ctx context.Context, name string) (string, erro
 
 // Logs returns recent logs for a service
 func (d *ComposeDeployer) Logs(ctx context.Context, name string, lines int) (string, error) {
-	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.appsFile, "logs", "--tail", fmt.Sprintf("%d", lines), name)
+	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.hostAppsFile, "logs", "--tail", fmt.Sprintf("%d", lines), name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("get logs: %w", err)
@@ -230,8 +260,11 @@ func (d *ComposeDeployer) saveComposeFile(compose *ComposeFile) error {
 }
 
 func (d *ComposeDeployer) composeUp(ctx context.Context, service string) error {
+	// use host path for docker compose commands
+	composeFile := d.hostAppsFile
+
 	// build if needed
-	buildCmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.appsFile, "build", service)
+	buildCmd := exec.CommandContext(ctx, "docker", "compose", "-f", composeFile, "build", service)
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
 	// ignore build errors - might not have a Dockerfile
@@ -239,7 +272,7 @@ func (d *ComposeDeployer) composeUp(ctx context.Context, service string) error {
 	buildCmd.Run()
 
 	// start service
-	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.appsFile, "up", "-d", service)
+	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", composeFile, "up", "-d", service)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("compose up: %w\n%s", err, string(output))
@@ -248,7 +281,7 @@ func (d *ComposeDeployer) composeUp(ctx context.Context, service string) error {
 }
 
 func (d *ComposeDeployer) composeDown(ctx context.Context, service string) error {
-	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.appsFile, "rm", "-f", "-s", service)
+	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.hostAppsFile, "rm", "-f", "-s", service)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("compose down: %w\n%s", err, string(output))
