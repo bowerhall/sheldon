@@ -4,7 +4,7 @@
 # Build: docker build -f deploy/homelab-agent/Dockerfile -t homelab-agent .
 # Run: docker run -d -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock homelab-agent
 
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
