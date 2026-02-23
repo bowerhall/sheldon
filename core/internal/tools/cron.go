@@ -15,6 +15,7 @@ type SetCronArgs struct {
 	Keyword   string `json:"keyword"`
 	Schedule  string `json:"schedule"`
 	ExpiresIn string `json:"expires_in,omitempty"`
+	OneTime   bool   `json:"one_time,omitempty"`
 }
 
 type DeleteCronArgs struct {
@@ -32,8 +33,13 @@ func RegisterCronTools(registry *Registry, cronStore *cron.Store, timezone *time
 	}
 	// set_cron tool
 	setCronTool := llm.Tool{
-		Name:        "set_cron",
-		Description: "Schedule a recurring trigger. When the cron fires, you'll wake up with the keyword's recalled context and decide what to do: send a check-in, reminder, or start working on a task. Use 'heartbeat' keyword for periodic check-ins.",
+		Name: "set_cron",
+		Description: `Schedule a trigger. When the cron fires, you'll wake up with the keyword's recalled context and decide what to do.
+
+IMPORTANT: For ONE-TIME triggers (like "remind me at 3pm" or "check on me in 2 hours"), set one_time=true.
+This auto-deletes the cron after it fires once. Without this, it will repeat forever.
+
+For RECURRING triggers (like "check on me every 6 hours" or "remind me daily"), leave one_time=false.`,
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -45,9 +51,13 @@ func RegisterCronTools(registry *Registry, cronStore *cron.Store, timezone *time
 					"type":        "string",
 					"description": "Cron expression (6 fields with seconds): second minute hour day-of-month month day-of-week. Examples: '0 0 20 * * *' (8pm daily), '*/30 * * * * *' (every 30 seconds), '0 0 9 * * 1-5' (9am weekdays), '0 0 */6 * * *' (every 6 hours). For intervals use: '@every 30s', '@every 1m', '@every 5m', '@hourly', '@daily'. Note: seconds field is 0-59, so use '@every 60s' not '*/60' for every minute.",
 				},
+				"one_time": map[string]any{
+					"type":        "boolean",
+					"description": "If true, auto-delete after firing once. Use for single reminders like 'remind me at 3pm'. Default: false (recurring).",
+				},
 				"expires_in": map[string]any{
 					"type":        "string",
-					"description": "When to auto-delete. Examples: '2 weeks', '1 month', '1 day'. Omit for permanent.",
+					"description": "When to auto-delete. Examples: '2 weeks', '1 month', '1 day'. Ignored if one_time=true.",
 				},
 			},
 			"required": []string{"keyword", "schedule"},
@@ -66,7 +76,16 @@ func RegisterCronTools(registry *Registry, cronStore *cron.Store, timezone *time
 		}
 
 		var expiresAt *time.Time
-		if params.ExpiresIn != "" {
+
+		if params.OneTime {
+			// for one-time triggers, compute next run and set expiry 1 hour after
+			nextRun, err := cronStore.ComputeNextRun(params.Schedule)
+			if err != nil {
+				return "", fmt.Errorf("invalid schedule: %w", err)
+			}
+			expiry := nextRun.Add(1 * time.Hour)
+			expiresAt = &expiry
+		} else if params.ExpiresIn != "" {
 			t := parseExpiry(params.ExpiresIn)
 			if t != nil {
 				expiresAt = t
@@ -79,7 +98,9 @@ func RegisterCronTools(registry *Registry, cronStore *cron.Store, timezone *time
 		}
 
 		expiryInfo := ""
-		if expiresAt != nil {
+		if params.OneTime {
+			expiryInfo = " (one-time)"
+		} else if expiresAt != nil {
 			expiryInfo = fmt.Sprintf(" (expires %s)", expiresAt.Format("Jan 2, 2006"))
 		}
 
