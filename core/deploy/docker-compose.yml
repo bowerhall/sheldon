@@ -39,6 +39,7 @@ services:
     environment:
       - CONTAINERS=1      # list, create, start, stop containers
       - IMAGES=1          # pull images
+      - BUILD=1           # build images (required for docker compose build)
       - NETWORKS=1        # connect to networks
       - POST=1            # allow POST requests (create containers)
       - VOLUMES=0         # no volume management API
