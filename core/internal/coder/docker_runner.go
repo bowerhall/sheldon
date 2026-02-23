@@ -448,6 +448,7 @@ func (r *DockerRunner) writeContext(workDir string, ctx *MemoryContext) error {
 	buf.WriteString("- Do not hardcode secrets or API keys\n")
 	buf.WriteString("- Handle errors gracefully\n")
 	buf.WriteString("- Keep code minimal and focused\n")
+	buf.WriteString("- For web apps: include a Dockerfile (use nginx:alpine for static sites)\n")
 
 	return os.WriteFile(filepath.Join(workDir, "CONTEXT.md"), []byte(buf.String()), 0644)
 }
