@@ -66,6 +66,7 @@ services:
     environment:
       # Docker via proxy (limited access)
       - DOCKER_HOST=tcp://docker-proxy:2375
+      - DOCKER_API_VERSION=1.44
 
       # Required
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
