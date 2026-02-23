@@ -30,16 +30,14 @@ type RuntimeData struct {
 }
 
 // AllowedKeys defines which config keys can be changed at runtime
+// NOTE: ollama_host is intentionally excluded - it's infrastructure config
+// that should only be set via environment variable to prevent attacks
+// where a malicious actor tricks the agent into pointing to a rogue server
 var AllowedKeys = map[string]string{
-	"llm_provider":       "LLM provider (e.g., kimi, claude, openai, ollama)",
-	"llm_model":          "LLM model name (e.g., kimi-k2-0711-preview, claude-sonnet-4-20250514)",
-	"extractor_provider": "Extractor provider for memory extraction",
-	"extractor_model":    "Extractor model name",
-	"embedder_provider":  "Embedder provider (e.g., ollama, voyage)",
-	"embedder_model":     "Embedder model name (e.g., nomic-embed-text)",
-	"coder_provider":     "Coder provider for code generation (e.g., kimi, claude)",
-	"coder_model":        "Coder model name (e.g., kimi-k2-0711-preview)",
-	"ollama_host":        "Ollama server URL (e.g., http://localhost:11434, http://gpu-monster:11434)",
+	"llm_provider":   "LLM provider (e.g., kimi, claude, openai, ollama)",
+	"llm_model":      "LLM model name (e.g., kimi-k2-0711-preview, claude-sonnet-4-20250514)",
+	"coder_provider": "Coder provider for code generation (e.g., kimi, claude)",
+	"coder_model":    "Coder model name (e.g., kimi-k2-0711-preview)",
 }
 
 // NewRuntimeConfig creates a runtime config, loading from file if exists
