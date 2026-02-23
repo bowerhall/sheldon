@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /sheldon ./cmd/sheldon
 FROM alpine:3.19
 
 # System dependencies (rarely changes - cached)
-RUN apk add --no-cache ca-certificates tzdata nodejs npm docker-cli
+RUN apk add --no-cache ca-certificates tzdata nodejs npm docker-cli docker-cli-compose
 
 # npm packages (separate layer for better caching)
 RUN npm install -g @anthropic-ai/claude-code && npm cache clean --force
