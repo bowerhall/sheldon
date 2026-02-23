@@ -27,19 +27,21 @@ func NewBuilder(outputDir string) (*Builder, error) {
 func (b *Builder) Build(ctx context.Context, contextDir, imageName, imageTag string) (*BuildResult, error) {
 	start := time.Now()
 
-	if !b.hasDockerfile(contextDir) {
+	// find Dockerfile in contextDir or immediate subdirectories
+	dockerfileDir := b.findDockerfile(contextDir)
+	if dockerfileDir == "" {
 		return nil, fmt.Errorf("no Dockerfile found in %s", contextDir)
 	}
 
 	fullTag := fmt.Sprintf("%s:%s", imageName, imageTag)
 
-	logger.Debug("building image", "context", contextDir, "tag", fullTag)
+	logger.Debug("building image", "context", dockerfileDir, "tag", fullTag)
 
 	if !b.hasDocker() {
 		return nil, fmt.Errorf("docker not available")
 	}
 
-	if err := b.buildWithDocker(ctx, contextDir, fullTag); err != nil {
+	if err := b.buildWithDocker(ctx, dockerfileDir, fullTag); err != nil {
 		return nil, err
 	}
 
@@ -57,6 +59,33 @@ func (b *Builder) Build(ctx context.Context, contextDir, imageName, imageTag str
 func (b *Builder) hasDockerfile(dir string) bool {
 	_, err := os.Stat(filepath.Join(dir, "Dockerfile"))
 	return err == nil
+}
+
+// findDockerfile searches for Dockerfile in dir and immediate subdirectories
+// Returns the directory containing Dockerfile, or empty string if not found
+func (b *Builder) findDockerfile(dir string) string {
+	// check root first
+	if b.hasDockerfile(dir) {
+		return dir
+	}
+
+	// check immediate subdirectories
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		subdir := filepath.Join(dir, entry.Name())
+		if b.hasDockerfile(subdir) {
+			return subdir
+		}
+	}
+
+	return ""
 }
 
 func (b *Builder) hasDocker() bool {

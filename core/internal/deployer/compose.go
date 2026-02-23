@@ -114,6 +114,11 @@ func (d *ComposeDeployer) findDockerfile(appDir string) string {
 
 // Deploy adds a service to apps.yml and runs docker compose up
 func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string, domain string) (*DeployResult, error) {
+	// validate app directory exists
+	if _, err := os.Stat(appDir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("app directory does not exist: %s (expected path from write_code workspace)", appDir)
+	}
+
 	// load or create compose file
 	compose, err := d.loadComposeFile()
 	if err != nil {
@@ -131,9 +136,9 @@ func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string
 	if dockerfilePath != "" {
 		// use host path for docker compose build context
 		service.Build = d.toHostPath(dockerfilePath)
+		logger.Debug("found Dockerfile", "path", dockerfilePath, "hostPath", service.Build)
 	} else {
-		// no Dockerfile, assume image name matches app name
-		service.Image = name + ":latest"
+		return nil, fmt.Errorf("no Dockerfile found in %s or its subdirectories", appDir)
 	}
 
 	// add traefik labels for routing
