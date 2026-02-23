@@ -103,14 +103,17 @@ func loadStorageConfig() StorageConfig {
 }
 
 func loadCoderConfig() CoderConfig {
-	// Provider for coder - uses Ollama as backend for Claude Code CLI
+	// Provider for coder - Claude Code CLI supports multiple backends
 	provider := os.Getenv("CODER_PROVIDER")
 	model := os.Getenv("CODER_MODEL")
 	if model == "" {
-		model = "qwen3-coder" // default: local model via Ollama
+		model = "kimi-k2.5" // default: Kimi via Moonshot API
 	}
 	if provider == "" {
-		provider = "ollama" // Claude Code connects to Ollama
+		provider = InferProviderFromModel(model)
+		if provider == "" {
+			provider = "kimi"
+		}
 	}
 
 	sandboxDir := os.Getenv("CODER_SANDBOX")
