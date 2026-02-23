@@ -10,7 +10,7 @@ A personal AI assistant that remembers your entire life, runs on your own infras
 - 🌐 **Browser automation** — Sandboxed agent-browser for JS-heavy sites
 - ⚡ **One-click deploy** — Push to GitHub → deployed on VPS (~€8/mo)
 - 🗂️ **14 life domains** — Structured memory across your entire life
-- ⏰ **Scheduled agent triggers** — Cron + scheduler + reminder + task runner in one
+- ⏰ **Context-aware triggers** — Recalls context and takes action, not dumb rigid crons
 - 🏠 **Self-hosted** — Your data, your infrastructure
 
 ## What Sheldon Can Do
