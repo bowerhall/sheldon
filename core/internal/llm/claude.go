@@ -92,9 +92,30 @@ func (c *claude) convertTools(tools []Tool) []anthropic.ToolUnionParam {
 	result := make([]anthropic.ToolUnionParam, len(tools))
 
 	for i, tool := range tools {
-		schema := anthropic.ToolInputSchemaParam{
-			Properties: tool.Parameters,
+		// extract properties and required from the full schema
+		props := make(map[string]any)
+		var required []string
+
+		if p, ok := tool.Parameters["properties"].(map[string]any); ok {
+			props = p
 		}
+		if r, ok := tool.Parameters["required"].([]string); ok {
+			required = r
+		} else if r, ok := tool.Parameters["required"].([]any); ok {
+			for _, v := range r {
+				if s, ok := v.(string); ok {
+					required = append(required, s)
+				}
+			}
+		}
+
+		schema := anthropic.ToolInputSchemaParam{
+			Properties: props,
+		}
+		if len(required) > 0 {
+			schema.ExtraFields = map[string]any{"required": required}
+		}
+
 		result[i] = anthropic.ToolUnionParam{
 			OfTool: &anthropic.ToolParam{
 				Name:        tool.Name,
