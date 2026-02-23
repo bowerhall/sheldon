@@ -80,6 +80,11 @@ func (r *DockerRunner) RunJob(ctx context.Context, cfg JobConfig) (*Result, erro
 		return nil, fmt.Errorf("create workspace: %w", err)
 	}
 
+	// ensure coder user (UID 1000) can write to workspace
+	if err := os.Chown(workDir, 1000, 1000); err != nil {
+		logger.Warn("could not chown workspace to coder user", "error", err)
+	}
+
 	// write context file if provided
 	if cfg.Context != nil {
 		if err := r.writeContext(workDir, cfg.Context); err != nil {
@@ -212,6 +217,11 @@ func (r *DockerRunner) RunJobWithProgress(ctx context.Context, cfg JobConfig, on
 	workDir := filepath.Join(r.artifactsDir, cfg.TaskID)
 	if err := os.MkdirAll(workDir, 0755); err != nil {
 		return nil, fmt.Errorf("create workspace: %w", err)
+	}
+
+	// ensure coder user (UID 1000) can write to workspace
+	if err := os.Chown(workDir, 1000, 1000); err != nil {
+		logger.Warn("could not chown workspace to coder user", "error", err)
 	}
 
 	// write context file
