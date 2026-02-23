@@ -103,17 +103,14 @@ func loadStorageConfig() StorageConfig {
 }
 
 func loadCoderConfig() CoderConfig {
-	// Provider for coder (inferred from model or explicit)
+	// Provider for coder - uses Ollama as backend for Claude Code CLI
 	provider := os.Getenv("CODER_PROVIDER")
 	model := os.Getenv("CODER_MODEL")
 	if model == "" {
-		model = "kimi-k2.5:cloud"
+		model = "qwen3-coder" // default: local model via Ollama
 	}
 	if provider == "" {
-		provider = InferProviderFromModel(model)
-		if provider == "" {
-			provider = "kimi" // default provider
-		}
+		provider = "ollama" // Claude Code connects to Ollama
 	}
 
 	sandboxDir := os.Getenv("CODER_SANDBOX")

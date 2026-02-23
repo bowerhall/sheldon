@@ -1,18 +1,16 @@
 #!/bin/bash
 # Coder Sandbox Entrypoint
-# Runs ollama's claude CLI with the provided arguments
+# Runs Claude Code CLI via Ollama (local or cloud models)
 
 set -e
 
-# Determine which API key to use
-if [ -n "$NVIDIA_API_KEY" ]; then
-    export OLLAMA_API_KEY="$NVIDIA_API_KEY"
-elif [ -n "$KIMI_API_KEY" ]; then
-    export OLLAMA_API_KEY="$KIMI_API_KEY"
-fi
+# Configure Claude Code to use Ollama as backend
+export ANTHROPIC_AUTH_TOKEN=ollama
+export ANTHROPIC_API_KEY=""
+export ANTHROPIC_BASE_URL="${OLLAMA_HOST:-http://ollama:11434}"
 
-# Model defaults to kimi-k2.5:cloud if not specified
-MODEL="${CODER_MODEL:-kimi-k2.5:cloud}"
+# Model defaults to qwen3-coder if not specified
+MODEL="${CODER_MODEL:-qwen3-coder}"
 
-# Run ollama claude with provided arguments
-exec ollama launch claude --model "$MODEL" "$@"
+# Run claude with the model and provided arguments
+exec claude --model "$MODEL" "$@"
