@@ -8,18 +8,15 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apk add --no-cache gcc musl-dev
-
-# Copy go mod files
-COPY go.mod go.sum ./
+# Copy go mod files from homelab-agent directory
+COPY cmd/homelab-agent/go.mod cmd/homelab-agent/go.sum ./
 RUN go mod download
 
 # Copy source
-COPY . .
+COPY cmd/homelab-agent/*.go ./
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -o /homelab-agent ./cmd/homelab-agent
+RUN CGO_ENABLED=0 GOOS=linux go build -o /homelab-agent .
 
 # Runtime image
 FROM alpine:3.19
