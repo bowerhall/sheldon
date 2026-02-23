@@ -23,6 +23,27 @@ This guide covers running Sheldon across multiple machines with private networki
 - Store backups and files on your NAS
 - Add/remove machines without exposing ports to the internet
 
+## Capabilities
+
+| Capability | Host (VPS) | Remote (via Headscale) |
+|------------|------------|------------------------|
+| **Containers** | | |
+| List containers | - | `list_containers` |
+| Restart/Stop/Start | - | `restart_container`, etc. |
+| View logs | - | `container_logs` |
+| System stats | - | `remote_status` |
+| **Ollama** | | |
+| Use for inference | Direct | Via `ollama_host` config |
+| Pull models | `pull_model` | - |
+| **Code** | | |
+| Write code | `write_code` | - |
+| Deploy apps | `deploy_app` | - |
+| **Storage** | | |
+| Files | MinIO tools | Same (MinIO on VPS) |
+| Backup memory | `backup_memory` | Same |
+| **Network** | | |
+| Create auth keys | Human only | N/A |
+
 ---
 
 ## Headscale (Self-Hosted Tailscale)
