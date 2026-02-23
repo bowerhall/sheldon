@@ -5,17 +5,17 @@ This guide covers running Sheldon across multiple machines with private networki
 ## Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Your Private Network                     │
-│                       (Tailscale)                           │
-│                                                             │
-│   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
-│   │   VPS       │    │  GPU Server │    │  NAS/MinIO  │     │
-│   │  Sheldon    │◄──►│   Ollama    │◄──►│   Storage   │     │
-│   │  Headscale  │    │   Agent     │    │             │     │
-│   └─────────────┘    └─────────────┘    └─────────────┘     │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────┐
+│              Private Network (Headscale)          │
+│                                                   │
+│   VPS                      GPU Server             │
+│   ┌─────────────┐         ┌─────────────┐         │
+│   │   Sheldon   │◄───────►│   Ollama    │         │
+│   │  Headscale  │         │    Agent    │         │
+│   │   Ollama    │         └─────────────┘         │
+│   │   MinIO     │                                 │
+│   └─────────────┘                                 │
+└───────────────────────────────────────────────────┘
 ```
 
 **Use cases:**

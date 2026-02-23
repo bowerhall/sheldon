@@ -85,15 +85,17 @@ Sheldon: "Done! Deployed to weather.yourdomain.com"
 Run Sheldon across multiple machines with private networking. Use a beefy GPU at home for Ollama while Sheldon runs on a cheap VPS.
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                 Private Network (Tailscale)              │
-│                                                          │
-│   VPS (€8/mo)          Home GPU            NAS           │
-│   ┌─────────┐         ┌─────────┐       ┌─────────┐     │
-│   │ Sheldon │◄───────►│ Ollama  │       │  MinIO  │     │
-│   │Headscale│         │  Agent  │       │ Backups │     │
-│   └─────────┘         └─────────┘       └─────────┘     │
-└─────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────┐
+│              Private Network (Headscale)          │
+│                                                   │
+│   VPS (€8/mo)              Home GPU               │
+│   ┌─────────────┐         ┌─────────────┐         │
+│   │   Sheldon   │◄───────►│   Ollama    │         │
+│   │  Headscale  │         │    Agent    │         │
+│   │   Ollama    │         └─────────────┘         │
+│   │   MinIO     │                                 │
+│   └─────────────┘                                 │
+└───────────────────────────────────────────────────┘
 ```
 
 **Add a machine:**
@@ -234,6 +236,7 @@ cd sheldon
 | `GHCR_TOKEN` | GitHub PAT with `write:packages` scope |
 | `TELEGRAM_TOKEN` | From @BotFather |
 | `KIMI_API_KEY` | From Moonshot |
+| `STORAGE_SECRET_KEY` | MinIO password (any secure string) |
 | `TZ` | Your timezone (e.g., `UTC`) |
 
 **Optional:**

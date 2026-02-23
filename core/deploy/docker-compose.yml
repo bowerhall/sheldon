@@ -37,6 +37,7 @@ services:
     restart: unless-stopped
     depends_on:
       - ollama
+      - minio
     volumes:
       - ./data:/data
       - ./skills:/data/skills
@@ -67,6 +68,13 @@ services:
       # Coder (uses same provider keys as LLM - KIMI_API_KEY, ANTHROPIC_API_KEY, etc.)
       # Set CODER_PROVIDER and CODER_MODEL to override (default: kimi, kimi-k2.5:cloud)
 
+      # Storage (MinIO)
+      - STORAGE_ENABLED=true
+      - STORAGE_ENDPOINT=minio:9000
+      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-minioadmin}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}
+      - STORAGE_USE_SSL=false
+
       # Git integration (optional)
       - GIT_TOKEN=${GIT_TOKEN:-}
       - GIT_USER_NAME=${GIT_USER_NAME:-Sheldon}
@@ -91,6 +99,27 @@ services:
       - sheldon-net
     # Pull models on first start (embeddings + extraction)
     entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && ollama pull qwen2.5:3b && wait"]
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=${STORAGE_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${STORAGE_SECRET_KEY}
+    networks:
+      - sheldon-net
+    labels:
+      - "traefik.enable=true"
+      # MinIO Console (web UI)
+      - "traefik.http.routers.minio-console.rule=Host(`storage.${DOMAIN}`)"
+      - "traefik.http.routers.minio-console.entrypoints=websecure"
+      - "traefik.http.routers.minio-console.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.minio-console.service=minio-console"
+      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
 
   # Headscale - self-hosted Tailscale coordination server
   # Config is auto-generated on first deploy if missing
@@ -118,4 +147,5 @@ networks:
 
 volumes:
   ollama_data:
+  minio_data:
   headscale_data:
