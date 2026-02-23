@@ -110,7 +110,7 @@ services:
     environment:
       # Admin credentials (for human access via console)
       - MINIO_ROOT_USER=admin
-      - STORAGE_ADMIN_PASSWORD=${STORAGE_ADMIN_PASSWORD}
+      - MINIO_ROOT_PASSWORD=${STORAGE_ADMIN_PASSWORD}
     networks:
       - sheldon-net
     labels:
