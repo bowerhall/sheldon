@@ -368,6 +368,17 @@ Never remove models without explicit confirmation.`,
 			return "", fmt.Errorf("invalid arguments: %w", err)
 		}
 
+		// protect critical infrastructure models
+		embedderModel := os.Getenv("EMBEDDER_MODEL")
+		extractorModel := os.Getenv("EXTRACTOR_MODEL")
+
+		if params.Model == embedderModel || strings.HasPrefix(embedderModel, params.Model) {
+			return "", fmt.Errorf("cannot remove %s - it's the active embedder model. Removing it would break memory search", params.Model)
+		}
+		if params.Model == extractorModel || strings.HasPrefix(extractorModel, params.Model) {
+			return "", fmt.Errorf("cannot remove %s - it's the active extractor model. Removing it would break memory extraction", params.Model)
+		}
+
 		registry.Notify(ctx, fmt.Sprintf("removing model %s...", params.Model))
 
 		if err := mr.RemoveModel(ctx, params.Model); err != nil {
