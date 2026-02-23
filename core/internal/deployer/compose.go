@@ -196,7 +196,7 @@ func (d *ComposeDeployer) List(ctx context.Context) ([]string, error) {
 
 // Status returns the status of a service
 func (d *ComposeDeployer) Status(ctx context.Context, name string) (string, error) {
-	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.hostAppsFile, "ps", name, "--format", "{{.Status}}")
+	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.appsFile, "ps", name, "--format", "{{.Status}}")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("get status: %w", err)
@@ -206,7 +206,7 @@ func (d *ComposeDeployer) Status(ctx context.Context, name string) (string, erro
 
 // Logs returns recent logs for a service
 func (d *ComposeDeployer) Logs(ctx context.Context, name string, lines int) (string, error) {
-	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.hostAppsFile, "logs", "--tail", fmt.Sprintf("%d", lines), name)
+	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.appsFile, "logs", "--tail", fmt.Sprintf("%d", lines), name)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("get logs: %w", err)
@@ -260,8 +260,9 @@ func (d *ComposeDeployer) saveComposeFile(compose *ComposeFile) error {
 }
 
 func (d *ComposeDeployer) composeUp(ctx context.Context, service string) error {
-	// use host path for docker compose commands
-	composeFile := d.hostAppsFile
+	// use container path for -f flag (compose reads the file locally)
+	// but the build paths INSIDE the file are host paths (for docker daemon)
+	composeFile := d.appsFile
 
 	// build if needed
 	buildCmd := exec.CommandContext(ctx, "docker", "compose", "-f", composeFile, "build", service)
@@ -281,7 +282,7 @@ func (d *ComposeDeployer) composeUp(ctx context.Context, service string) error {
 }
 
 func (d *ComposeDeployer) composeDown(ctx context.Context, service string) error {
-	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.hostAppsFile, "rm", "-f", "-s", service)
+	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.appsFile, "rm", "-f", "-s", service)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("compose down: %w\n%s", err, string(output))
