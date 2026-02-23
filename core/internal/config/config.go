@@ -107,10 +107,10 @@ func loadCoderConfig() CoderConfig {
 	// Fallback: Moonshot Kimi API key
 	fallbackKey := os.Getenv("KIMI_API_KEY")
 
-	// Model to use (default: kimi-k2.5)
+	// Model to use (default: kimi-k2.5:cloud for ollama launch claude)
 	model := os.Getenv("CODER_MODEL")
 	if model == "" {
-		model = "kimi-k2.5"
+		model = "kimi-k2.5:cloud"
 	}
 
 	sandboxDir := os.Getenv("CODER_SANDBOX")

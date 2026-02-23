@@ -91,8 +91,10 @@ func (r *DockerRunner) RunJob(ctx context.Context, cfg JobConfig) (*Result, erro
 	// build docker run command
 	args := []string{
 		"run", "--rm",
+		"--network", "sheldon-net", // connect to same network as ollama
 		"-v", fmt.Sprintf("%s:/workspace", workDir),
 		"-w", "/workspace",
+		"-e", "OLLAMA_HOST=http://ollama:11434", // point to ollama server
 	}
 
 	// pass API keys as environment variables
@@ -222,8 +224,10 @@ func (r *DockerRunner) RunJobWithProgress(ctx context.Context, cfg JobConfig, on
 	// build docker run command with stream-json output
 	args := []string{
 		"run", "--rm",
+		"--network", "sheldon-net", // connect to same network as ollama
 		"-v", fmt.Sprintf("%s:/workspace", workDir),
 		"-w", "/workspace",
+		"-e", "OLLAMA_HOST=http://ollama:11434", // point to ollama server
 	}
 
 	if r.apiKey != "" {
