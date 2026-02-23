@@ -64,7 +64,7 @@ check_required_vars() {
         echo "  HEADSCALE_URL=https://hs.example.com AUTHKEY=your-key curl ... | sudo bash"
         echo ""
         echo "Get an authkey from your Sheldon VPS:"
-        echo "  docker exec headscale headscale preauthkeys create --user default --expiration 1h"
+        echo "  docker exec headscale headscale preauthkeys create --user 1 --expiration 1h"
         exit 1
     fi
 
@@ -72,7 +72,7 @@ check_required_vars() {
         print_error "AUTHKEY is required"
         echo ""
         echo "Get an authkey from your Sheldon VPS:"
-        echo "  docker exec headscale headscale preauthkeys create --user default --expiration 1h"
+        echo "  docker exec headscale headscale preauthkeys create --user 1 --expiration 1h"
         exit 1
     fi
 }

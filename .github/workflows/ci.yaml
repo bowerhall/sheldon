@@ -131,9 +131,44 @@ jobs:
             fi
 
             # Create directories
-            mkdir -p /opt/sheldon/{data,skills,letsencrypt,essence}
+            mkdir -p /opt/sheldon/{data,skills,letsencrypt,essence,headscale}
             chown -R 1000:1000 /opt/sheldon/data
             touch /opt/sheldon/apps.yml
+
+            # Generate headscale config if missing
+            if [ ! -f /opt/sheldon/headscale/config.yaml ]; then
+              echo "Generating headscale config..."
+              cat > /opt/sheldon/headscale/config.yaml << 'HSEOF'
+            server_url: https://hs.${{ steps.doppler.outputs.DOMAIN }}
+            listen_addr: 0.0.0.0:8080
+            metrics_listen_addr: 127.0.0.1:9090
+            grpc_listen_addr: 127.0.0.1:50443
+            grpc_allow_insecure: false
+            noise:
+              private_key_path: /var/lib/headscale/noise_private.key
+            database:
+              type: sqlite
+              sqlite:
+                path: /var/lib/headscale/db.sqlite
+            prefixes:
+              v4: 100.64.0.0/10
+              v6: fd7a:115c:a1e0::/48
+            dns:
+              magic_dns: true
+              base_domain: sheldon.net
+              nameservers:
+                global:
+                  - 8.8.8.8
+                  - 1.1.1.1
+            derp:
+              server:
+                enabled: false
+              urls:
+                - https://controlplane.tailscale.com/derpmap/default
+            log:
+              level: info
+            HSEOF
+            fi
 
       - name: Generate .env file
         run: |
@@ -213,3 +248,7 @@ jobs:
 
             docker compose up -d
             docker compose ps
+
+            # Create headscale default user if not exists
+            sleep 5
+            docker exec headscale headscale users create default 2>/dev/null || true

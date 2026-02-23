@@ -87,10 +87,12 @@ Pre-auth keys let machines join your network. Create them manually:
 
 ```bash
 # SSH into your VPS
-docker exec -it headscale headscale preauthkeys create --user default --expiration 1h
+docker exec headscale headscale preauthkeys create --user 1 --expiration 1h
 ```
 
-This outputs a key like `abc123...`. Use it with the invite script.
+This outputs a key like `hskey-auth-...`. Use it with the invite script.
+
+> **Note:** Headscale uses numeric user IDs. User 1 is created automatically on first run. List users with `docker exec headscale headscale users list`.
 
 ### Adding a Machine
 
@@ -98,8 +100,8 @@ This outputs a key like `abc123...`. Use it with the invite script.
 
 ```bash
 ssh root@your-vps-ip
-docker exec headscale headscale preauthkeys create --user default --expiration 1h
-# outputs: abc123...
+docker exec headscale headscale preauthkeys create --user 1 --expiration 1h
+# outputs: hskey-auth-...
 ```
 
 **Step 2: Run the invite script** (on the new machine):
@@ -256,7 +258,7 @@ Sheldon uses three buckets:
 docker logs headscale
 
 # Verify the pre-auth key is valid
-docker exec headscale headscale preauthkeys list --user default
+docker exec headscale headscale preauthkeys list --user 1
 ```
 
 ### Sheldon can't reach remote Ollama

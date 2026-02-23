@@ -7,7 +7,7 @@
 
 services:
   traefik:
-    image: traefik:v3.0
+    image: traefik:v2.11
     container_name: traefik
     restart: unless-stopped
     command:
@@ -17,10 +17,11 @@ services:
       - "--providers.docker.network=sheldon-net"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      # Uncomment for Let's Encrypt HTTPS:
-      # - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-      # - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
-      # - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      # Let's Encrypt HTTPS (requires ACME_EMAIL and DOMAIN in .env)
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
     ports:
       - "80:80"
       - "443:443"
@@ -92,11 +93,7 @@ services:
     entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && ollama pull qwen2.5:3b && wait"]
 
   # Headscale - self-hosted Tailscale coordination server
-  # Allows Sheldon to connect to homelabs and remote GPU machines
-  # Setup:
-  #   1. Generate config: docker compose run --rm headscale headscale generate config > ./headscale/config.yaml
-  #   2. Create user: docker compose exec headscale headscale users create sheldon
-  #   3. On remote machine: curl -fsSL https://your-domain/invite | bash
+  # Config is auto-generated on first deploy if missing
   headscale:
     image: headscale/headscale:latest
     container_name: headscale
@@ -111,7 +108,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.headscale.rule=Host(`hs.${DOMAIN}`)"
       - "traefik.http.routers.headscale.entrypoints=websecure"
-      - "traefik.http.routers.headscale.tls=true"
+      - "traefik.http.routers.headscale.tls.certresolver=letsencrypt"
       - "traefik.http.services.headscale.loadbalancer.server.port=8080"
 
 networks:

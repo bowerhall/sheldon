@@ -100,7 +100,7 @@ Run Sheldon across multiple machines with private networking. Use a beefy GPU at
 
 ```bash
 # 1. On your Sheldon VPS, generate a key (expires in 1 hour)
-docker exec headscale headscale preauthkeys create --user default --expiration 1h
+docker exec headscale headscale preauthkeys create --user 1 --expiration 1h
 
 # 2. On the new machine, run with that key
 HEADSCALE_URL=https://hs.yourdomain.com AUTHKEY=your-key \
