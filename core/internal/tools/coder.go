@@ -62,7 +62,7 @@ func RegisterCoderTool(registry *Registry, bridge *coder.Bridge, memory *sheldon
 		}
 		registry.Notify(ctx, fmt.Sprintf("🔨 Working on: %s", taskSummary))
 
-		memCtx := buildMemoryContext(ctx, memory)
+		memCtx := buildMemoryContext(ctx, memory, params.Task)
 
 		task := coder.Task{
 			ID:         uuid.New().String()[:8],
@@ -133,7 +133,7 @@ func RegisterCoderTool(registry *Registry, bridge *coder.Bridge, memory *sheldon
 	})
 }
 
-func buildMemoryContext(ctx context.Context, memory *sheldonmem.Store) *coder.MemoryContext {
+func buildMemoryContext(ctx context.Context, memory *sheldonmem.Store, taskDescription string) *coder.MemoryContext {
 	memCtx := &coder.MemoryContext{
 		UserPreferences: make(map[string]string),
 		Constraints: []string{
@@ -143,7 +143,9 @@ func buildMemoryContext(ctx context.Context, memory *sheldonmem.Store) *coder.Me
 		},
 	}
 
-	result, err := memory.Recall(ctx, "coding preferences language style deploy", []int{5, 7, 11}, 5)
+	// recall facts relevant to the specific task
+	// search across preferences (11), knowledge (5), work (7), and identity (1)
+	result, err := memory.Recall(ctx, taskDescription, []int{1, 5, 7, 11}, 10)
 	if err != nil {
 		return memCtx
 	}
@@ -154,6 +156,10 @@ func buildMemoryContext(ctx context.Context, memory *sheldonmem.Store) *coder.Me
 			memCtx.UserPreferences["language"] = f.Value
 		case strings.Contains(strings.ToLower(f.Field), "style"):
 			memCtx.UserPreferences["style"] = f.Value
+		case strings.Contains(strings.ToLower(f.Field), "design"):
+			memCtx.UserPreferences["design"] = f.Value
+		case strings.Contains(strings.ToLower(f.Field), "preference"):
+			memCtx.UserPreferences[f.Field] = f.Value
 		default:
 			memCtx.RelevantFacts = append(memCtx.RelevantFacts, coder.Fact{
 				Field: f.Field,
@@ -162,7 +168,41 @@ func buildMemoryContext(ctx context.Context, memory *sheldonmem.Store) *coder.Me
 		}
 	}
 
+	// if task mentions sheldon/self/about, include sheldon's identity
+	taskLower := strings.ToLower(taskDescription)
+	if strings.Contains(taskLower, "sheldon") ||
+		strings.Contains(taskLower, "about me") ||
+		strings.Contains(taskLower, "about page") ||
+		strings.Contains(taskLower, "myself") {
+		addSheldonIdentity(ctx, memory, memCtx)
+	}
+
 	return memCtx
+}
+
+func addSheldonIdentity(ctx context.Context, memory *sheldonmem.Store, memCtx *coder.MemoryContext) {
+	// find the sheldon entity and get its facts
+	result, err := memory.Recall(ctx, "sheldon personality identity assistant", []int{1}, 10)
+	if err != nil {
+		return
+	}
+
+	memCtx.RelevantFacts = append(memCtx.RelevantFacts, coder.Fact{
+		Field: "identity",
+		Value: "Sheldon is a personal AI assistant that remembers your entire life across 14 structured domains, runs on your own infrastructure, and can write and deploy code autonomously.",
+	})
+
+	memCtx.RelevantFacts = append(memCtx.RelevantFacts, coder.Fact{
+		Field: "personality",
+		Value: "Warm but direct. No corporate speak, no filler. Technically sharp. Respectful of autonomy.",
+	})
+
+	for _, f := range result.Facts {
+		memCtx.RelevantFacts = append(memCtx.RelevantFacts, coder.Fact{
+			Field: f.Field,
+			Value: f.Value,
+		})
+	}
 }
 
 func formatResult(result *coder.Result) string {
