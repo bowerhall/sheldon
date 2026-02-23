@@ -13,12 +13,12 @@
 │         │                 ├── SOUL.md (personality)                  │
 │         │                 ├── IDENTITY.md (user bootstrap)           │
 │         │                 └── Tools                                  │
-│         │                       ├── recall_memory                    │
+│         │                       ├── recall_memory / save_memory      │
 │         │                       ├── write_code (→ Coder Sandbox)     │
 │         │                       ├── deploy_app (→ Docker Compose)    │
 │         │                       ├── set_cron / list_crons            │
 │         │                       ├── browse / search_web (→ Browser)  │
-│         │                       ├── save_memory                      │
+│         │                       ├── switch_model / list_models       │
 │         │                       └── save_skill / list_skills         │
 │         │                                                            │
 │         └──► sheldonmem (SQLite + sqlite-vec)                        │
