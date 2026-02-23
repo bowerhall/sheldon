@@ -141,8 +141,16 @@ func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string
 		return nil, fmt.Errorf("no Dockerfile found in %s or its subdirectories", appDir)
 	}
 
-	// add traefik labels for routing
-	if domain != "" {
+	// add traefik labels for routing with HTTPS
+	if domain != "" && domain != "localhost" {
+		service.Labels = []string{
+			"traefik.enable=true",
+			fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", name, name, domain),
+			fmt.Sprintf("traefik.http.routers.%s.entrypoints=websecure", name),
+			fmt.Sprintf("traefik.http.routers.%s.tls.certresolver=letsencrypt", name),
+		}
+	} else if domain != "" {
+		// localhost: HTTP only
 		service.Labels = []string{
 			"traefik.enable=true",
 			fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", name, name, domain),

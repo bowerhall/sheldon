@@ -75,6 +75,7 @@ services:
       - KIMI_API_KEY=${KIMI_API_KEY}
       - LLM_PROVIDER=${LLM_PROVIDER:-kimi}
       - LLM_MODEL=${LLM_MODEL:-kimi-k2-0711-preview}
+      - DOMAIN=${DOMAIN}
 
       # Paths (fixed for container)
       - SHELDON_MEMORY=/data/sheldon.db
