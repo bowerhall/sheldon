@@ -143,14 +143,18 @@ func registerSwitchModel(registry *Registry, rc *config.RuntimeConfig, mr *confi
 3. Ask the user to confirm which specific model they want
 4. Only then call switch_model with the confirmed choice
 
-Never assume which model the user wants. Always show options and get explicit confirmation first.`,
+Never assume which model the user wants. Always show options and get explicit confirmation first.
+
+NOTE: Only 'llm' and 'coder' can be switched. Extractor and embedder are core infrastructure -
+changing embedder would break vector compatibility with existing memories. If user asks to change
+these, explain why it's not supported and suggest they modify the server config instead.`,
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"purpose": map[string]any{
 					"type":        "string",
-					"description": "Which component to switch: llm (main chat), extractor (memory extraction), embedder (embeddings), coder (code generation)",
-					"enum":        []string{"llm", "extractor", "embedder", "coder"},
+					"description": "Which component to switch: llm (main chat) or coder (code generation). Extractor and embedder cannot be changed at runtime.",
+					"enum":        []string{"llm", "coder"},
 				},
 				"provider": map[string]any{
 					"type":        "string",
@@ -202,17 +206,13 @@ Never assume which model the user wants. Always show options and get explicit co
 		case "llm":
 			providerKey = "llm_provider"
 			modelKey = "llm_model"
-		case "extractor":
-			providerKey = "extractor_provider"
-			modelKey = "extractor_model"
-		case "embedder":
-			providerKey = "embedder_provider"
-			modelKey = "embedder_model"
 		case "coder":
 			providerKey = "coder_provider"
 			modelKey = "coder_model"
+		case "extractor", "embedder":
+			return "", fmt.Errorf("cannot switch %s at runtime - it's core infrastructure. Changing embedder would break vector compatibility with existing memories. Modify server environment config instead", params.Purpose)
 		default:
-			return "", fmt.Errorf("invalid purpose %q, must be one of: llm, extractor, embedder, coder", params.Purpose)
+			return "", fmt.Errorf("invalid purpose %q, must be one of: llm, coder", params.Purpose)
 		}
 
 		// set both provider and model
