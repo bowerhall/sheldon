@@ -3,10 +3,14 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"regexp"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 )
+
+// validToolIDPattern matches Claude's required pattern for tool IDs
+var validToolIDPattern = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 
 type claude struct {
 	client anthropic.Client
@@ -70,15 +74,19 @@ func (c *claude) convertMessages(messages []Message) []anthropic.MessageParam {
 				for _, tc := range msg.ToolCalls {
 					var input map[string]any
 					json.Unmarshal([]byte(tc.Arguments), &input)
-					blocks = append(blocks, anthropic.ContentBlockParamOfRequestToolUseBlock(tc.ID, input, tc.Name))
+					// sanitize tool ID to match Claude's required pattern
+					toolID := sanitizeToolID(tc.ID)
+					blocks = append(blocks, anthropic.ContentBlockParamOfRequestToolUseBlock(toolID, input, tc.Name))
 				}
 				result = append(result, anthropic.NewAssistantMessage(blocks...))
 			} else {
 				result = append(result, anthropic.NewAssistantMessage(anthropic.NewTextBlock(msg.Content)))
 			}
 		case "tool":
+			// sanitize tool ID to match Claude's required pattern
+			toolID := sanitizeToolID(msg.ToolCallID)
 			result = append(result, anthropic.NewUserMessage(
-				anthropic.NewToolResultBlock(msg.ToolCallID, msg.Content, false),
+				anthropic.NewToolResultBlock(toolID, msg.Content, false),
 			))
 		default:
 			result = append(result, anthropic.NewUserMessage(anthropic.NewTextBlock(msg.Content)))
@@ -86,6 +94,11 @@ func (c *claude) convertMessages(messages []Message) []anthropic.MessageParam {
 	}
 
 	return result
+}
+
+// sanitizeToolID ensures tool IDs match Claude's pattern ^[a-zA-Z0-9_-]+$
+func sanitizeToolID(id string) string {
+	return validToolIDPattern.ReplaceAllString(id, "_")
 }
 
 func (c *claude) convertTools(tools []Tool) []anthropic.ToolUnionParam {
