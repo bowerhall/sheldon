@@ -53,7 +53,54 @@ func NewRuntimeConfig(dataDir string) (*RuntimeConfig, error) {
 		json.Unmarshal(data, &rc.data)
 	}
 
+	// validate and auto-fix invalid configs
+	rc.validateAndFix()
+
 	return rc, nil
+}
+
+// validateAndFix checks for invalid model configurations and resets them
+func (rc *RuntimeConfig) validateAndFix() {
+	changed := false
+
+	// check if llm_model is a coder-only model (doesn't have chat capability)
+	if rc.data.LLMModel != "" {
+		if !modelHasCapability(rc.data.LLMModel, "chat") {
+			rc.data.LLMModel = ""
+			rc.data.LLMProvider = ""
+			changed = true
+		}
+	}
+
+	if changed {
+		rc.save()
+	}
+}
+
+// modelHasCapability checks if a known model has a specific capability
+func modelHasCapability(modelID, capability string) bool {
+	// known models and their capabilities
+	models := map[string][]string{
+		"kimi-k2-0711-preview":      {"chat", "tools"},
+		"kimi-k2.5:cloud":           {"code"}, // coder only, no chat
+		"claude-sonnet-4-20250514":  {"chat", "tools", "code"},
+		"claude-opus-4-5-20251101":  {"chat", "tools", "code"},
+		"gpt-4o":                    {"chat", "tools"},
+		"gpt-4o-mini":               {"chat", "tools"},
+	}
+
+	caps, known := models[modelID]
+	if !known {
+		// unknown model - allow it (could be ollama or new model)
+		return true
+	}
+
+	for _, c := range caps {
+		if c == capability {
+			return true
+		}
+	}
+	return false
 }
 
 // Get returns a runtime config value, falling back to env var if not set
