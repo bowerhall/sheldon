@@ -132,7 +132,9 @@ See [docs/homelab.md](docs/homelab.md) for full setup guide.
 
 ## Storage & Backups
 
-S3-compatible storage via MinIO for files, backups, and sharing.
+S3-compatible storage via MinIO for files, backups, and sharing. Access the console at `https://storage.yourdomain.com` with your admin credentials.
+
+**Security:** Sheldon has a limited user that can only access `sheldon-*` buckets. Create a `private` bucket for files Sheldon can't see.
 
 **Store and retrieve files:**
 ```
@@ -236,7 +238,8 @@ cd sheldon
 | `GHCR_TOKEN` | GitHub PAT with `write:packages` scope |
 | `TELEGRAM_TOKEN` | From @BotFather |
 | `KIMI_API_KEY` | From Moonshot |
-| `STORAGE_SECRET_KEY` | MinIO password (any secure string) |
+| `MINIO_ROOT_PASSWORD` | Your admin password for storage console |
+| `STORAGE_SECRET_KEY` | Sheldon's storage password (isolated access) |
 | `TZ` | Your timezone (e.g., `UTC`) |
 
 **Optional:**

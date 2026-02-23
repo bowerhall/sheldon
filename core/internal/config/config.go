@@ -83,20 +83,22 @@ func loadDeployerConfig() DeployerConfig {
 }
 
 func loadStorageConfig() StorageConfig {
-	endpoint := os.Getenv("MINIO_ENDPOINT")
+	enabled := os.Getenv("STORAGE_ENABLED") == "true"
+	if !enabled {
+		return StorageConfig{Enabled: false}
+	}
+
+	endpoint := os.Getenv("STORAGE_ENDPOINT")
 	if endpoint == "" {
 		endpoint = "minio:9000"
 	}
 
-	accessKey := os.Getenv("MINIO_ACCESS_KEY")
-	secretKey := os.Getenv("MINIO_SECRET_KEY")
-
 	return StorageConfig{
-		Enabled:   accessKey != "" && secretKey != "",
+		Enabled:   true,
 		Endpoint:  endpoint,
-		AccessKey: accessKey,
-		SecretKey: secretKey,
-		UseSSL:    os.Getenv("MINIO_USE_SSL") == "true",
+		AccessKey: os.Getenv("STORAGE_ACCESS_KEY"),
+		SecretKey: os.Getenv("STORAGE_SECRET_KEY"),
+		UseSSL:    os.Getenv("STORAGE_USE_SSL") == "true",
 	}
 }
 

@@ -37,7 +37,7 @@ services:
     restart: unless-stopped
     depends_on:
       - ollama
-      - minio
+      - minio-init
     volumes:
       - ./data:/data
       - ./skills:/data/skills
@@ -68,10 +68,10 @@ services:
       # Coder (uses same provider keys as LLM - KIMI_API_KEY, ANTHROPIC_API_KEY, etc.)
       # Set CODER_PROVIDER and CODER_MODEL to override (default: kimi, kimi-k2.5:cloud)
 
-      # Storage (MinIO)
+      # Storage (MinIO) - Sheldon uses limited 'sheldon' user, not admin
       - STORAGE_ENABLED=true
       - STORAGE_ENDPOINT=minio:9000
-      - STORAGE_ACCESS_KEY=${STORAGE_ACCESS_KEY:-minioadmin}
+      - STORAGE_ACCESS_KEY=sheldon
       - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}
       - STORAGE_USE_SSL=false
 
@@ -108,8 +108,9 @@ services:
     volumes:
       - minio_data:/data
     environment:
-      - MINIO_ROOT_USER=${STORAGE_ACCESS_KEY:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${STORAGE_SECRET_KEY}
+      # Admin credentials (for human access via console)
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
     networks:
       - sheldon-net
     labels:
@@ -120,6 +121,58 @@ services:
       - "traefik.http.routers.minio-console.tls.certresolver=letsencrypt"
       - "traefik.http.routers.minio-console.service=minio-console"
       - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
+
+  # Creates 'sheldon' user with access only to sheldon-* buckets
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      - minio
+    environment:
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - STORAGE_SECRET_KEY=${STORAGE_SECRET_KEY}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sleep 5
+        mc alias set minio http://minio:9000 admin $${MINIO_ROOT_PASSWORD}
+
+        # Create buckets
+        mc mb --ignore-existing minio/sheldon-user
+        mc mb --ignore-existing minio/sheldon-agent
+        mc mb --ignore-existing minio/sheldon-backups
+        mc mb --ignore-existing minio/private
+
+        # Create policy for sheldon user (only sheldon-* buckets)
+        cat > /tmp/sheldon-policy.json << 'EOF'
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": ["s3:*"],
+              "Resource": [
+                "arn:aws:s3:::sheldon-user",
+                "arn:aws:s3:::sheldon-user/*",
+                "arn:aws:s3:::sheldon-agent",
+                "arn:aws:s3:::sheldon-agent/*",
+                "arn:aws:s3:::sheldon-backups",
+                "arn:aws:s3:::sheldon-backups/*"
+              ]
+            }
+          ]
+        }
+        EOF
+
+        mc admin policy create minio sheldon-policy /tmp/sheldon-policy.json 2>/dev/null || mc admin policy info minio sheldon-policy
+
+        # Create sheldon user if not exists
+        mc admin user add minio sheldon $${STORAGE_SECRET_KEY} 2>/dev/null || true
+        mc admin policy attach minio sheldon-policy --user sheldon
+
+        echo "MinIO init complete: sheldon user created with limited access"
+    networks:
+      - sheldon-net
 
   # Headscale - self-hosted Tailscale coordination server
   # Config is auto-generated on first deploy if missing
