@@ -135,8 +135,14 @@ func registerListModels(registry *Registry, mr *config.ModelRegistry) {
 
 func registerSwitchModel(registry *Registry, rc *config.RuntimeConfig, mr *config.ModelRegistry) {
 	tool := llm.Tool{
-		Name:        "switch_model",
-		Description: "Switch the model used for a specific purpose (llm, extractor, embedder, coder). The change takes effect on the next message.",
+		Name: "switch_model",
+		Description: `Switch the model used for a specific purpose. IMPORTANT: Before switching, you MUST:
+1. Call list_providers to check which providers are configured (have API keys)
+2. Call list_models with the provider filter to show available models
+3. Ask the user to confirm which specific model they want
+4. Only then call switch_model with the confirmed choice
+
+Never assume which model the user wants. Always show options and get explicit confirmation first.`,
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -151,7 +157,7 @@ func registerSwitchModel(registry *Registry, rc *config.RuntimeConfig, mr *confi
 				},
 				"model": map[string]any{
 					"type":        "string",
-					"description": "Model ID to use (e.g., kimi-k2.5:cloud, claude-sonnet-4-20250514, gpt-4o)",
+					"description": "Model ID to use (e.g., kimi-k2-0711-preview, claude-sonnet-4-20250514, gpt-4o)",
 				},
 			},
 			"required": []string{"purpose", "model"},
@@ -181,6 +187,12 @@ func registerSwitchModel(registry *Registry, rc *config.RuntimeConfig, mr *confi
 		if !providerConfigured(provider) {
 			envKey := config.EnvKeyForProvider(provider)
 			return "", fmt.Errorf("cannot switch to %s: %s not configured", provider, envKey)
+		}
+
+		// validate model has the right capability for the purpose
+		requiredCap := purposeToCapability(params.Purpose)
+		if requiredCap != "" && !modelHasCapability(params.Model, requiredCap, mr) {
+			return "", fmt.Errorf("model %q does not support %s (required for %s purpose)", params.Model, requiredCap, params.Purpose)
 		}
 
 		// validate purpose
@@ -241,6 +253,37 @@ func inferProvider(model string, mr *config.ModelRegistry) string {
 	}
 
 	return ""
+}
+
+// purposeToCapability maps a switch purpose to the required model capability
+func purposeToCapability(purpose string) string {
+	switch purpose {
+	case "llm":
+		return "chat"
+	case "coder":
+		return "code"
+	case "extractor", "embedder":
+		return "" // no specific capability required
+	default:
+		return ""
+	}
+}
+
+// modelHasCapability checks if a model has a specific capability
+func modelHasCapability(modelID, capability string, mr *config.ModelRegistry) bool {
+	for _, m := range mr.CloudModels() {
+		if m.ID == modelID {
+			for _, cap := range m.Capabilities {
+				if cap == capability {
+					return true
+				}
+			}
+			// model found but doesn't have capability
+			return false
+		}
+	}
+	// model not in cloud list - allow it (could be ollama model)
+	return true
 }
 
 func providerConfigured(provider string) bool {

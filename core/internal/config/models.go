@@ -42,10 +42,15 @@ func (r *ModelRegistry) ollamaURL() string {
 
 func (r *ModelRegistry) CloudModels() []ModelInfo {
 	return []ModelInfo{
+		// Kimi models (Moonshot AI)
+		// kimi-k2-0711-preview: for main LLM chat
 		{ID: "kimi-k2-0711-preview", Provider: "kimi", Name: "Kimi K2 Preview", Local: false, Capabilities: []string{"chat", "tools"}},
-		{ID: "kimi-k2.5:cloud", Provider: "kimi", Name: "Kimi K2.5 Cloud", Local: false, Capabilities: []string{"chat", "tools", "code"}},
+		// kimi-k2.5:cloud: for coder sandbox only (Claude Code CLI)
+		{ID: "kimi-k2.5:cloud", Provider: "kimi", Name: "Kimi K2.5 (coder only)", Local: false, Capabilities: []string{"code"}},
+		// Claude models (Anthropic)
 		{ID: "claude-sonnet-4-20250514", Provider: "claude", Name: "Claude Sonnet 4", Local: false, Capabilities: []string{"chat", "tools", "code"}},
 		{ID: "claude-opus-4-5-20251101", Provider: "claude", Name: "Claude Opus 4.5", Local: false, Capabilities: []string{"chat", "tools", "code"}},
+		// OpenAI models
 		{ID: "gpt-4o", Provider: "openai", Name: "GPT-4o", Local: false, Capabilities: []string{"chat", "tools"}},
 		{ID: "gpt-4o-mini", Provider: "openai", Name: "GPT-4o Mini", Local: false, Capabilities: []string{"chat", "tools"}},
 	}

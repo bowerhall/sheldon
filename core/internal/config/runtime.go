@@ -38,7 +38,7 @@ var AllowedKeys = map[string]string{
 	"embedder_provider":  "Embedder provider (e.g., ollama, voyage)",
 	"embedder_model":     "Embedder model name (e.g., nomic-embed-text)",
 	"coder_provider":     "Coder provider for code generation (e.g., kimi, claude)",
-	"coder_model":        "Coder model name (e.g., kimi-k2.5:cloud)",
+	"coder_model":        "Coder model name (e.g., kimi-k2-0711-preview)",
 	"ollama_host":        "Ollama server URL (e.g., http://localhost:11434, http://gpu-monster:11434)",
 }
 
