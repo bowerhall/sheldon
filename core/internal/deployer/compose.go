@@ -134,9 +134,9 @@ func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string
 	// find Dockerfile - check root first, then immediate subdirectories
 	dockerfilePath := d.findDockerfile(appDir)
 	if dockerfilePath != "" {
-		// use host path for docker compose build context
-		service.Build = d.toHostPath(dockerfilePath)
-		logger.Debug("found Dockerfile", "path", dockerfilePath, "hostPath", service.Build)
+		// use container path - compose CLI runs inside container and reads context from here
+		service.Build = dockerfilePath
+		logger.Debug("found Dockerfile", "path", dockerfilePath)
 	} else {
 		return nil, fmt.Errorf("no Dockerfile found in %s or its subdirectories", appDir)
 	}
