@@ -16,6 +16,7 @@ func RegisterModelTools(registry *Registry, rc *config.RuntimeConfig, mr *config
 	registerListModels(registry, mr)
 	registerSwitchModel(registry, rc, mr)
 	registerPullModel(registry, mr)
+	registerRemoveModel(registry, mr)
 }
 
 func registerListProviders(registry *Registry, mr *config.ModelRegistry) {
@@ -335,5 +336,44 @@ Never pull models just because the user asked IF you can - only pull when they e
 		registry.Notify(ctx, fmt.Sprintf("model %s pulled successfully", params.Model))
 
 		return fmt.Sprintf("successfully pulled %s\n\nuse switch_model to activate it", params.Model), nil
+	})
+}
+
+func registerRemoveModel(registry *Registry, mr *config.ModelRegistry) {
+	tool := llm.Tool{
+		Name: "remove_model",
+		Description: `Remove a downloaded ollama model to free up disk space. IMPORTANT: Before removing:
+1. Confirm the user wants to delete this specific model
+2. Warn that this will require re-downloading if needed later
+3. Check that it's not currently in use (extractor, embedder, coder)
+
+Never remove models without explicit confirmation.`,
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"model": map[string]any{
+					"type":        "string",
+					"description": "Model name to remove (e.g., qwen2.5:0.5b, llama3.2)",
+				},
+			},
+			"required": []string{"model"},
+		},
+	}
+
+	registry.Register(tool, func(ctx context.Context, args string) (string, error) {
+		var params struct {
+			Model string `json:"model"`
+		}
+		if err := json.Unmarshal([]byte(args), &params); err != nil {
+			return "", fmt.Errorf("invalid arguments: %w", err)
+		}
+
+		registry.Notify(ctx, fmt.Sprintf("removing model %s...", params.Model))
+
+		if err := mr.RemoveModel(ctx, params.Model); err != nil {
+			return "", fmt.Errorf("failed to remove model: %w", err)
+		}
+
+		return fmt.Sprintf("successfully removed %s", params.Model), nil
 	})
 }

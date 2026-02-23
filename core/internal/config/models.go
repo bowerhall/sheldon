@@ -193,6 +193,36 @@ func (r *ModelRegistry) PullModel(ctx context.Context, name string) error {
 	return nil
 }
 
+type ollamaDeleteRequest struct {
+	Name string `json:"name"`
+}
+
+func (r *ModelRegistry) RemoveModel(ctx context.Context, name string) error {
+	reqBody, err := json.Marshal(ollamaDeleteRequest{Name: name})
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "DELETE", r.ollamaURL()+"/api/delete", strings.NewReader(string(reqBody)))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := r.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("delete request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("ollama returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 type jsonReader struct {
 	data []byte
 	pos  int
