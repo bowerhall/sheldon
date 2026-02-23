@@ -299,8 +299,13 @@ func providerConfigured(provider string) bool {
 
 func registerPullModel(registry *Registry, mr *config.ModelRegistry) {
 	tool := llm.Tool{
-		Name:        "pull_model",
-		Description: "Download a model from ollama. Use this to download new local models.",
+		Name: "pull_model",
+		Description: `Download a model from ollama. IMPORTANT: Before pulling, you MUST:
+1. Confirm the user explicitly wants to download this specific model
+2. Explain the model size and that it will take time to download
+3. Only proceed after getting explicit confirmation
+
+Never pull models just because the user asked IF you can - only pull when they explicitly request it.`,
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
