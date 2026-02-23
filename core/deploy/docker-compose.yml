@@ -91,6 +91,7 @@ services:
       - DEPLOYER_HOST_PREFIX=/opt/sheldon/data
 
       # Embeddings (Ollama runs alongside)
+      - OLLAMA_HOST=http://ollama:11434
       - EMBEDDER_PROVIDER=ollama
       - EMBEDDER_URL=http://ollama:11434
       - EMBEDDER_MODEL=nomic-embed-text
