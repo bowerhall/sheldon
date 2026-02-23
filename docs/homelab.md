@@ -27,8 +27,14 @@ This guide covers running Sheldon across multiple machines with private networki
 
 | Capability | Host (VPS) | Remote (via Headscale) |
 |------------|------------|------------------------|
-| **Containers** | | |
-| List containers | - | `list_containers` |
+| **App Management** | | |
+| Deploy apps | `deploy_app` | - |
+| Remove apps | `remove_app` | - |
+| List apps | `list_apps` | - |
+| App status/logs | `app_status`, `app_logs` | - |
+| Build images | `build_image` | - |
+| **Container Management** | | |
+| List all containers | - | `list_containers` |
 | Restart/Stop/Start | - | `restart_container`, etc. |
 | View logs | - | `container_logs` |
 | System stats | - | `remote_status` |
@@ -37,12 +43,13 @@ This guide covers running Sheldon across multiple machines with private networki
 | Pull models | `pull_model` | - |
 | **Code** | | |
 | Write code | `write_code` | - |
-| Deploy apps | `deploy_app` | - |
 | **Storage** | | |
 | Files | MinIO tools | Same (MinIO on VPS) |
 | Backup memory | `backup_memory` | Same |
 | **Network** | | |
 | Create auth keys | Human only | N/A |
+
+**Note:** On the host VPS, Sheldon manages apps he deploys (via `apps.yml`). On remote machines, Sheldon can manage *all* containers including infrastructure.
 
 ---
 
