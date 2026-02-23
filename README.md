@@ -96,10 +96,14 @@ Run Sheldon across multiple machines with private networking. Use a beefy GPU at
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Add a machine in one command:**
+**Add a machine:**
 
 ```bash
+# Full setup (Tailscale + Ollama + Agent)
 curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/invite.sh | sudo bash
+
+# Agent only (just container management)
+curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/agent.sh | sudo bash
 ```
 
 **Switch Ollama to your GPU server:**

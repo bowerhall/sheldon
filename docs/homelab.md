@@ -64,17 +64,23 @@ This outputs a key like `abc123...`. Use it with the invite script.
 
 ### Adding a Machine
 
-On the new machine, run:
+**Full setup** (Tailscale + Ollama + Agent):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/invite.sh | sudo bash
 ```
 
-The script will:
+This will:
 1. Install Docker and Tailscale
 2. Ask for a machine name
 3. Join your Headscale network
 4. Start Ollama and homelab-agent
+
+**Agent only** (just container management, no Tailscale/Ollama):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/agent.sh | sudo bash
+```
 
 ### Switching Ollama Host
 
