@@ -114,6 +114,7 @@ func main() {
 		bridgeCfg := coder.BridgeConfig{
 			SandboxDir:   cfg.Coder.SandboxDir,
 			APIKey:       cfg.Coder.APIKey,
+			FallbackKey:  cfg.Coder.FallbackKey,
 			Model:        cfg.Coder.Model,
 			SkillsDir:    cfg.Coder.SkillsDir,
 			Isolated:     cfg.Coder.Isolated,

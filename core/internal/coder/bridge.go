@@ -31,12 +31,13 @@ type Bridge struct {
 
 // BridgeConfig holds configuration for the Bridge
 type BridgeConfig struct {
-	SandboxDir string
-	APIKey     string // Anthropic API key for Claude Code CLI
-	Model      string // model to use (default: claude-sonnet-4-20250514)
-	SkillsDir  string // directory with skill templates
-	Isolated   bool   // use ephemeral Docker containers
-	Image      string // coder container image
+	SandboxDir  string
+	APIKey      string // NVIDIA NIM API key (primary)
+	FallbackKey string // Moonshot Kimi API key (fallback)
+	Model       string // model to use (default: kimi-k2.5)
+	SkillsDir   string // directory with skill templates
+	Isolated    bool   // use ephemeral Docker containers
+	Image       string // coder container image
 	// git integration
 	GitEnabled   bool
 	GitUserName  string
@@ -45,11 +46,12 @@ type BridgeConfig struct {
 	GitToken     string
 }
 
-func NewBridge(sandboxDir, apiKey string) (*Bridge, error) {
+func NewBridge(sandboxDir, apiKey, fallbackKey string) (*Bridge, error) {
 	return NewBridgeWithConfig(BridgeConfig{
-		SandboxDir: sandboxDir,
-		APIKey:     apiKey,
-		Isolated:   false,
+		SandboxDir:  sandboxDir,
+		APIKey:      apiKey,
+		FallbackKey: fallbackKey,
+		Isolated:    false,
 	})
 }
 
@@ -78,12 +80,13 @@ func NewBridgeWithConfig(cfg BridgeConfig) (*Bridge, error) {
 			Image:        cfg.Image,
 			ArtifactsDir: cfg.SandboxDir,
 			APIKey:       cfg.APIKey,
+			FallbackKey:  cfg.FallbackKey,
 			Model:        cfg.Model,
 			Git:          gitCfg,
 		})
 		logger.Info("coder bridge using isolated containers", "image", cfg.Image)
 	} else {
-		sandbox, err := NewSandboxWithGit(cfg.SandboxDir, cfg.APIKey, cfg.Model, gitCfg)
+		sandbox, err := NewSandboxWithGit(cfg.SandboxDir, cfg.APIKey, cfg.FallbackKey, cfg.Model, gitCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -294,8 +297,17 @@ func (b *Bridge) executeWithSubprocess(ctx context.Context, task Task, cfg struc
 }
 
 func (b *Bridge) run(ctx context.Context, ws *Workspace, prompt string, maxTurns int) (string, error) {
-	// Build claude command
+	// Build ollama launch claude command with model from env
+	model := b.sandbox.model
+	if model == "" {
+		model = "kimi-k2.5"
+	}
+
+	// ollama launch claude --model MODEL -- CLAUDE_ARGS
 	args := []string{
+		"launch", "claude",
+		"--model", model,
+		"--",
 		"--print",
 		"--output-format", "text",
 		"--max-turns", fmt.Sprintf("%d", maxTurns),
@@ -303,11 +315,11 @@ func (b *Bridge) run(ctx context.Context, ws *Workspace, prompt string, maxTurns
 		"-p", prompt,
 	}
 
-	cmd := exec.CommandContext(ctx, "claude", args...)
+	cmd := exec.CommandContext(ctx, "ollama", args...)
 	cmd.Dir = ws.Path
 	cmd.Env = b.sandbox.CleanEnv()
 
-	logger.Debug("claude code command", "dir", ws.Path)
+	logger.Debug("ollama launch claude command", "dir", ws.Path, "model", model)
 
 	var output strings.Builder
 	var stderrBuf strings.Builder
@@ -510,8 +522,17 @@ func (b *Bridge) executeWithSubprocessProgress(ctx context.Context, task Task, c
 }
 
 func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt string, maxTurns int, onProgress func(StreamEvent)) (string, error) {
-	// Build claude command
+	// Build ollama launch claude command with model from env
+	model := b.sandbox.model
+	if model == "" {
+		model = "kimi-k2.5"
+	}
+
+	// ollama launch claude --model MODEL -- CLAUDE_ARGS
 	args := []string{
+		"launch", "claude",
+		"--model", model,
+		"--",
 		"--print",
 		"--verbose",
 		"--output-format", "stream-json",
@@ -520,11 +541,11 @@ func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt stri
 		"-p", prompt,
 	}
 
-	cmd := exec.CommandContext(ctx, "claude", args...)
+	cmd := exec.CommandContext(ctx, "ollama", args...)
 	cmd.Dir = ws.Path
 	cmd.Env = b.sandbox.CleanEnv()
 
-	logger.Debug("claude code command (progress)", "dir", ws.Path)
+	logger.Debug("ollama launch claude command (progress)", "dir", ws.Path, "model", model)
 
 	var output strings.Builder
 	var stderrBuf strings.Builder

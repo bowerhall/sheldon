@@ -19,6 +19,7 @@ type DockerRunner struct {
 	image        string
 	artifactsDir string
 	apiKey       string
+	fallbackKey  string
 	model        string
 	git          GitConfig
 }
@@ -27,7 +28,8 @@ type DockerRunner struct {
 type DockerRunnerConfig struct {
 	Image        string // container image (default: sheldon-coder-sandbox:latest)
 	ArtifactsDir string // local directory for artifacts
-	APIKey       string // Anthropic API key for Claude Code CLI
+	APIKey       string // NVIDIA NIM API key
+	FallbackKey  string // Kimi API key
 	Model        string // model to use
 	Git          GitConfig
 }
@@ -61,6 +63,7 @@ func NewDockerRunner(cfg DockerRunnerConfig) *DockerRunner {
 		image:        cfg.Image,
 		artifactsDir: cfg.ArtifactsDir,
 		apiKey:       cfg.APIKey,
+		fallbackKey:  cfg.FallbackKey,
 		model:        cfg.Model,
 		git:          cfg.Git,
 	}
@@ -92,9 +95,15 @@ func (r *DockerRunner) RunJob(ctx context.Context, cfg JobConfig) (*Result, erro
 		"-w", "/workspace",
 	}
 
-	// pass API key for Claude Code CLI
+	// pass API keys as environment variables
 	if r.apiKey != "" {
-		args = append(args, "-e", "ANTHROPIC_API_KEY="+r.apiKey)
+		args = append(args, "-e", "NVIDIA_API_KEY="+r.apiKey)
+	}
+	if r.fallbackKey != "" {
+		args = append(args, "-e", "KIMI_API_KEY="+r.fallbackKey)
+	}
+	if r.model != "" {
+		args = append(args, "-e", "CODER_MODEL="+r.model)
 	}
 
 	// pass git user config (NOT the token - coder should never have access to GIT_TOKEN)
@@ -217,9 +226,14 @@ func (r *DockerRunner) RunJobWithProgress(ctx context.Context, cfg JobConfig, on
 		"-w", "/workspace",
 	}
 
-	// pass API key for Claude Code CLI
 	if r.apiKey != "" {
-		args = append(args, "-e", "ANTHROPIC_API_KEY="+r.apiKey)
+		args = append(args, "-e", "NVIDIA_API_KEY="+r.apiKey)
+	}
+	if r.fallbackKey != "" {
+		args = append(args, "-e", "KIMI_API_KEY="+r.fallbackKey)
+	}
+	if r.model != "" {
+		args = append(args, "-e", "CODER_MODEL="+r.model)
 	}
 
 	// pass git user config (NOT the token - coder should never have access to GIT_TOKEN)
