@@ -64,19 +64,28 @@ This outputs a key like `abc123...`. Use it with the invite script.
 
 ### Adding a Machine
 
-**Full setup** (Tailscale + Ollama + Agent):
+**Step 1: Generate an auth key** (on your Sheldon VPS):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/invite.sh | sudo bash
+ssh root@your-vps-ip
+docker exec headscale headscale preauthkeys create --user default --expiration 1h
+# outputs: abc123...
+```
+
+**Step 2: Run the invite script** (on the new machine):
+
+```bash
+HEADSCALE_URL=https://hs.yourdomain.com AUTHKEY=abc123 \
+  curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/invite.sh | sudo bash
 ```
 
 This will:
 1. Install Docker and Tailscale
 2. Ask for a machine name
-3. Join your Headscale network
+3. Join your Headscale network using the auth key
 4. Start Ollama and homelab-agent
 
-**Agent only** (just container management, no Tailscale/Ollama):
+**Agent only** (no private networking, just container management):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/agent.sh | sudo bash

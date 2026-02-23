@@ -2,7 +2,7 @@
 set -e
 
 # Sheldon Homelab Invite Script
-# Usage: curl -fsSL https://your-domain/invite | bash
+# Usage: HEADSCALE_URL=https://hs.example.com AUTHKEY=your-key curl -fsSL ... | sudo bash
 
 # Colors
 RED='\033[0;31m'
@@ -12,8 +12,9 @@ CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Configuration - set these or pass as env vars
-HEADSCALE_URL="${HEADSCALE_URL:-https://hs.example.com}"
+# Configuration - pass as env vars
+HEADSCALE_URL="${HEADSCALE_URL:-}"
+AUTHKEY="${AUTHKEY:-}"
 AGENT_IMAGE="${AGENT_IMAGE:-ghcr.io/bowerhall/sheldon-homelab-agent:latest}"
 
 print_banner() {
@@ -51,6 +52,27 @@ print_warning() {
 check_root() {
     if [ "$EUID" -ne 0 ]; then
         print_error "Please run as root (sudo)"
+        exit 1
+    fi
+}
+
+check_required_vars() {
+    if [ -z "$HEADSCALE_URL" ]; then
+        print_error "HEADSCALE_URL is required"
+        echo ""
+        echo "Usage:"
+        echo "  HEADSCALE_URL=https://hs.example.com AUTHKEY=your-key curl ... | sudo bash"
+        echo ""
+        echo "Get an authkey from your Sheldon VPS:"
+        echo "  docker exec headscale headscale preauthkeys create --user default --expiration 1h"
+        exit 1
+    fi
+
+    if [ -z "$AUTHKEY" ]; then
+        print_error "AUTHKEY is required"
+        echo ""
+        echo "Get an authkey from your Sheldon VPS:"
+        echo "  docker exec headscale headscale preauthkeys create --user default --expiration 1h"
         exit 1
     fi
 }
@@ -105,7 +127,7 @@ get_machine_name() {
 join_network() {
     print_step "Joining Sheldon's network..."
 
-    tailscale up --login-server="$HEADSCALE_URL" --hostname="$MACHINE_NAME"
+    tailscale up --login-server="$HEADSCALE_URL" --authkey="$AUTHKEY" --hostname="$MACHINE_NAME"
 
     TAILSCALE_IP=$(tailscale ip -4 2>/dev/null || echo "pending")
     print_success "Joined network as $MACHINE_NAME ($TAILSCALE_IP)"
@@ -139,6 +161,7 @@ start_ollama() {
         docker run -d \
             --name ollama \
             --restart unless-stopped \
+            -p 11434:11434 \
             -v ollama_data:/root/.ollama \
             ollama/ollama
         print_success "Ollama container created"
@@ -171,6 +194,7 @@ main() {
     print_banner
 
     check_root
+    check_required_vars
 
     echo ""
     print_step "Checking dependencies..."

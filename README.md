@@ -99,10 +99,14 @@ Run Sheldon across multiple machines with private networking. Use a beefy GPU at
 **Add a machine:**
 
 ```bash
-# Full setup (Tailscale + Ollama + Agent)
-curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/invite.sh | sudo bash
+# 1. On your Sheldon VPS, generate a key (expires in 1 hour)
+docker exec headscale headscale preauthkeys create --user default --expiration 1h
 
-# Agent only (just container management)
+# 2. On the new machine, run with that key
+HEADSCALE_URL=https://hs.yourdomain.com AUTHKEY=your-key \
+  curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/invite.sh | sudo bash
+
+# Or agent only (no private networking, just container management)
 curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/agent.sh | sudo bash
 ```
 
