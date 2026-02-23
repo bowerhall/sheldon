@@ -202,10 +202,11 @@ All containers on sheldon-net. Single VPS. ~€8/month.
 
 ### Prerequisites
 
-- Hetzner account (or any VPS provider)
+- VPS (Hetzner, DigitalOcean, etc.)
 - GitHub account
-- Telegram bot token (from @BotFather)
-- Kimi API key (from platform.moonshot.cn)
+- Telegram bot token (@BotFather)
+- One LLM API key (Kimi, Anthropic, or OpenAI)
+- Domain *(optional, for HTTPS)*
 
 ### 1. Fork & Clone
 
@@ -229,27 +230,23 @@ cd sheldon
 2. Create project: `sheldon`
 3. Add secrets:
 
-**Required:**
-| Secret | Value |
-|--------|-------|
+| Secret | Purpose |
+|--------|---------|
 | `VPS_HOST` | Your VPS IP |
 | `VPS_USER` | `root` |
 | `VPS_SSH_KEY` | Your SSH private key (full content) |
 | `GHCR_TOKEN` | GitHub PAT with `write:packages` scope |
 | `TELEGRAM_TOKEN` | From @BotFather |
-| `KIMI_API_KEY` | From Moonshot |
-| `STORAGE_ADMIN_PASSWORD` | Your admin password for storage console |
-| `STORAGE_SHELDON_PASSWORD` | Sheldon's storage password (isolated) |
-| `TZ` | Your timezone (e.g., `UTC`) |
+| `KIMI_API_KEY` | LLM + Coder (or any provider key) |
+| `STORAGE_ADMIN_PASSWORD` | Your storage console password |
+| `STORAGE_SHELDON_PASSWORD` | Sheldon's storage password |
+| `TZ` | Your timezone (e.g., `Europe/London`) |
+| `DOMAIN` | Your domain *(optional, enables HTTPS)* |
+| `ACME_EMAIL` | Email for Let's Encrypt *(optional, with DOMAIN)* |
+| `GIT_TOKEN` | GitHub PAT for code push *(optional, enables coder git)* |
+| `GIT_ORG_URL` | e.g., `https://github.com/you` *(optional, with GIT_TOKEN)* |
 
-**Optional:**
-| Secret | Description |
-|--------|-------------|
-| `LLM_PROVIDER` | `kimi`, `claude`, or `openai` |
-| `ANTHROPIC_API_KEY` | If using Claude |
-| `GIT_TOKEN` | GitHub PAT for coder to push code |
-| `GIT_ORG_URL` | e.g., `https://github.com/your-org` |
-| `HEARTBEAT_CHAT_ID` | Your Telegram chat ID (for error alerts) |
+*Sheldon can switch LLM/coder models at runtime. Add more API keys later (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) and Sheldon will use them.*
 
 4. Generate Service Token: Project Settings → Service Tokens → Generate
 5. Copy the token (starts with `dp.st.`)
@@ -261,22 +258,27 @@ cd sheldon
    - Name: `DOPPLER_TOKEN`
    - Value: paste the service token
 
-### 5. Deploy
+### 5. Setup DNS *(optional, if using DOMAIN)*
+
+Add a wildcard record pointing to your VPS:
+
+```
+A    *.yourdomain.com    → YOUR_VPS_IP
+```
+
+This enables `storage.`, `hs.`, and any apps Sheldon deploys.
+
+### 6. Deploy
 
 ```bash
 git push origin main
 ```
 
-GitHub Actions will automatically:
-
-- Build and push Docker images
-- SSH into your VPS
-- Install Docker (first run)
-- Deploy Sheldon + Ollama + Traefik
+GitHub Actions will build images, SSH into your VPS, install Docker, and deploy everything.
 
 Watch progress: `https://github.com/YOUR_USERNAME/sheldon/actions`
 
-### 6. Message Your Bot
+### 7. Message Your Bot
 
 Open Telegram, find your bot, send a message. Sheldon is live.
 
