@@ -227,6 +227,16 @@ jobs:
           target: "/opt/sheldon/essence/"
           strip_components: 2
 
+      - name: Copy skills
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ steps.doppler.outputs.VPS_HOST }}
+          username: ${{ steps.doppler.outputs.VPS_USER }}
+          key: ${{ steps.doppler.outputs.VPS_SSH_KEY }}
+          source: "skills/"
+          target: "/opt/sheldon/skills/"
+          strip_components: 1
+
       - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
