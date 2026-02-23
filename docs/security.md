@@ -93,18 +93,61 @@ var sensitivePatterns = []*regexp.Regexp{
 - Backup: SQLite snapshot to MinIO (TODO: encryption)
 - No PII in logs: facts logged with domain ID only
 
+## Docker Access Control
+
+Sheldon connects to Docker through `tecnativa/docker-socket-proxy`, which limits API access:
+
+```yaml
+docker-proxy:
+  environment:
+    - CONTAINERS=1      # list, create, start, stop
+    - IMAGES=1          # pull images
+    - BUILD=1           # build images
+    - NETWORKS=1        # connect to networks
+    - POST=1            # allow create operations
+    - VOLUMES=0         # NO volume management
+    - SERVICES=0        # NO swarm services
+    - SECRETS=0         # NO secrets API
+    - CONFIGS=0         # NO configs API
+```
+
+Sheldon can only manage containers/images scoped to `apps.yml` - cannot access secrets, volumes API, or swarm.
+
+## Runtime Config Security
+
+Sheldon can change some config at runtime via `set_config`, but critical infrastructure is locked:
+
+| Config | Runtime Changeable | Reason |
+|--------|-------------------|--------|
+| `llm_provider/model` | Yes | User-facing, safe to switch |
+| `coder_provider/model` | Yes | User-facing, safe to switch |
+| `embedder_*` | **No** | Changing breaks vector compatibility |
+| `extractor_*` | **No** | Infrastructure, not user-facing |
+| `ollama_host` | **No** | Prevents rogue server attacks |
+
+An attacker cannot trick Sheldon into pointing to a malicious ollama server or breaking embeddings.
+
+## Model Management Security
+
+Sheldon can pull and remove ollama models, with protections:
+
+- **Cannot remove active embedder model** (e.g., `nomic-embed-text`)
+- **Cannot remove active extractor model** (e.g., `qwen2.5:3b`)
+- **Requires explicit confirmation** before pull/remove
+
+This prevents an attacker from tricking Sheldon into breaking memory search or extraction.
+
 ## Credential Management
 
 | Credential        | Storage   | Exposed To           |
 | ----------------- | --------- | -------------------- |
-| TELEGRAM_TOKEN    | .env file  | Sheldon only         |
-| ANTHROPIC_API_KEY | .env file  | Sheldon only         |
-| NVIDIA_API_KEY    | .env file  | Ephemeral Coder only |
-| KIMI_API_KEY      | .env file  | Sheldon + Coder      |
-| MINIO_CREDENTIALS | .env file  | Sheldon only         |
-| GIT_TOKEN         | .env file  | Sheldon + Coder      |
+| TELEGRAM_TOKEN    | Doppler   | Sheldon only         |
+| ANTHROPIC_API_KEY | Doppler   | Sheldon only         |
+| KIMI_API_KEY      | Doppler   | Sheldon + Coder      |
+| MINIO_CREDENTIALS | Doppler   | Sheldon only         |
+| GIT_TOKEN         | Doppler   | Sheldon only (NOT Coder) |
 
-Coder gets its own dedicated API key (NVIDIA or Kimi), not Sheldon's main Anthropic key. If compromised via malicious code, only that key needs rotation.
+Coder does NOT receive GIT_TOKEN - Sheldon handles all git operations externally. If coder is compromised, it cannot push to repos.
 
 ## GitHub Access Control
 
