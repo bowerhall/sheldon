@@ -85,6 +85,33 @@ func (d *ComposeDeployer) toHostPath(containerPath string) string {
 	return containerPath
 }
 
+// findDockerfile searches for Dockerfile in appDir and immediate subdirectories
+// Returns the directory containing Dockerfile, or empty string if not found
+func (d *ComposeDeployer) findDockerfile(appDir string) string {
+	// check root first
+	if _, err := os.Stat(filepath.Join(appDir, "Dockerfile")); err == nil {
+		return appDir
+	}
+
+	// check immediate subdirectories
+	entries, err := os.ReadDir(appDir)
+	if err != nil {
+		return ""
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		subdir := filepath.Join(appDir, entry.Name())
+		if _, err := os.Stat(filepath.Join(subdir, "Dockerfile")); err == nil {
+			return subdir
+		}
+	}
+
+	return ""
+}
+
 // Deploy adds a service to apps.yml and runs docker compose up
 func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string, domain string) (*DeployResult, error) {
 	// load or create compose file
@@ -99,10 +126,11 @@ func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string
 		Networks: []string{d.network},
 	}
 
-	// check if there's a Dockerfile
-	if _, err := os.Stat(filepath.Join(appDir, "Dockerfile")); err == nil {
+	// find Dockerfile - check root first, then immediate subdirectories
+	dockerfilePath := d.findDockerfile(appDir)
+	if dockerfilePath != "" {
 		// use host path for docker compose build context
-		service.Build = d.toHostPath(appDir)
+		service.Build = d.toHostPath(dockerfilePath)
 	} else {
 		// no Dockerfile, assume image name matches app name
 		service.Image = name + ":latest"
