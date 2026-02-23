@@ -173,7 +173,8 @@ func formatResult(result *coder.Result) string {
 	}
 
 	if result.WorkspacePath != "" {
-		fmt.Fprintf(&sb, "Workspace: %s\n\n", result.WorkspacePath)
+		fmt.Fprintf(&sb, "Workspace: %s\n", result.WorkspacePath)
+		fmt.Fprintf(&sb, "For deploy_app, use app_dir: %s\n\n", result.WorkspacePath)
 	}
 
 	if len(result.Files) > 0 {
