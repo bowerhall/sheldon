@@ -288,6 +288,33 @@ cp core/.env.example core/.env
 cd core && go run ./cmd/sheldon
 ```
 
+## Model Management
+
+Sheldon uses a unified provider system for all LLM needs. Set one API key per provider in Doppler:
+
+| Provider | Env Key | Models |
+|----------|---------|--------|
+| Kimi | `KIMI_API_KEY` | kimi-k2-0711-preview, kimi-k2.5:cloud |
+| Claude | `ANTHROPIC_API_KEY` | claude-sonnet-4-20250514, claude-opus-4-5-20251101 |
+| OpenAI | `OPENAI_API_KEY` | gpt-4o, gpt-4o-mini |
+| Ollama | - | Any local model (llama3.2, qwen2.5, etc.) |
+
+**Switch models at runtime:**
+```
+"Switch to claude"
+"Use gpt-4o for the coder"
+"List available models"
+"Pull llama3.2"
+```
+
+**Components that use models:**
+- `llm` - Main chat (default: kimi)
+- `coder` - Code generation (default: kimi-k2.5:cloud)
+- `extractor` - Memory extraction (default: ollama/qwen2.5:3b)
+- `embedder` - Embeddings (default: ollama/nomic-embed-text)
+
+Each component uses the API key for its configured provider. No separate keys needed.
+
 ## Project Structure
 
 ```

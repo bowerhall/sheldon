@@ -101,16 +101,17 @@ func loadStorageConfig() StorageConfig {
 }
 
 func loadCoderConfig() CoderConfig {
-	// Primary: NVIDIA NIM API key (free tier)
-	apiKey := os.Getenv("NVIDIA_API_KEY")
-
-	// Fallback: Moonshot Kimi API key
-	fallbackKey := os.Getenv("KIMI_API_KEY")
-
-	// Model to use (default: kimi-k2.5:cloud for ollama launch claude)
+	// Provider for coder (inferred from model or explicit)
+	provider := os.Getenv("CODER_PROVIDER")
 	model := os.Getenv("CODER_MODEL")
 	if model == "" {
 		model = "kimi-k2.5:cloud"
+	}
+	if provider == "" {
+		provider = InferProviderFromModel(model)
+		if provider == "" {
+			provider = "kimi" // default provider
+		}
 	}
 
 	sandboxDir := os.Getenv("CODER_SANDBOX")
@@ -140,19 +141,19 @@ func loadCoderConfig() CoderConfig {
 	}
 	gitConfig.Enabled = gitConfig.Token != "" && gitConfig.OrgURL != ""
 
-	// enabled if we have any API key (NVIDIA or Kimi fallback)
-	enabled := apiKey != "" || fallbackKey != ""
+	// enabled if we have an API key for the provider (or it's ollama)
+	envKey := EnvKeyForProvider(provider)
+	enabled := provider == "ollama" || os.Getenv(envKey) != ""
 
 	return CoderConfig{
-		Enabled:     enabled,
-		APIKey:      apiKey,
-		FallbackKey: fallbackKey,
-		Model:       model,
-		SandboxDir:  sandboxDir,
-		SkillsDir:   skillsDir,
-		Isolated:    isolated,
-		Image:       image,
-		Git:         gitConfig,
+		Enabled:    enabled,
+		Provider:   provider,
+		Model:      model,
+		SandboxDir: sandboxDir,
+		SkillsDir:  skillsDir,
+		Isolated:   isolated,
+		Image:      image,
+		Git:        gitConfig,
 	}
 }
 

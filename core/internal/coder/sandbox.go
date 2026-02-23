@@ -7,14 +7,15 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/bowerhall/sheldon/internal/config"
 )
 
 type Sandbox struct {
-	baseDir     string
-	apiKey      string // NVIDIA NIM API key (primary)
-	fallbackKey string // Moonshot Kimi API key (fallback)
-	model       string // model to use (default: kimi-k2.5)
-	git         GitConfig
+	baseDir  string
+	provider string // LLM provider (kimi, claude, nvidia, ollama)
+	model    string // model to use (default: kimi-k2.5:cloud)
+	git      GitConfig
 }
 
 type Workspace struct {
@@ -22,25 +23,27 @@ type Workspace struct {
 	TaskID string
 }
 
-func NewSandbox(baseDir, apiKey, fallbackKey, model string) (*Sandbox, error) {
-	return NewSandboxWithGit(baseDir, apiKey, fallbackKey, model, GitConfig{})
+func NewSandbox(baseDir, provider, model string) (*Sandbox, error) {
+	return NewSandboxWithGit(baseDir, provider, model, GitConfig{})
 }
 
-func NewSandboxWithGit(baseDir, apiKey, fallbackKey, model string, git GitConfig) (*Sandbox, error) {
+func NewSandboxWithGit(baseDir, provider, model string, git GitConfig) (*Sandbox, error) {
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return nil, fmt.Errorf("create sandbox dir: %w", err)
 	}
 
 	if model == "" {
-		model = "kimi-k2.5"
+		model = "kimi-k2.5:cloud"
+	}
+	if provider == "" {
+		provider = "kimi"
 	}
 
 	return &Sandbox{
-		baseDir:     baseDir,
-		apiKey:      apiKey,
-		fallbackKey: fallbackKey,
-		model:       model,
-		git:         git,
+		baseDir:  baseDir,
+		provider: provider,
+		model:    model,
+		git:      git,
 	}, nil
 }
 
@@ -70,14 +73,13 @@ func (s *Sandbox) CleanEnv() []string {
 		"SHELL=/bin/sh",
 	}
 
-	// NVIDIA NIM API key (primary)
-	if s.apiKey != "" {
-		env = append(env, "NVIDIA_API_KEY="+s.apiKey)
-	}
-
-	// Moonshot Kimi API key (fallback)
-	if s.fallbackKey != "" {
-		env = append(env, "KIMI_API_KEY="+s.fallbackKey)
+	// Pass API key for the configured provider
+	envKey := config.EnvKeyForProvider(s.provider)
+	if envKey != "" {
+		apiKey := os.Getenv(envKey)
+		if apiKey != "" {
+			env = append(env, envKey+"="+apiKey)
+		}
 	}
 
 	// Model to use

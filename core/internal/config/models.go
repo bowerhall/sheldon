@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -207,6 +208,7 @@ func (r *ModelRegistry) Providers() []ProviderInfo {
 		{ID: "kimi", Name: "Moonshot Kimi", EnvKey: "KIMI_API_KEY"},
 		{ID: "claude", Name: "Anthropic Claude", EnvKey: "ANTHROPIC_API_KEY"},
 		{ID: "openai", Name: "OpenAI", EnvKey: "OPENAI_API_KEY"},
+		{ID: "nvidia", Name: "NVIDIA NIM", EnvKey: "NVIDIA_API_KEY"},
 		{ID: "ollama", Name: "Ollama (local)", EnvKey: ""},
 		// OpenAI-compatible providers (add API key to Doppler to enable)
 		{ID: "mistral", Name: "Mistral AI", EnvKey: "MISTRAL_API_KEY"},
@@ -215,6 +217,40 @@ func (r *ModelRegistry) Providers() []ProviderInfo {
 		{ID: "deepseek", Name: "DeepSeek", EnvKey: "DEEPSEEK_API_KEY"},
 		{ID: "fireworks", Name: "Fireworks AI", EnvKey: "FIREWORKS_API_KEY"},
 		{ID: "perplexity", Name: "Perplexity", EnvKey: "PERPLEXITY_API_KEY"},
+	}
+}
+
+// EnvKeyForProvider returns the environment variable name for a provider's API key
+func EnvKeyForProvider(provider string) string {
+	switch provider {
+	case "claude":
+		return "ANTHROPIC_API_KEY"
+	case "openai":
+		return "OPENAI_API_KEY"
+	case "kimi":
+		return "KIMI_API_KEY"
+	case "nvidia":
+		return "NVIDIA_API_KEY"
+	case "ollama":
+		return ""
+	default:
+		return strings.ToUpper(provider) + "_API_KEY"
+	}
+}
+
+// InferProviderFromModel guesses the provider from a model name
+func InferProviderFromModel(model string) string {
+	switch {
+	case strings.HasPrefix(model, "kimi-") || strings.Contains(model, "kimi"):
+		return "kimi"
+	case strings.HasPrefix(model, "claude-"):
+		return "claude"
+	case strings.HasPrefix(model, "gpt-"):
+		return "openai"
+	case strings.Contains(model, "llama") || strings.Contains(model, "mistral") || strings.Contains(model, "qwen"):
+		return "ollama"
+	default:
+		return ""
 	}
 }
 

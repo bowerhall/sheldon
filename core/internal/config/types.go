@@ -36,15 +36,14 @@ type StorageConfig struct {
 }
 
 type CoderConfig struct {
-	Enabled     bool
-	APIKey      string // NVIDIA NIM API key (primary)
-	FallbackKey string // Moonshot Kimi API key (fallback)
-	Model       string // model to use (default: kimi-k2.5)
-	SandboxDir  string
-	SkillsDir   string // directory with skill patterns
-	Isolated    bool   // use ephemeral Docker containers for isolation
-	Image       string // coder container image (default: sheldon-coder-sandbox:latest)
-	Git         GitConfig
+	Enabled    bool
+	Provider   string // provider for coder LLM (kimi, claude, nvidia, ollama)
+	Model      string // model to use (default: kimi-k2.5:cloud)
+	SandboxDir string
+	SkillsDir  string // directory with skill patterns
+	Isolated   bool   // use ephemeral Docker containers for isolation
+	Image      string // coder container image (default: sheldon-coder-sandbox:latest)
+	Git        GitConfig
 }
 
 type GitConfig struct {

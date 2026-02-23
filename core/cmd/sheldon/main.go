@@ -114,8 +114,7 @@ func main() {
 	if cfg.Coder.Enabled {
 		bridgeCfg := coder.BridgeConfig{
 			SandboxDir:   cfg.Coder.SandboxDir,
-			APIKey:       cfg.Coder.APIKey,
-			FallbackKey:  cfg.Coder.FallbackKey,
+			Provider:     cfg.Coder.Provider,
 			Model:        cfg.Coder.Model,
 			SkillsDir:    cfg.Coder.SkillsDir,
 			Isolated:     cfg.Coder.Isolated,

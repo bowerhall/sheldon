@@ -31,13 +31,12 @@ type Bridge struct {
 
 // BridgeConfig holds configuration for the Bridge
 type BridgeConfig struct {
-	SandboxDir  string
-	APIKey      string // NVIDIA NIM API key (primary)
-	FallbackKey string // Moonshot Kimi API key (fallback)
-	Model       string // model to use (default: kimi-k2.5)
-	SkillsDir   string // directory with skill templates
-	Isolated    bool   // use ephemeral Docker containers
-	Image       string // coder container image
+	SandboxDir string
+	Provider   string // provider for coder LLM (kimi, claude, nvidia, ollama)
+	Model      string // model to use (default: kimi-k2.5:cloud)
+	SkillsDir  string // directory with skill templates
+	Isolated   bool   // use ephemeral Docker containers
+	Image      string // coder container image
 	// git integration
 	GitEnabled   bool
 	GitUserName  string
@@ -46,12 +45,12 @@ type BridgeConfig struct {
 	GitToken     string
 }
 
-func NewBridge(sandboxDir, apiKey, fallbackKey string) (*Bridge, error) {
+func NewBridge(sandboxDir, provider, model string) (*Bridge, error) {
 	return NewBridgeWithConfig(BridgeConfig{
-		SandboxDir:  sandboxDir,
-		APIKey:      apiKey,
-		FallbackKey: fallbackKey,
-		Isolated:    false,
+		SandboxDir: sandboxDir,
+		Provider:   provider,
+		Model:      model,
+		Isolated:   false,
 	})
 }
 
@@ -79,14 +78,13 @@ func NewBridgeWithConfig(cfg BridgeConfig) (*Bridge, error) {
 		b.dockerRunner = NewDockerRunner(DockerRunnerConfig{
 			Image:        cfg.Image,
 			ArtifactsDir: cfg.SandboxDir,
-			APIKey:       cfg.APIKey,
-			FallbackKey:  cfg.FallbackKey,
+			Provider:     cfg.Provider,
 			Model:        cfg.Model,
 			Git:          gitCfg,
 		})
 		logger.Info("coder bridge using isolated containers", "image", cfg.Image)
 	} else {
-		sandbox, err := NewSandboxWithGit(cfg.SandboxDir, cfg.APIKey, cfg.FallbackKey, cfg.Model, gitCfg)
+		sandbox, err := NewSandboxWithGit(cfg.SandboxDir, cfg.Provider, cfg.Model, gitCfg)
 		if err != nil {
 			return nil, err
 		}

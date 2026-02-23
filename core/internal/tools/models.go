@@ -179,7 +179,7 @@ func registerSwitchModel(registry *Registry, rc *config.RuntimeConfig, mr *confi
 
 		// validate provider is configured
 		if !providerConfigured(provider) {
-			envKey := envKeyForProvider(provider)
+			envKey := config.EnvKeyForProvider(provider)
 			return "", fmt.Errorf("cannot switch to %s: %s not configured", provider, envKey)
 		}
 
@@ -243,27 +243,11 @@ func inferProvider(model string, mr *config.ModelRegistry) string {
 	return ""
 }
 
-func envKeyForProvider(provider string) string {
-	switch provider {
-	case "claude":
-		return "ANTHROPIC_API_KEY"
-	case "openai":
-		return "OPENAI_API_KEY"
-	case "kimi":
-		return "KIMI_API_KEY"
-	case "ollama":
-		return ""
-	default:
-		// convention: {PROVIDER}_API_KEY
-		return strings.ToUpper(provider) + "_API_KEY"
-	}
-}
-
 func providerConfigured(provider string) bool {
 	if provider == "ollama" {
 		return true
 	}
-	envKey := envKeyForProvider(provider)
+	envKey := config.EnvKeyForProvider(provider)
 	if envKey == "" {
 		return false
 	}

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bowerhall/sheldon/internal/config"
 	"github.com/bowerhall/sheldon/internal/logger"
 )
 
@@ -18,8 +19,7 @@ import (
 type DockerRunner struct {
 	image        string
 	artifactsDir string
-	apiKey       string
-	fallbackKey  string
+	provider     string
 	model        string
 	git          GitConfig
 }
@@ -28,8 +28,7 @@ type DockerRunner struct {
 type DockerRunnerConfig struct {
 	Image        string // container image (default: sheldon-coder-sandbox:latest)
 	ArtifactsDir string // local directory for artifacts
-	APIKey       string // NVIDIA NIM API key
-	FallbackKey  string // Kimi API key
+	Provider     string // LLM provider (kimi, claude, nvidia, ollama)
 	Model        string // model to use
 	Git          GitConfig
 }
@@ -53,7 +52,10 @@ func NewDockerRunner(cfg DockerRunnerConfig) *DockerRunner {
 		cfg.ArtifactsDir = "/tmp/sheldon-artifacts"
 	}
 	if cfg.Model == "" {
-		cfg.Model = "kimi-k2.5"
+		cfg.Model = "kimi-k2.5:cloud"
+	}
+	if cfg.Provider == "" {
+		cfg.Provider = "kimi"
 	}
 
 	// ensure artifacts directory exists
@@ -62,8 +64,7 @@ func NewDockerRunner(cfg DockerRunnerConfig) *DockerRunner {
 	return &DockerRunner{
 		image:        cfg.Image,
 		artifactsDir: cfg.ArtifactsDir,
-		apiKey:       cfg.APIKey,
-		fallbackKey:  cfg.FallbackKey,
+		provider:     cfg.Provider,
 		model:        cfg.Model,
 		git:          cfg.Git,
 	}
@@ -97,12 +98,13 @@ func (r *DockerRunner) RunJob(ctx context.Context, cfg JobConfig) (*Result, erro
 		"-e", "OLLAMA_HOST=http://ollama:11434", // point to ollama server
 	}
 
-	// pass API keys as environment variables
-	if r.apiKey != "" {
-		args = append(args, "-e", "NVIDIA_API_KEY="+r.apiKey)
-	}
-	if r.fallbackKey != "" {
-		args = append(args, "-e", "KIMI_API_KEY="+r.fallbackKey)
+	// pass API key for the configured provider
+	envKey := config.EnvKeyForProvider(r.provider)
+	if envKey != "" {
+		apiKey := os.Getenv(envKey)
+		if apiKey != "" {
+			args = append(args, "-e", envKey+"="+apiKey)
+		}
 	}
 	if r.model != "" {
 		args = append(args, "-e", "CODER_MODEL="+r.model)
@@ -230,11 +232,13 @@ func (r *DockerRunner) RunJobWithProgress(ctx context.Context, cfg JobConfig, on
 		"-e", "OLLAMA_HOST=http://ollama:11434", // point to ollama server
 	}
 
-	if r.apiKey != "" {
-		args = append(args, "-e", "NVIDIA_API_KEY="+r.apiKey)
-	}
-	if r.fallbackKey != "" {
-		args = append(args, "-e", "KIMI_API_KEY="+r.fallbackKey)
+	// pass API key for the configured provider
+	envKey := config.EnvKeyForProvider(r.provider)
+	if envKey != "" {
+		apiKey := os.Getenv(envKey)
+		if apiKey != "" {
+			args = append(args, "-e", envKey+"="+apiKey)
+		}
 	}
 	if r.model != "" {
 		args = append(args, "-e", "CODER_MODEL="+r.model)
