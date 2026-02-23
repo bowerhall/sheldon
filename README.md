@@ -112,10 +112,11 @@ HEADSCALE_URL=https://hs.yourdomain.com AUTHKEY=your-key \
 curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/agent.sh | sudo bash
 ```
 
-**Switch Ollama to your GPU server:**
+**Point Ollama to your GPU server:**
 
+Set `OLLAMA_HOST` in Doppler to your GPU server's Headscale IP:
 ```
-"Switch ollama to gpu-server"
+OLLAMA_HOST=http://100.64.0.5:11434
 ```
 
 **Manage containers remotely:**
