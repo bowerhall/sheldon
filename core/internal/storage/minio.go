@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -156,4 +157,36 @@ func (c *Client) AgentBucket() string {
 func (c *Client) Healthy(ctx context.Context) bool {
 	_, err := c.mc.BucketExists(ctx, c.userBucket)
 	return err == nil
+}
+
+// PresignedURL generates a presigned URL for downloading a file
+func (c *Client) PresignedURL(ctx context.Context, bucket, name string, expiry time.Duration) (string, error) {
+	url, err := c.mc.PresignedGetObject(ctx, bucket, name, expiry, nil)
+	if err != nil {
+		return "", fmt.Errorf("presign %s/%s: %w", bucket, name, err)
+	}
+	return url.String(), nil
+}
+
+// BackupBucket returns the backup bucket name
+func (c *Client) BackupBucket() string {
+	return "sheldon-backups"
+}
+
+// InitBackupBucket creates the backup bucket if needed
+func (c *Client) InitBackupBucket(ctx context.Context) error {
+	bucket := c.BackupBucket()
+	exists, err := c.mc.BucketExists(ctx, bucket)
+	if err != nil {
+		return fmt.Errorf("check bucket %s: %w", bucket, err)
+	}
+
+	if !exists {
+		if err := c.mc.MakeBucket(ctx, bucket, minio.MakeBucketOptions{}); err != nil {
+			return fmt.Errorf("create bucket %s: %w", bucket, err)
+		}
+		logger.Info("bucket created", "bucket", bucket)
+	}
+
+	return nil
 }

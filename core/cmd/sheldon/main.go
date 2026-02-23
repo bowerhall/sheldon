@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -215,6 +216,7 @@ func main() {
 				logger.Error("failed to init storage buckets", "error", err)
 			} else {
 				tools.RegisterStorageTools(agentLoop.Registry(), storageClient)
+				tools.RegisterBackupTool(agentLoop.Registry(), storageClient, cfg.MemoryPath)
 				logger.Info("storage enabled", "endpoint", cfg.Storage.Endpoint)
 			}
 			cancel()
@@ -229,6 +231,32 @@ func main() {
 		tools.RegisterConfigTools(agentLoop.Registry(), runtimeCfg)
 		logger.Info("runtime config enabled")
 	}
+
+	// model registry for model discovery and management
+	modelRegistry := config.NewModelRegistry(runtimeCfg)
+
+	// LLM factory for dynamic model switching
+	llmFactory := func() (llm.LLM, error) {
+		provider := runtimeCfg.Get("llm_provider")
+		if provider == "" {
+			provider = cfg.LLM.Provider
+		}
+		model := runtimeCfg.Get("llm_model")
+		if model == "" {
+			model = cfg.LLM.Model
+		}
+		apiKey := getAPIKeyForProvider(provider, cfg)
+		return llm.New(llm.Config{
+			Provider: provider,
+			APIKey:   apiKey,
+			Model:    model,
+		})
+	}
+
+	agentLoop.SetLLMFactory(llmFactory, runtimeCfg)
+	tools.RegisterModelTools(agentLoop.Registry(), runtimeCfg, modelRegistry)
+	tools.RegisterRemoteTools(agentLoop.Registry(), runtimeCfg)
+	logger.Info("model management enabled", "ollama", runtimeCfg.Get("ollama_host"))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -369,4 +397,24 @@ func main() {
 
 	logger.Info("shutting down")
 	cancel()
+}
+
+func getAPIKeyForProvider(provider string, cfg *config.Config) string {
+	switch provider {
+	case "claude":
+		return os.Getenv("ANTHROPIC_API_KEY")
+	case "openai":
+		return os.Getenv("OPENAI_API_KEY")
+	case "kimi":
+		return os.Getenv("KIMI_API_KEY")
+	case "ollama":
+		return "ollama"
+	default:
+		// convention: {PROVIDER}_API_KEY (e.g., MISTRAL_API_KEY, GROQ_API_KEY)
+		key := os.Getenv(strings.ToUpper(provider) + "_API_KEY")
+		if key != "" {
+			return key
+		}
+		return cfg.LLM.APIKey
+	}
 }

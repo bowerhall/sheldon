@@ -91,6 +91,29 @@ services:
     # Pull models on first start (embeddings + extraction)
     entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && ollama pull qwen2.5:3b && wait"]
 
+  # Headscale - self-hosted Tailscale coordination server
+  # Allows Sheldon to connect to homelabs and remote GPU machines
+  # Setup:
+  #   1. Generate config: docker compose run --rm headscale headscale generate config > ./headscale/config.yaml
+  #   2. Create user: docker compose exec headscale headscale users create sheldon
+  #   3. On remote machine: curl -fsSL https://your-domain/invite | bash
+  headscale:
+    image: headscale/headscale:latest
+    container_name: headscale
+    restart: unless-stopped
+    volumes:
+      - ./headscale:/etc/headscale
+      - headscale_data:/var/lib/headscale
+    command: serve
+    networks:
+      - sheldon-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.headscale.rule=Host(`hs.${DOMAIN}`)"
+      - "traefik.http.routers.headscale.entrypoints=websecure"
+      - "traefik.http.routers.headscale.tls=true"
+      - "traefik.http.services.headscale.loadbalancer.server.port=8080"
+
 networks:
   sheldon-net:
     name: sheldon-net
@@ -98,3 +121,4 @@ networks:
 
 volumes:
   ollama_data:
+  headscale_data:
