@@ -17,20 +17,22 @@ import (
 
 // DockerRunner runs code generation in ephemeral Docker containers
 type DockerRunner struct {
-	image        string
-	artifactsDir string
-	provider     string
-	model        string
-	git          GitConfig
+	image           string
+	artifactsDir    string
+	hostArtifactDir string // host path for volume mounts (when running in container)
+	provider        string
+	model           string
+	git             GitConfig
 }
 
 // DockerRunnerConfig holds configuration for DockerRunner
 type DockerRunnerConfig struct {
-	Image        string // container image (default: sheldon-coder-sandbox:latest)
-	ArtifactsDir string // local directory for artifacts
-	Provider     string // LLM provider (kimi, claude, nvidia, ollama)
-	Model        string // model to use
-	Git          GitConfig
+	Image           string // container image (default: sheldon-coder-sandbox:latest)
+	ArtifactsDir    string // local directory for artifacts (container path)
+	HostArtifactDir string // host path for Docker volume mounts (optional)
+	Provider        string // LLM provider (kimi, claude, nvidia, ollama)
+	Model           string // model to use
+	Git             GitConfig
 }
 
 // JobConfig holds configuration for a code generation job
@@ -57,16 +59,21 @@ func NewDockerRunner(cfg DockerRunnerConfig) *DockerRunner {
 	if cfg.Provider == "" {
 		cfg.Provider = "kimi"
 	}
+	// if no host path specified, assume same as artifacts dir (not in container)
+	if cfg.HostArtifactDir == "" {
+		cfg.HostArtifactDir = cfg.ArtifactsDir
+	}
 
 	// ensure artifacts directory exists
 	os.MkdirAll(cfg.ArtifactsDir, 0755)
 
 	return &DockerRunner{
-		image:        cfg.Image,
-		artifactsDir: cfg.ArtifactsDir,
-		provider:     cfg.Provider,
-		model:        cfg.Model,
-		git:          cfg.Git,
+		image:           cfg.Image,
+		artifactsDir:    cfg.ArtifactsDir,
+		hostArtifactDir: cfg.HostArtifactDir,
+		provider:        cfg.Provider,
+		model:           cfg.Model,
+		git:             cfg.Git,
 	}
 }
 
@@ -94,11 +101,15 @@ func (r *DockerRunner) RunJob(ctx context.Context, cfg JobConfig) (*Result, erro
 
 	logger.Debug("docker runner starting", "task", cfg.TaskID, "image", r.image)
 
+	// translate container path to host path for volume mount
+	// (when Sheldon runs in a container, Docker needs host paths for -v)
+	hostWorkDir := filepath.Join(r.hostArtifactDir, cfg.TaskID)
+
 	// build docker run command
 	args := []string{
 		"run", "--rm",
 		"--network", "sheldon-net", // connect to same network as ollama
-		"-v", fmt.Sprintf("%s:/workspace", workDir),
+		"-v", fmt.Sprintf("%s:/workspace", hostWorkDir),
 		"-w", "/workspace",
 		"-e", "OLLAMA_HOST=http://ollama:11434", // point to ollama server
 	}
@@ -233,11 +244,14 @@ func (r *DockerRunner) RunJobWithProgress(ctx context.Context, cfg JobConfig, on
 
 	logger.Debug("docker runner starting (progress)", "task", cfg.TaskID, "image", r.image)
 
+	// translate container path to host path for volume mount
+	hostWorkDir := filepath.Join(r.hostArtifactDir, cfg.TaskID)
+
 	// build docker run command with stream-json output
 	args := []string{
 		"run", "--rm",
 		"--network", "sheldon-net", // connect to same network as ollama
-		"-v", fmt.Sprintf("%s:/workspace", workDir),
+		"-v", fmt.Sprintf("%s:/workspace", hostWorkDir),
 		"-w", "/workspace",
 		"-e", "OLLAMA_HOST=http://ollama:11434", // point to ollama server
 	}

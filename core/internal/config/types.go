@@ -36,14 +36,15 @@ type StorageConfig struct {
 }
 
 type CoderConfig struct {
-	Enabled    bool
-	Provider   string // provider for coder LLM (kimi, claude, nvidia, ollama)
-	Model      string // model to use (default: kimi-k2.5:cloud)
-	SandboxDir string
-	SkillsDir  string // directory with skill patterns
-	Isolated   bool   // use ephemeral Docker containers for isolation
-	Image      string // coder container image (default: sheldon-coder-sandbox:latest)
-	Git        GitConfig
+	Enabled        bool
+	Provider       string // provider for coder LLM (kimi, claude, nvidia, ollama)
+	Model          string // model to use (default: kimi-k2.5:cloud)
+	SandboxDir     string // container path for sandbox
+	HostSandboxDir string // host path for Docker volume mounts (when running in container)
+	SkillsDir      string // directory with skill patterns
+	Isolated       bool   // use ephemeral Docker containers for isolation
+	Image          string // coder container image (default: sheldon-coder-sandbox:latest)
+	Git            GitConfig
 }
 
 type GitConfig struct {

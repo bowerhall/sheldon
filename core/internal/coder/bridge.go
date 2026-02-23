@@ -31,12 +31,13 @@ type Bridge struct {
 
 // BridgeConfig holds configuration for the Bridge
 type BridgeConfig struct {
-	SandboxDir string
-	Provider   string // provider for coder LLM (kimi, claude, nvidia, ollama)
-	Model      string // model to use (default: kimi-k2.5:cloud)
-	SkillsDir  string // directory with skill templates
-	Isolated   bool   // use ephemeral Docker containers
-	Image      string // coder container image
+	SandboxDir     string
+	HostSandboxDir string // host path for Docker volume mounts (when in container)
+	Provider       string // provider for coder LLM (kimi, claude, nvidia, ollama)
+	Model          string // model to use (default: kimi-k2.5:cloud)
+	SkillsDir      string // directory with skill templates
+	Isolated       bool   // use ephemeral Docker containers
+	Image          string // coder container image
 	// git integration
 	GitEnabled   bool
 	GitUserName  string
@@ -76,11 +77,12 @@ func NewBridgeWithConfig(cfg BridgeConfig) (*Bridge, error) {
 
 	if cfg.Isolated {
 		b.dockerRunner = NewDockerRunner(DockerRunnerConfig{
-			Image:        cfg.Image,
-			ArtifactsDir: cfg.SandboxDir,
-			Provider:     cfg.Provider,
-			Model:        cfg.Model,
-			Git:          gitCfg,
+			Image:           cfg.Image,
+			ArtifactsDir:    cfg.SandboxDir,
+			HostArtifactDir: cfg.HostSandboxDir,
+			Provider:        cfg.Provider,
+			Model:           cfg.Model,
+			Git:             gitCfg,
 		})
 		logger.Info("coder bridge using isolated containers", "image", cfg.Image)
 	} else {

@@ -113,17 +113,18 @@ func main() {
 
 	if cfg.Coder.Enabled {
 		bridgeCfg := coder.BridgeConfig{
-			SandboxDir:   cfg.Coder.SandboxDir,
-			Provider:     cfg.Coder.Provider,
-			Model:        cfg.Coder.Model,
-			SkillsDir:    cfg.Coder.SkillsDir,
-			Isolated:     cfg.Coder.Isolated,
-			Image:        cfg.Coder.Image,
-			GitEnabled:   cfg.Coder.Git.Enabled,
-			GitUserName:  cfg.Coder.Git.UserName,
-			GitUserEmail: cfg.Coder.Git.UserEmail,
-			GitOrgURL:    cfg.Coder.Git.OrgURL,
-			GitToken:     cfg.Coder.Git.Token,
+			SandboxDir:     cfg.Coder.SandboxDir,
+			HostSandboxDir: cfg.Coder.HostSandboxDir,
+			Provider:       cfg.Coder.Provider,
+			Model:          cfg.Coder.Model,
+			SkillsDir:      cfg.Coder.SkillsDir,
+			Isolated:       cfg.Coder.Isolated,
+			Image:          cfg.Coder.Image,
+			GitEnabled:     cfg.Coder.Git.Enabled,
+			GitUserName:    cfg.Coder.Git.UserName,
+			GitUserEmail:   cfg.Coder.Git.UserEmail,
+			GitOrgURL:      cfg.Coder.Git.OrgURL,
+			GitToken:       cfg.Coder.Git.Token,
 		}
 
 		bridge, err := coder.NewBridgeWithConfig(bridgeCfg)

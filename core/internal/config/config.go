@@ -121,6 +121,9 @@ func loadCoderConfig() CoderConfig {
 		sandboxDir = "/tmp/sheldon-sandbox"
 	}
 
+	// host path for Docker volume mounts (when Sheldon runs in a container)
+	hostSandboxDir := os.Getenv("CODER_HOST_SANDBOX")
+
 	// isolated mode uses ephemeral Docker containers (default: true for security)
 	isolated := os.Getenv("CODER_ISOLATED") != "false"
 
@@ -148,14 +151,15 @@ func loadCoderConfig() CoderConfig {
 	enabled := provider == "ollama" || os.Getenv(envKey) != ""
 
 	return CoderConfig{
-		Enabled:    enabled,
-		Provider:   provider,
-		Model:      model,
-		SandboxDir: sandboxDir,
-		SkillsDir:  skillsDir,
-		Isolated:   isolated,
-		Image:      image,
-		Git:        gitConfig,
+		Enabled:        enabled,
+		Provider:       provider,
+		Model:          model,
+		SandboxDir:     sandboxDir,
+		HostSandboxDir: hostSandboxDir,
+		SkillsDir:      skillsDir,
+		Isolated:       isolated,
+		Image:          image,
+		Git:            gitConfig,
 	}
 }
 
