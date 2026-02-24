@@ -13,7 +13,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-const maxImageSize = 20 * 1024 * 1024 // 20MB limit for images
+const maxMediaSize = 20 * 1024 * 1024 // 20MB limit for media
 
 func newTelegram(token string, agent *agent.Agent) (Bot, error) {
 	api, err := tgbotapi.NewBotAPI(token)
@@ -46,30 +46,59 @@ func (t *telegram) Start(ctx context.Context) error {
 func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 	sessionID := fmt.Sprintf("telegram:%d", msg.Chat.ID)
 
-	var images []llm.ImageContent
+	var media []llm.MediaContent
 	var text string
 
 	if msg.Photo != nil && len(msg.Photo) > 0 {
 		photo := msg.Photo[len(msg.Photo)-1]
 
-		imgData, mediaType, err := t.downloadFile(photo.FileID)
+		data, mimeType, err := t.downloadFile(photo.FileID)
 		if err != nil {
 			logger.Error("failed to download photo", "error", err)
 		} else {
-			images = append(images, llm.ImageContent{
-				Data:      imgData,
-				MediaType: mediaType,
+			media = append(media, llm.MediaContent{
+				Type:     llm.MediaTypeImage,
+				Data:     data,
+				MimeType: mimeType,
 			})
 		}
 
 		text = msg.Caption
 		logger.Info("photo received", "session", sessionID, "from", msg.From.UserName, "caption", truncate(text, 50))
+	} else if msg.Video != nil {
+		data, mimeType, err := t.downloadFile(msg.Video.FileID)
+		if err != nil {
+			logger.Error("failed to download video", "error", err)
+		} else {
+			media = append(media, llm.MediaContent{
+				Type:     llm.MediaTypeVideo,
+				Data:     data,
+				MimeType: mimeType,
+			})
+		}
+
+		text = msg.Caption
+		logger.Info("video received", "session", sessionID, "from", msg.From.UserName, "caption", truncate(text, 50))
+	} else if msg.VideoNote != nil {
+		data, mimeType, err := t.downloadFile(msg.VideoNote.FileID)
+		if err != nil {
+			logger.Error("failed to download video note", "error", err)
+		} else {
+			media = append(media, llm.MediaContent{
+				Type:     llm.MediaTypeVideo,
+				Data:     data,
+				MimeType: mimeType,
+			})
+		}
+
+		text = msg.Caption
+		logger.Info("video note received", "session", sessionID, "from", msg.From.UserName)
 	} else {
 		text = msg.Text
 		logger.Info("message received", "session", sessionID, "from", msg.From.UserName, "text", truncate(text, 50))
 	}
 
-	response, err := t.agent.ProcessWithImages(ctx, sessionID, text, images)
+	response, err := t.agent.ProcessWithMedia(ctx, sessionID, text, media)
 	if err != nil {
 		logger.Error("agent failed", "error", err)
 		response = "Something went wrong."
@@ -104,7 +133,7 @@ func (t *telegram) downloadFile(fileID string) ([]byte, string, error) {
 
 	url := file.Link(t.api.Token)
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, "", err
@@ -115,14 +144,14 @@ func (t *telegram) downloadFile(fileID string) ([]byte, string, error) {
 		return nil, "", fmt.Errorf("download failed: HTTP %d", resp.StatusCode)
 	}
 
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxImageSize))
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxMediaSize))
 	if err != nil {
 		return nil, "", err
 	}
 
-	mediaType := http.DetectContentType(data)
+	mimeType := http.DetectContentType(data)
 
-	return data, mediaType, nil
+	return data, mimeType, nil
 }
 
 func (t *telegram) SendPhoto(chatID int64, data []byte, caption string) error {
@@ -134,6 +163,19 @@ func (t *telegram) SendPhoto(chatID int64, data []byte, caption string) error {
 		logger.Error("send photo failed", "error", err, "chatID", chatID)
 	} else {
 		logger.Info("photo sent", "chatID", chatID, "caption", truncate(caption, 50))
+	}
+	return err
+}
+
+func (t *telegram) SendVideo(chatID int64, data []byte, caption string) error {
+	videoBytes := tgbotapi.FileBytes{Name: "video.mp4", Bytes: data}
+	msg := tgbotapi.NewVideo(chatID, videoBytes)
+	msg.Caption = caption
+	_, err := t.api.Send(msg)
+	if err != nil {
+		logger.Error("send video failed", "error", err, "chatID", chatID)
+	} else {
+		logger.Info("video sent", "chatID", chatID, "caption", truncate(caption, 50))
 	}
 	return err
 }

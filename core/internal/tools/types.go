@@ -19,7 +19,7 @@ type Registry struct {
 type ctxKey string
 
 const ChatIDKey ctxKey = "chatID"
-const ImagesKey ctxKey = "images"
+const MediaKey ctxKey = "media"
 
 func ChatIDFromContext(ctx context.Context) int64 {
 	if id, ok := ctx.Value(ChatIDKey).(int64); ok {
@@ -28,9 +28,9 @@ func ChatIDFromContext(ctx context.Context) int64 {
 	return 0
 }
 
-func ImagesFromContext(ctx context.Context) []llm.ImageContent {
-	if images, ok := ctx.Value(ImagesKey).([]llm.ImageContent); ok {
-		return images
+func MediaFromContext(ctx context.Context) []llm.MediaContent {
+	if media, ok := ctx.Value(MediaKey).([]llm.MediaContent); ok {
+		return media
 	}
 	return nil
 }

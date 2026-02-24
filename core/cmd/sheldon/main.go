@@ -316,8 +316,8 @@ func main() {
 
 	// image tools for sending images to users
 	if storageClient != nil {
-		tools.RegisterImageTools(sheldon.Registry(), notifyBot, storageClient)
-		logger.Info("image tools enabled")
+		tools.RegisterMediaTools(sheldon.Registry(), notifyBot, storageClient)
+		logger.Info("media tools enabled")
 	}
 
 	if cfg.Budget.Enabled {

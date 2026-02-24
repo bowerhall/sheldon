@@ -74,6 +74,26 @@ func (d *discord) SendPhoto(chatID int64, data []byte, caption string) error {
 	return err
 }
 
+func (d *discord) SendVideo(chatID int64, data []byte, caption string) error {
+	channelID := fmt.Sprintf("%d", chatID)
+	reader := bytes.NewReader(data)
+	_, err := d.session.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
+		Content: caption,
+		Files: []*discordgo.File{
+			{
+				Name:   "video.mp4",
+				Reader: reader,
+			},
+		},
+	})
+	if err != nil {
+		logger.Error("discord send video failed", "error", err, "channelID", channelID)
+	} else {
+		logger.Info("discord video sent", "channelID", channelID)
+	}
+	return err
+}
+
 func (d *discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return

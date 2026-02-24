@@ -11,6 +11,7 @@ type Bot interface {
 	Start(ctx context.Context) error
 	Send(chatID int64, message string) error
 	SendPhoto(chatID int64, data []byte, caption string) error
+	SendVideo(chatID int64, data []byte, caption string) error
 }
 
 type Config struct {

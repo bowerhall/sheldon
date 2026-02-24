@@ -15,8 +15,8 @@ import (
 
 func RegisterCoderStorageTools(registry *Registry, bridge *coder.Bridge, client *storage.Client) {
 	listTool := llm.Tool{
-		Name:        "list_storage_images",
-		Description: "List images available in storage that can be used in code projects. Returns paths that can be used with fetch_to_workspace.",
+		Name:        "list_storage_media",
+		Description: "List images and videos available in storage that can be used in code projects. Returns paths that can be used with fetch_to_workspace.",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -53,20 +53,20 @@ func RegisterCoderStorageTools(registry *Registry, bridge *coder.Bridge, client 
 			return "", err
 		}
 
-		var images []storage.FileInfo
+		var media []storage.FileInfo
 		for _, f := range files {
-			if isImageFile(f.Name) {
-				images = append(images, f)
+			if isMediaFile(f.Name) {
+				media = append(media, f)
 			}
 		}
 
-		if len(images) == 0 {
-			return fmt.Sprintf("no images found in %s/%s", params.Space, params.Prefix), nil
+		if len(media) == 0 {
+			return fmt.Sprintf("no media found in %s/%s", params.Space, params.Prefix), nil
 		}
 
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("Images in %s/%s:\n", params.Space, params.Prefix))
-		for _, f := range images {
+		sb.WriteString(fmt.Sprintf("Media in %s/%s:\n", params.Space, params.Prefix))
+		for _, f := range media {
 			sb.WriteString(fmt.Sprintf("  - %s (%d bytes)\n", f.Name, f.Size))
 		}
 		sb.WriteString("\nUse fetch_to_workspace to download these to a coder workspace.")
@@ -143,10 +143,11 @@ func RegisterCoderStorageTools(registry *Registry, bridge *coder.Bridge, client 
 	})
 }
 
-func isImageFile(name string) bool {
+func isMediaFile(name string) bool {
 	ext := strings.ToLower(filepath.Ext(name))
 	switch ext {
-	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".bmp":
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".bmp",
+		".mp4", ".webm", ".mov", ".avi", ".mkv":
 		return true
 	default:
 		return false

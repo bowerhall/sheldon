@@ -23,12 +23,13 @@ type openaiRequest struct {
 }
 
 type openaiContentPart struct {
-	Type     string          `json:"type"`
-	Text     string          `json:"text,omitempty"`
-	ImageURL *openaiImageURL `json:"image_url,omitempty"`
+	Type     string         `json:"type"`
+	Text     string         `json:"text,omitempty"`
+	ImageURL *openaiMediaURL `json:"image_url,omitempty"`
+	VideoURL *openaiMediaURL `json:"video_url,omitempty"`
 }
 
-type openaiImageURL struct {
+type openaiMediaURL struct {
 	URL string `json:"url"`
 }
 
@@ -106,11 +107,16 @@ func (o *openaiCompatible) ChatWithTools(ctx context.Context, systemPrompt strin
 			ToolCallID: msg.ToolCallID,
 		}
 
-		if len(msg.Images) > 0 {
+		if len(msg.Media) > 0 {
 			var parts []openaiContentPart
-			for _, img := range msg.Images {
-				dataURL := fmt.Sprintf("data:%s;base64,%s", img.MediaType, base64.StdEncoding.EncodeToString(img.Data))
-				parts = append(parts, openaiContentPart{Type: "image_url", ImageURL: &openaiImageURL{URL: dataURL}})
+			for _, media := range msg.Media {
+				dataURL := fmt.Sprintf("data:%s;base64,%s", media.MimeType, base64.StdEncoding.EncodeToString(media.Data))
+				switch media.Type {
+				case MediaTypeImage:
+					parts = append(parts, openaiContentPart{Type: "image_url", ImageURL: &openaiMediaURL{URL: dataURL}})
+				case MediaTypeVideo:
+					parts = append(parts, openaiContentPart{Type: "video_url", VideoURL: &openaiMediaURL{URL: dataURL}})
+				}
 			}
 			if msg.Content != "" {
 				parts = append(parts, openaiContentPart{Type: "text", Text: msg.Content})

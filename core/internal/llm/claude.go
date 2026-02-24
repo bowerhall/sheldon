@@ -92,11 +92,18 @@ func (c *claude) convertMessages(messages []Message) []anthropic.MessageParam {
 		default:
 			var blocks []anthropic.ContentBlockParamUnion
 
-			for _, img := range msg.Images {
-				blocks = append(blocks, anthropic.NewImageBlockBase64(
-					img.MediaType,
-					base64.StdEncoding.EncodeToString(img.Data),
-				))
+			for _, media := range msg.Media {
+				switch media.Type {
+				case MediaTypeImage:
+					blocks = append(blocks, anthropic.NewImageBlockBase64(
+						media.MimeType,
+						base64.StdEncoding.EncodeToString(media.Data),
+					))
+				case MediaTypeVideo:
+					// Claude SDK doesn't support inline video yet
+					// Add a note so the model knows a video was sent
+					blocks = append(blocks, anthropic.NewTextBlock("[Video attached - video analysis not yet supported]"))
+				}
 			}
 
 			if msg.Content != "" {

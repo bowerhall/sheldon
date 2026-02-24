@@ -9,15 +9,23 @@ type Config struct {
 	BaseURL  string
 }
 
-type ImageContent struct {
+type MediaType string
+
+const (
+	MediaTypeImage MediaType = "image"
+	MediaTypeVideo MediaType = "video"
+)
+
+type MediaContent struct {
+	Type      MediaType
 	Data      []byte
-	MediaType string
+	MimeType  string
 }
 
 type Message struct {
 	Role       string
 	Content    string
-	Images     []ImageContent
+	Media      []MediaContent
 	ToolCalls  []ToolCall
 	ToolCallID string
 }

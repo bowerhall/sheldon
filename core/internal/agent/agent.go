@@ -116,11 +116,11 @@ func loadSystemPrompt(essencePath string) string {
 }
 
 func (a *Agent) Process(ctx context.Context, sessionID string, userMessage string) (string, error) {
-	return a.ProcessWithImages(ctx, sessionID, userMessage, nil)
+	return a.ProcessWithMedia(ctx, sessionID, userMessage, nil)
 }
 
-func (a *Agent) ProcessWithImages(ctx context.Context, sessionID string, userMessage string, images []llm.ImageContent) (string, error) {
-	logger.Debug("message received", "session", sessionID, "images", len(images))
+func (a *Agent) ProcessWithMedia(ctx context.Context, sessionID string, userMessage string, media []llm.MediaContent) (string, error) {
+	logger.Debug("message received", "session", sessionID, "media", len(media))
 
 	if err := a.refreshLLMIfNeeded(); err != nil {
 		logger.Warn("failed to refresh LLM, using existing instance", "error", err)
@@ -166,7 +166,7 @@ func (a *Agent) ProcessWithImages(ctx context.Context, sessionID string, userMes
 		sess.AddMessage("system", "[This is a new user with no stored memory. Start with a warm welcome and begin the setup interview to get to know them. Follow the interview guide in your instructions.]", nil, "")
 	}
 
-	sess.AddMessageWithImages("user", userMessage, images, nil, "")
+	sess.AddMessageWithMedia("user", userMessage, media, nil, "")
 
 	// check for skill command (e.g., /apartment-hunter)
 	if skill := a.detectSkillCommand(userMessage); skill != "" {
@@ -177,10 +177,10 @@ func (a *Agent) ProcessWithImages(ctx context.Context, sessionID string, userMes
 		}
 	}
 
-	// add chatID and images to context for tools
+	// add chatID and media to context for tools
 	ctx = context.WithValue(ctx, tools.ChatIDKey, chatID)
-	if len(images) > 0 {
-		ctx = context.WithValue(ctx, tools.ImagesKey, images)
+	if len(media) > 0 {
+		ctx = context.WithValue(ctx, tools.MediaKey, media)
 	}
 
 	response, err := a.runAgentLoop(ctx, sess)
