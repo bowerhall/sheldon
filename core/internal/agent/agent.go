@@ -350,9 +350,12 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 		}
 
 		if resp.Usage != nil && a.budget != nil {
+			logger.Debug("recording usage", "provider", a.llm.Provider(), "model", a.llm.Model(), "input", resp.Usage.PromptTokens, "output", resp.Usage.CompletionTokens)
 			if !a.budget.Record(a.llm.Provider(), a.llm.Model(), resp.Usage.PromptTokens, resp.Usage.CompletionTokens) {
 				return "I've reached my daily API limit. Please try again tomorrow!", nil
 			}
+		} else {
+			logger.Debug("skipping usage recording", "hasUsage", resp.Usage != nil, "hasBudget", a.budget != nil)
 		}
 
 		if len(resp.ToolCalls) == 0 {

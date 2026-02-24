@@ -92,7 +92,10 @@ func (t *Tracker) Record(provider, model string, inputTokens, outputTokens int) 
 	totalTokens := inputTokens + outputTokens
 
 	if t.store != nil {
-		t.store.Record(provider, model, inputTokens, outputTokens)
+		if err := t.store.Record(provider, model, inputTokens, outputTokens); err != nil {
+			// log but don't fail - usage tracking shouldn't block responses
+			println("budget: failed to record usage:", err.Error())
+		}
 	}
 
 	return t.Add(totalTokens)
