@@ -6,6 +6,9 @@
 #
 # Generate auth key for invite script:
 #   docker compose exec headscale headscale preauthkeys create --user sheldon --reusable --expiration 24h
+#
+# Tag the Sheldon VPS for ACL (restricts who can call homelab-agent):
+#   docker compose exec headscale headscale nodes tag -i 1 -t tag:sheldon
 
 server_url: https://hs.example.com
 listen_addr: 0.0.0.0:8080
@@ -52,4 +55,4 @@ dns:
 
 policy:
   mode: file
-  path: ""
+  path: /etc/headscale/acl.json

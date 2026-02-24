@@ -1,0 +1,17 @@
+{
+  "acls": [
+    {
+      "action": "accept",
+      "src": ["tag:sheldon"],
+      "dst": ["*:8080"]
+    },
+    {
+      "action": "accept",
+      "src": ["*"],
+      "dst": ["*:*"]
+    }
+  ],
+  "tagOwners": {
+    "tag:sheldon": ["autogroup:admin"]
+  }
+}
