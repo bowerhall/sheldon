@@ -12,11 +12,37 @@ import (
 )
 
 func RegisterModelTools(registry *Registry, rc *config.RuntimeConfig, mr *config.ModelRegistry) {
+	registerCurrentModel(registry, rc)
 	registerListProviders(registry, mr)
 	registerListModels(registry, mr)
 	registerSwitchModel(registry, rc, mr)
 	registerPullModel(registry, mr)
 	registerRemoveModel(registry, mr)
+}
+
+func registerCurrentModel(registry *Registry, rc *config.RuntimeConfig) {
+	tool := llm.Tool{
+		Name:        "current_model",
+		Description: "Check which LLM model is currently active for chat and coding.",
+		Parameters: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+	}
+
+	registry.Register(tool, func(ctx context.Context, args string) (string, error) {
+		llmProvider := rc.Get("llm_provider")
+		llmModel := rc.Get("llm_model")
+		coderProvider := rc.Get("coder_provider")
+		coderModel := rc.Get("coder_model")
+
+		var sb strings.Builder
+		sb.WriteString("current models:\n\n")
+		sb.WriteString(fmt.Sprintf("  chat (llm): %s/%s\n", llmProvider, llmModel))
+		sb.WriteString(fmt.Sprintf("  coder: %s/%s\n", coderProvider, coderModel))
+
+		return sb.String(), nil
+	})
 }
 
 func registerListProviders(registry *Registry, mr *config.ModelRegistry) {

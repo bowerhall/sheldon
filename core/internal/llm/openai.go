@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 type openaiCompatible struct {
@@ -243,9 +244,19 @@ func (o *openaiCompatible) convertTools(tools []Tool) []openaiTool {
 }
 
 func (o *openaiCompatible) Capabilities() Capabilities {
+	// Check if model supports vision based on known model patterns
+	vision := false
+	switch {
+	case strings.HasPrefix(o.model, "gpt-4o"),
+		strings.HasPrefix(o.model, "gpt-4-vision"),
+		strings.HasPrefix(o.model, "gpt-4-turbo"),
+		strings.Contains(o.model, "vision"):
+		vision = true
+	}
+
 	return Capabilities{
-		Vision:     true,
-		VideoInput: false, // OpenAI API doesn't support inline video
+		Vision:     vision,
+		VideoInput: false,
 		ToolUse:    true,
 	}
 }

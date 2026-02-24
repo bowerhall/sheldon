@@ -126,28 +126,46 @@ func (a *Agent) ProcessWithMedia(ctx context.Context, sessionID string, userMess
 		logger.Warn("failed to refresh LLM, using existing instance", "error", err)
 	}
 
-	// Check if model supports video when video is sent
+	// Check model capabilities for media
+	caps := a.llm.Capabilities()
+	hasImage := false
 	hasVideo := false
 	for _, m := range media {
+		if m.Type == llm.MediaTypeImage {
+			hasImage = true
+		}
 		if m.Type == llm.MediaTypeVideo {
 			hasVideo = true
-			break
 		}
 	}
 
-	// Keep original media for tools, but filter for LLM if video not supported
+	// Keep original media for tools, but filter for LLM based on capabilities
 	mediaForLLM := media
-	if hasVideo && !a.llm.Capabilities().VideoInput {
-		// Add note about video limitation
+	var limitations []string
+
+	if hasImage && !caps.Vision {
+		limitations = append(limitations, "image")
+	}
+	if hasVideo && !caps.VideoInput {
+		limitations = append(limitations, "video")
+	}
+
+	if len(limitations) > 0 {
+		note := fmt.Sprintf("[%s received but current model doesn't support %s analysis. I can still save it for you.]",
+			strings.Join(limitations, " and "), strings.Join(limitations, "/"))
 		if userMessage == "" {
-			userMessage = "[Video received but current model doesn't support video analysis. I can still save the video for you if you'd like.]"
+			userMessage = note
 		} else {
-			userMessage = "[Note: Video received but current model doesn't support video analysis] " + userMessage
+			userMessage = note + " " + userMessage
 		}
-		// Filter out video from LLM media to avoid API errors
+
+		// Filter unsupported media types
 		mediaForLLM = nil
 		for _, m := range media {
-			if m.Type != llm.MediaTypeVideo {
+			if m.Type == llm.MediaTypeImage && caps.Vision {
+				mediaForLLM = append(mediaForLLM, m)
+			}
+			if m.Type == llm.MediaTypeVideo && caps.VideoInput {
 				mediaForLLM = append(mediaForLLM, m)
 			}
 		}
