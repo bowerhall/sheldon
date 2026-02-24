@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -49,6 +50,26 @@ func (d *discord) Send(chatID int64, message string) error {
 		logger.Error("discord send failed", "error", err, "channelID", channelID)
 	} else {
 		logger.Info("discord message sent", "channelID", channelID, "chars", len(message))
+	}
+	return err
+}
+
+func (d *discord) SendPhoto(chatID int64, data []byte, caption string) error {
+	channelID := fmt.Sprintf("%d", chatID)
+	reader := bytes.NewReader(data)
+	_, err := d.session.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
+		Content: caption,
+		Files: []*discordgo.File{
+			{
+				Name:   "image.png",
+				Reader: reader,
+			},
+		},
+	})
+	if err != nil {
+		logger.Error("discord send photo failed", "error", err, "channelID", channelID)
+	} else {
+		logger.Info("discord photo sent", "channelID", channelID)
 	}
 	return err
 }

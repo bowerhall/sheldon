@@ -5,11 +5,11 @@ import "fmt"
 // OpenAI-compatible providers and their base URLs
 // To add a new provider: add entry here + add {PROVIDER}_API_KEY to Doppler
 var openAICompatibleProviders = map[string]string{
-	"mistral":  "https://api.mistral.ai/v1",
-	"groq":     "https://api.groq.com/openai/v1",
-	"together": "https://api.together.xyz/v1",
-	"deepseek": "https://api.deepseek.com/v1",
-	"fireworks": "https://api.fireworks.ai/inference/v1",
+	"mistral":    "https://api.mistral.ai/v1",
+	"groq":       "https://api.groq.com/openai/v1",
+	"together":   "https://api.together.xyz/v1",
+	"deepseek":   "https://api.deepseek.com/v1",
+	"fireworks":  "https://api.fireworks.ai/inference/v1",
 	"perplexity": "https://api.perplexity.ai",
 }
 

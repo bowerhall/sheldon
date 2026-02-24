@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"regexp"
 
@@ -89,7 +90,22 @@ func (c *claude) convertMessages(messages []Message) []anthropic.MessageParam {
 				anthropic.NewToolResultBlock(toolID, msg.Content, false),
 			))
 		default:
-			result = append(result, anthropic.NewUserMessage(anthropic.NewTextBlock(msg.Content)))
+			var blocks []anthropic.ContentBlockParamUnion
+
+			for _, img := range msg.Images {
+				blocks = append(blocks, anthropic.NewImageBlockBase64(
+					img.MediaType,
+					base64.StdEncoding.EncodeToString(img.Data),
+				))
+			}
+
+			if msg.Content != "" {
+				blocks = append(blocks, anthropic.NewTextBlock(msg.Content))
+			}
+
+			if len(blocks) > 0 {
+				result = append(result, anthropic.NewUserMessage(blocks...))
+			}
 		}
 	}
 

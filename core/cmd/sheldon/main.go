@@ -109,7 +109,7 @@ func main() {
 		logger.Fatal("health check failed", "error", err)
 	}
 
-	agentLoop := agent.New(model, extractor, memory, cfg.EssencePath, cfg.Timezone)
+	sheldon := agent.New(model, extractor, memory, cfg.EssencePath, cfg.Timezone)
 
 	if cfg.Coder.Enabled {
 		bridgeCfg := coder.BridgeConfig{
@@ -132,7 +132,7 @@ func main() {
 			logger.Fatal("failed to create coder bridge", "error", err)
 		}
 
-		tools.RegisterCoderTool(agentLoop.Registry(), bridge, memory)
+		tools.RegisterCoderTool(sheldon.Registry(), bridge, memory)
 
 		builder, err := deployer.NewBuilder(cfg.Coder.SandboxDir + "/builds")
 		if err != nil {
@@ -151,7 +151,7 @@ func main() {
 		if domain == "" {
 			domain = "localhost"
 		}
-		tools.RegisterComposeDeployerTools(agentLoop.Registry(), builder, composeDeploy, domain)
+		tools.RegisterComposeDeployerTools(sheldon.Registry(), builder, composeDeploy, domain)
 		logger.Info("deployer enabled", "apps_file", cfg.Deployer.AppsFile)
 
 		mode := "subprocess"
@@ -168,8 +168,8 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to create skills manager", "error", err)
 	}
-	tools.RegisterSkillsTools(agentLoop.Registry(), skillsManager)
-	agentLoop.SetSkillsDir(skillsDir)
+	tools.RegisterSkillsTools(sheldon.Registry(), skillsManager)
+	sheldon.SetSkillsDir(skillsDir)
 	logger.Info("skills enabled", "dir", skillsDir)
 
 	// browser tools - prefer sandbox with JS rendering, fallback to HTTP
@@ -180,12 +180,12 @@ func main() {
 		})
 		logger.Info("browser sandbox enabled", "image", cfg.Browser.Image)
 	}
-	tools.RegisterUnifiedBrowserTools(agentLoop.Registry(), browserRunner, tools.DefaultBrowserConfig())
+	tools.RegisterUnifiedBrowserTools(sheldon.Registry(), browserRunner, tools.DefaultBrowserConfig())
 	logger.Info("browser tools enabled", "sandbox", cfg.Browser.SandboxEnabled)
 
 	// github tools for PR management (if git token configured)
 	if cfg.Coder.Git.Token != "" {
-		tools.RegisterGitHubTools(agentLoop.Registry(), &cfg.Coder.Git)
+		tools.RegisterGitHubTools(sheldon.Registry(), &cfg.Coder.Git)
 		logger.Info("github tools enabled", "org", cfg.Coder.Git.OrgURL)
 	}
 
@@ -195,7 +195,7 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to create cron store", "error", err)
 	}
-	tools.RegisterCronTools(agentLoop.Registry(), cronStore, cronTz)
+	tools.RegisterCronTools(sheldon.Registry(), cronStore, cronTz)
 	logger.Info("cron tools enabled", "timezone", cfg.Timezone)
 
 	// conversation buffer for recent message continuity
@@ -203,12 +203,14 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to create conversation store", "error", err)
 	}
-	agentLoop.SetConversationStore(convoStore)
+	sheldon.SetConversationStore(convoStore)
 	logger.Info("conversation buffer enabled", "max_messages", 12)
 
 	// minio storage (optional)
+	var storageClient *storage.Client
 	if cfg.Storage.Enabled {
-		storageClient, err := storage.NewClient(storage.Config{
+		var err error
+		storageClient, err = storage.NewClient(storage.Config{
 			Endpoint:  cfg.Storage.Endpoint,
 			AccessKey: cfg.Storage.AccessKey,
 			SecretKey: cfg.Storage.SecretKey,
@@ -220,9 +222,10 @@ func main() {
 			initCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			if err := storageClient.Init(initCtx); err != nil {
 				logger.Error("failed to init storage buckets", "error", err)
+				storageClient = nil
 			} else {
-				tools.RegisterStorageTools(agentLoop.Registry(), storageClient)
-				tools.RegisterBackupTool(agentLoop.Registry(), storageClient, cfg.MemoryPath)
+				tools.RegisterStorageTools(sheldon.Registry(), storageClient)
+				tools.RegisterBackupTool(sheldon.Registry(), storageClient, cfg.MemoryPath)
 				logger.Info("storage enabled", "endpoint", cfg.Storage.Endpoint)
 			}
 			cancel()
@@ -234,7 +237,7 @@ func main() {
 	if err != nil {
 		logger.Error("failed to create runtime config", "error", err)
 	} else {
-		tools.RegisterConfigTools(agentLoop.Registry(), runtimeCfg)
+		tools.RegisterConfigTools(sheldon.Registry(), runtimeCfg)
 		logger.Info("runtime config enabled")
 	}
 
@@ -259,9 +262,9 @@ func main() {
 		})
 	}
 
-	agentLoop.SetLLMFactory(llmFactory, runtimeCfg)
-	tools.RegisterModelTools(agentLoop.Registry(), runtimeCfg, modelRegistry)
-	tools.RegisterRemoteTools(agentLoop.Registry(), runtimeCfg)
+	sheldon.SetLLMFactory(llmFactory, runtimeCfg)
+	tools.RegisterModelTools(sheldon.Registry(), runtimeCfg, modelRegistry)
+	tools.RegisterRemoteTools(sheldon.Registry(), runtimeCfg)
 	logger.Info("model management enabled", "ollama", runtimeCfg.Get("ollama_host"))
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -271,7 +274,7 @@ func main() {
 	var enabledProviders []string
 
 	if cfg.Bots.Telegram.Enabled {
-		b, err := bot.NewTelegram(cfg.Bots.Telegram.Token, agentLoop)
+		b, err := bot.NewTelegram(cfg.Bots.Telegram.Token, sheldon)
 		if err != nil {
 			logger.Fatal("failed to create telegram bot", "error", err)
 		}
@@ -283,7 +286,7 @@ func main() {
 	}
 
 	if cfg.Bots.Discord.Enabled {
-		b, err := bot.NewDiscord(cfg.Bots.Discord.Token, agentLoop)
+		b, err := bot.NewDiscord(cfg.Bots.Discord.Token, sheldon)
 		if err != nil {
 			logger.Fatal("failed to create discord bot", "error", err)
 		}
@@ -299,11 +302,17 @@ func main() {
 	}
 
 	notifyBot := bots[0]
-	agentLoop.SetNotifyFunc(func(chatID int64, message string) {
+	sheldon.SetNotifyFunc(func(chatID int64, message string) {
 		if err := notifyBot.Send(chatID, message); err != nil {
 			logger.Error("notification failed", "error", err, "chatID", chatID)
 		}
 	})
+
+	// image tools for sending images to users
+	if storageClient != nil {
+		tools.RegisterImageTools(sheldon.Registry(), notifyBot, storageClient)
+		logger.Info("image tools enabled")
+	}
 
 	if cfg.Budget.Enabled {
 		tz, _ := time.LoadLocation(cfg.Timezone)
@@ -336,7 +345,7 @@ func main() {
 			},
 		)
 
-		agentLoop.SetBudget(tracker)
+		sheldon.SetBudget(tracker)
 		logger.Info("budget tracking enabled", "limit", cfg.Budget.DailyLimit, "warnAt", cfg.Budget.WarnAt)
 	}
 
@@ -347,7 +356,7 @@ func main() {
 			},
 			time.Hour,
 		)
-		agentLoop.SetAlerter(alerter)
+		sheldon.SetAlerter(alerter)
 		logger.Info("error alerting enabled", "chatID", cfg.Heartbeat.ChatID)
 	}
 
@@ -372,7 +381,7 @@ func main() {
 			memory,
 			// TriggerFunc: injects into agent loop
 			func(chatID int64, sessionID string, prompt string) (string, error) {
-				return agentLoop.ProcessSystemTrigger(ctx, sessionID, prompt)
+				return sheldon.ProcessSystemTrigger(ctx, sessionID, prompt)
 			},
 			// NotifyFunc: sends response to chat
 			func(chatID int64, msg string) {

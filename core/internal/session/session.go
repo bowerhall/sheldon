@@ -3,11 +3,16 @@ package session
 import "github.com/bowerhall/sheldon/internal/llm"
 
 func (s *Session) AddMessage(role, content string, toolCalls []llm.ToolCall, toolCallID string) {
+	s.AddMessageWithImages(role, content, nil, toolCalls, toolCallID)
+}
+
+func (s *Session) AddMessageWithImages(role, content string, images []llm.ImageContent, toolCalls []llm.ToolCall, toolCallID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.messages = append(s.messages, llm.Message{
 		Role:       role,
 		Content:    content,
+		Images:     images,
 		ToolCalls:  toolCalls,
 		ToolCallID: toolCallID,
 	})

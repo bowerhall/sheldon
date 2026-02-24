@@ -116,7 +116,11 @@ func loadSystemPrompt(essencePath string) string {
 }
 
 func (a *Agent) Process(ctx context.Context, sessionID string, userMessage string) (string, error) {
-	logger.Debug("message received", "session", sessionID)
+	return a.ProcessWithImages(ctx, sessionID, userMessage, nil)
+}
+
+func (a *Agent) ProcessWithImages(ctx context.Context, sessionID string, userMessage string, images []llm.ImageContent) (string, error) {
+	logger.Debug("message received", "session", sessionID, "images", len(images))
 
 	if err := a.refreshLLMIfNeeded(); err != nil {
 		logger.Warn("failed to refresh LLM, using existing instance", "error", err)
@@ -162,7 +166,7 @@ func (a *Agent) Process(ctx context.Context, sessionID string, userMessage strin
 		sess.AddMessage("system", "[This is a new user with no stored memory. Start with a warm welcome and begin the setup interview to get to know them. Follow the interview guide in your instructions.]", nil, "")
 	}
 
-	sess.AddMessage("user", userMessage, nil, "")
+	sess.AddMessageWithImages("user", userMessage, images, nil, "")
 
 	// check for skill command (e.g., /apartment-hunter)
 	if skill := a.detectSkillCommand(userMessage); skill != "" {

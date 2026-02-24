@@ -3,6 +3,7 @@ package llm
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,9 +22,19 @@ type openaiRequest struct {
 	Tools    []openaiTool    `json:"tools,omitempty"`
 }
 
+type openaiContentPart struct {
+	Type     string          `json:"type"`
+	Text     string          `json:"text,omitempty"`
+	ImageURL *openaiImageURL `json:"image_url,omitempty"`
+}
+
+type openaiImageURL struct {
+	URL string `json:"url"`
+}
+
 type openaiMessage struct {
 	Role       string           `json:"role"`
-	Content    string           `json:"content,omitempty"`
+	Content    any              `json:"content,omitempty"`
 	ToolCalls  []openaiToolCall `json:"tool_calls,omitempty"`
 	ToolCallID string           `json:"tool_call_id,omitempty"`
 }
@@ -92,8 +103,21 @@ func (o *openaiCompatible) ChatWithTools(ctx context.Context, systemPrompt strin
 	for _, msg := range messages {
 		oaiMsg := openaiMessage{
 			Role:       msg.Role,
-			Content:    msg.Content,
 			ToolCallID: msg.ToolCallID,
+		}
+
+		if len(msg.Images) > 0 {
+			var parts []openaiContentPart
+			for _, img := range msg.Images {
+				dataURL := fmt.Sprintf("data:%s;base64,%s", img.MediaType, base64.StdEncoding.EncodeToString(img.Data))
+				parts = append(parts, openaiContentPart{Type: "image_url", ImageURL: &openaiImageURL{URL: dataURL}})
+			}
+			if msg.Content != "" {
+				parts = append(parts, openaiContentPart{Type: "text", Text: msg.Content})
+			}
+			oaiMsg.Content = parts
+		} else {
+			oaiMsg.Content = msg.Content
 		}
 
 		for _, tc := range msg.ToolCalls {

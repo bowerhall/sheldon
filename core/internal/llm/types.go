@@ -9,9 +9,15 @@ type Config struct {
 	BaseURL  string
 }
 
+type ImageContent struct {
+	Data      []byte
+	MediaType string
+}
+
 type Message struct {
 	Role       string
 	Content    string
+	Images     []ImageContent
 	ToolCalls  []ToolCall
 	ToolCallID string
 }

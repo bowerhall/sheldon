@@ -79,12 +79,12 @@ func (rc *RuntimeConfig) validateAndFix() {
 func modelHasCapability(modelID, capability string) bool {
 	// known models and their capabilities
 	models := map[string][]string{
-		"kimi-k2-0711-preview":      {"chat", "tools"},
-		"kimi-k2.5:cloud":           {"code"}, // coder only, no chat
-		"claude-sonnet-4-20250514":  {"chat", "tools", "code"},
-		"claude-opus-4-5-20251101":  {"chat", "tools", "code"},
-		"gpt-4o":                    {"chat", "tools"},
-		"gpt-4o-mini":               {"chat", "tools"},
+		"kimi-k2-0711-preview":     {"chat", "tools"},
+		"kimi-k2.5:cloud":          {"code"}, // coder only, no chat
+		"claude-sonnet-4-20250514": {"chat", "tools", "code"},
+		"claude-opus-4-5-20251101": {"chat", "tools", "code"},
+		"gpt-4o":                   {"chat", "tools"},
+		"gpt-4o-mini":              {"chat", "tools"},
 	}
 
 	caps, known := models[modelID]
