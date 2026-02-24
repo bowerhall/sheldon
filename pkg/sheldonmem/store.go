@@ -36,11 +36,6 @@ func (s *Store) migrate() error {
 		return err
 	}
 
-	// run incremental migrations for existing databases
-	if err := s.runMigrations(); err != nil {
-		return err
-	}
-
 	if err := s.seedDomains(); err != nil {
 		return err
 	}
@@ -50,40 +45,6 @@ func (s *Store) migrate() error {
 	}
 
 	return nil
-}
-
-// runMigrations handles schema changes for existing databases
-func (s *Store) runMigrations() error {
-	// migration: add sensitive column to facts table (added in v0.x)
-	if !s.columnExists("facts", "sensitive") {
-		if _, err := s.db.Exec("ALTER TABLE facts ADD COLUMN sensitive INTEGER DEFAULT 0"); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (s *Store) columnExists(table, column string) bool {
-	rows, err := s.db.Query("PRAGMA table_info(" + table + ")")
-	if err != nil {
-		return false
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var cid int
-		var name, colType string
-		var notNull, pk int
-		var dfltValue any
-		if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
-			continue
-		}
-		if name == column {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *Store) SetEmbedder(e Embedder) {
