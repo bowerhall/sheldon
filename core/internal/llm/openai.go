@@ -241,3 +241,11 @@ func (o *openaiCompatible) convertTools(tools []Tool) []openaiTool {
 
 	return result
 }
+
+func (o *openaiCompatible) Capabilities() Capabilities {
+	return Capabilities{
+		Vision:     true,
+		VideoInput: false, // OpenAI API doesn't support inline video
+		ToolUse:    true,
+	}
+}

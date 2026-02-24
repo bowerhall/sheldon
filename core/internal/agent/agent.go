@@ -126,6 +126,33 @@ func (a *Agent) ProcessWithMedia(ctx context.Context, sessionID string, userMess
 		logger.Warn("failed to refresh LLM, using existing instance", "error", err)
 	}
 
+	// Check if model supports video when video is sent
+	hasVideo := false
+	for _, m := range media {
+		if m.Type == llm.MediaTypeVideo {
+			hasVideo = true
+			break
+		}
+	}
+
+	// Keep original media for tools, but filter for LLM if video not supported
+	mediaForLLM := media
+	if hasVideo && !a.llm.Capabilities().VideoInput {
+		// Add note about video limitation
+		if userMessage == "" {
+			userMessage = "[Video received but current model doesn't support video analysis. I can still save the video for you if you'd like.]"
+		} else {
+			userMessage = "[Note: Video received but current model doesn't support video analysis] " + userMessage
+		}
+		// Filter out video from LLM media to avoid API errors
+		mediaForLLM = nil
+		for _, m := range media {
+			if m.Type != llm.MediaTypeVideo {
+				mediaForLLM = append(mediaForLLM, m)
+			}
+		}
+	}
+
 	sess := a.sessions.Get(sessionID)
 	chatID := a.parseChatID(sessionID)
 
@@ -166,7 +193,7 @@ func (a *Agent) ProcessWithMedia(ctx context.Context, sessionID string, userMess
 		sess.AddMessage("system", "[This is a new user with no stored memory. Start with a warm welcome and begin the setup interview to get to know them. Follow the interview guide in your instructions.]", nil, "")
 	}
 
-	sess.AddMessageWithMedia("user", userMessage, media, nil, "")
+	sess.AddMessageWithMedia("user", userMessage, mediaForLLM, nil, "")
 
 	// check for skill command (e.g., /apartment-hunter)
 	if skill := a.detectSkillCommand(userMessage); skill != "" {

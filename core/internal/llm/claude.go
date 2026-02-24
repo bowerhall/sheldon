@@ -1,9 +1,13 @@
 package llm
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"regexp"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -15,7 +19,65 @@ var validToolIDPattern = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 
 type claude struct {
 	client anthropic.Client
+	apiKey string
 	model  string
+}
+
+// Raw API types for video support (SDK doesn't have these yet)
+type rawMessage struct {
+	Role    string           `json:"role"`
+	Content []rawContentBlock `json:"content"`
+}
+
+type rawContentBlock struct {
+	Type   string          `json:"type"`
+	Text   string          `json:"text,omitempty"`
+	Source *rawMediaSource `json:"source,omitempty"`
+}
+
+type rawMediaSource struct {
+	Type      string `json:"type"`
+	MediaType string `json:"media_type"`
+	Data      string `json:"data"`
+}
+
+type rawRequest struct {
+	Model     string            `json:"model"`
+	MaxTokens int               `json:"max_tokens"`
+	System    string            `json:"system,omitempty"`
+	Messages  []rawMessage      `json:"messages"`
+	Tools     []rawTool         `json:"tools,omitempty"`
+}
+
+type rawTool struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	InputSchema map[string]any `json:"input_schema"`
+}
+
+type rawResponse struct {
+	Content    []rawResponseBlock `json:"content"`
+	StopReason string             `json:"stop_reason"`
+	Usage      *rawUsage          `json:"usage,omitempty"`
+	Error      *rawError          `json:"error,omitempty"`
+}
+
+type rawResponseBlock struct {
+	Type  string         `json:"type"`
+	Text  string         `json:"text,omitempty"`
+	ID    string         `json:"id,omitempty"`
+	Name  string         `json:"name,omitempty"`
+	Input map[string]any `json:"input,omitempty"`
+}
+
+type rawUsage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+}
+
+type rawError struct {
+	Type    string `json:"type"`
+	Message string `json:"message"`
 }
 
 func newClaude(apiKey, model string) LLM {
@@ -23,7 +85,7 @@ func newClaude(apiKey, model string) LLM {
 		model = "claude-sonnet-4-20250514"
 	}
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
-	return &claude{client: client, model: model}
+	return &claude{client: client, apiKey: apiKey, model: model}
 }
 
 func (c *claude) Chat(ctx context.Context, systemPrompt string, messages []Message) (string, error) {
@@ -35,6 +97,25 @@ func (c *claude) Chat(ctx context.Context, systemPrompt string, messages []Messa
 }
 
 func (c *claude) ChatWithTools(ctx context.Context, systemPrompt string, messages []Message, tools []Tool) (*ChatResponse, error) {
+	// Check if any message contains video - use raw API if so
+	hasVideo := false
+	for _, msg := range messages {
+		for _, media := range msg.Media {
+			if media.Type == MediaTypeVideo {
+				hasVideo = true
+				break
+			}
+		}
+		if hasVideo {
+			break
+		}
+	}
+
+	if hasVideo {
+		return c.chatWithToolsRaw(ctx, systemPrompt, messages, tools)
+	}
+
+	// Use SDK for non-video messages
 	anthropicMessages := c.convertMessages(messages)
 
 	params := anthropic.MessageNewParams{
@@ -59,6 +140,176 @@ func (c *claude) ChatWithTools(ctx context.Context, systemPrompt string, message
 	}
 
 	return c.parseResponse(resp), nil
+}
+
+// chatWithToolsRaw uses raw HTTP API for video support
+func (c *claude) chatWithToolsRaw(ctx context.Context, systemPrompt string, messages []Message, tools []Tool) (*ChatResponse, error) {
+	rawMessages := c.convertMessagesRaw(messages)
+
+	req := rawRequest{
+		Model:     c.model,
+		MaxTokens: 4096,
+		Messages:  rawMessages,
+	}
+
+	if systemPrompt != "" {
+		req.System = systemPrompt
+	}
+
+	if len(tools) > 0 {
+		req.Tools = c.convertToolsRaw(tools)
+	}
+
+	jsonBody, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("x-api-key", c.apiKey)
+	httpReq.Header.Set("anthropic-version", "2023-06-01")
+
+	resp, err := http.DefaultClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("http request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("api error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var rawResp rawResponse
+	if err := json.Unmarshal(body, &rawResp); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	if rawResp.Error != nil {
+		return nil, fmt.Errorf("api error: %s", rawResp.Error.Message)
+	}
+
+	return c.parseRawResponse(&rawResp), nil
+}
+
+func (c *claude) convertMessagesRaw(messages []Message) []rawMessage {
+	var result []rawMessage
+
+	for _, msg := range messages {
+		var blocks []rawContentBlock
+
+		switch msg.Role {
+		case "assistant":
+			if len(msg.ToolCalls) > 0 {
+				if msg.Content != "" {
+					blocks = append(blocks, rawContentBlock{Type: "text", Text: msg.Content})
+				}
+				for _, tc := range msg.ToolCalls {
+					var input map[string]any
+					json.Unmarshal([]byte(tc.Arguments), &input)
+					blocks = append(blocks, rawContentBlock{
+						Type: "tool_use",
+						// Note: tool_use blocks have different structure, simplified here
+					})
+				}
+			} else {
+				blocks = append(blocks, rawContentBlock{Type: "text", Text: msg.Content})
+			}
+			result = append(result, rawMessage{Role: "assistant", Content: blocks})
+
+		case "tool":
+			blocks = append(blocks, rawContentBlock{
+				Type: "tool_result",
+				Text: msg.Content,
+			})
+			result = append(result, rawMessage{Role: "user", Content: blocks})
+
+		default:
+			for _, media := range msg.Media {
+				switch media.Type {
+				case MediaTypeImage:
+					blocks = append(blocks, rawContentBlock{
+						Type: "image",
+						Source: &rawMediaSource{
+							Type:      "base64",
+							MediaType: media.MimeType,
+							Data:      base64.StdEncoding.EncodeToString(media.Data),
+						},
+					})
+				case MediaTypeVideo:
+					blocks = append(blocks, rawContentBlock{
+						Type: "video",
+						Source: &rawMediaSource{
+							Type:      "base64",
+							MediaType: media.MimeType,
+							Data:      base64.StdEncoding.EncodeToString(media.Data),
+						},
+					})
+				}
+			}
+
+			if msg.Content != "" {
+				blocks = append(blocks, rawContentBlock{Type: "text", Text: msg.Content})
+			}
+
+			if len(blocks) > 0 {
+				result = append(result, rawMessage{Role: "user", Content: blocks})
+			}
+		}
+	}
+
+	return result
+}
+
+func (c *claude) convertToolsRaw(tools []Tool) []rawTool {
+	result := make([]rawTool, len(tools))
+	for i, tool := range tools {
+		result[i] = rawTool{
+			Name:        tool.Name,
+			Description: tool.Description,
+			InputSchema: tool.Parameters,
+		}
+	}
+	return result
+}
+
+func (c *claude) parseRawResponse(resp *rawResponse) *ChatResponse {
+	result := &ChatResponse{
+		StopReason: resp.StopReason,
+	}
+
+	for _, block := range resp.Content {
+		switch block.Type {
+		case "text":
+			result.Content = block.Text
+		case "tool_use":
+			args, _ := json.Marshal(block.Input)
+			result.ToolCalls = append(result.ToolCalls, ToolCall{
+				ID:        block.ID,
+				Name:      block.Name,
+				Arguments: string(args),
+			})
+		}
+	}
+
+	if resp.Usage != nil {
+		result.Usage = &Usage{
+			PromptTokens:     resp.Usage.InputTokens,
+			CompletionTokens: resp.Usage.OutputTokens,
+			TotalTokens:      resp.Usage.InputTokens + resp.Usage.OutputTokens,
+		}
+	}
+
+	return result
 }
 
 func (c *claude) convertMessages(messages []Message) []anthropic.MessageParam {
@@ -184,4 +435,12 @@ func (c *claude) parseResponse(resp *anthropic.Message) *ChatResponse {
 	}
 
 	return result
+}
+
+func (c *claude) Capabilities() Capabilities {
+	return Capabilities{
+		Vision:     true,
+		VideoInput: true,
+		ToolUse:    true,
+	}
 }

@@ -55,7 +55,14 @@ type Usage struct {
 	TotalTokens      int
 }
 
+type Capabilities struct {
+	Vision      bool
+	VideoInput  bool
+	ToolUse     bool
+}
+
 type LLM interface {
 	Chat(ctx context.Context, systemPrompt string, messages []Message) (string, error)
 	ChatWithTools(ctx context.Context, systemPrompt string, messages []Message, tools []Tool) (*ChatResponse, error)
+	Capabilities() Capabilities
 }
