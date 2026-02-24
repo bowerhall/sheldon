@@ -237,6 +237,16 @@ jobs:
           target: "/opt/sheldon/skills/"
           strip_components: 1
 
+      - name: Copy headscale config
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ steps.doppler.outputs.VPS_HOST }}
+          username: ${{ steps.doppler.outputs.VPS_USER }}
+          key: ${{ steps.doppler.outputs.VPS_SSH_KEY }}
+          source: "core/deploy/headscale/"
+          target: "/opt/sheldon/headscale/"
+          strip_components: 3
+
       - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -245,6 +255,9 @@ jobs:
           key: ${{ steps.doppler.outputs.VPS_SSH_KEY }}
           script: |
             cd /opt/sheldon
+
+            # Substitute domain in headscale config
+            sed -i "s/DOMAIN_PLACEHOLDER/${{ steps.doppler.outputs.DOMAIN }}/g" /opt/sheldon/headscale/config.yaml
 
             # Login to registry
             echo "${{ steps.doppler.outputs.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -261,6 +274,13 @@ jobs:
             docker compose up -d
             docker compose ps
 
-            # Create headscale default user if not exists
+            # Setup headscale user and ACL
             sleep 5
             docker exec headscale headscale users create default 2>/dev/null || true
+
+            # Tag the VPS node for ACL (restricts homelab-agent access)
+            # Find first node and apply tag:sheldon if not already tagged
+            NODE_ID=$(docker exec headscale headscale nodes list -o json 2>/dev/null | jq -r '.[0].id // empty')
+            if [ -n "$NODE_ID" ]; then
+              docker exec headscale headscale nodes tag -i "$NODE_ID" -t tag:sheldon 2>/dev/null || true
+            fi
