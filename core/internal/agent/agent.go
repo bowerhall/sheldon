@@ -62,7 +62,11 @@ func (a *Agent) SetAlerter(alerter *alerts.Alerter) {
 func (a *Agent) SetLLMFactory(factory LLMFactory, rc *config.RuntimeConfig) {
 	a.llmFactory = factory
 	a.runtimeConfig = rc
-	a.lastLLMHash = a.currentLLMHash()
+	// Force immediate refresh to sync with runtime config
+	a.lastLLMHash = ""
+	if err := a.refreshLLMIfNeeded(); err != nil {
+		logger.Warn("failed to refresh LLM on factory setup", "error", err)
+	}
 }
 
 func (a *Agent) currentLLMHash() string {
