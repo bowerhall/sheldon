@@ -3,6 +3,8 @@ package conversation
 import (
 	"database/sql"
 	"time"
+
+	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
 const maxMessages = 12
@@ -29,12 +31,24 @@ CREATE TABLE IF NOT EXISTS recent_messages (
 CREATE INDEX IF NOT EXISTS idx_recent_messages_chat ON recent_messages(chat_id, created_at DESC);
 `
 
-func NewStore(db *sql.DB) (*Store, error) {
+// NewStore creates a conversation buffer with its own SQLite database file
+func NewStore(dbPath string) (*Store, error) {
+	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL&_busy_timeout=5000")
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Store{db: db}
 	if err := s.migrate(); err != nil {
+		db.Close()
 		return nil, err
 	}
 	return s, nil
+}
+
+// Close closes the database connection
+func (s *Store) Close() error {
+	return s.db.Close()
 }
 
 func (s *Store) migrate() error {

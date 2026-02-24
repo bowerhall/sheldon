@@ -200,13 +200,15 @@ func main() {
 	tools.RegisterCronTools(sheldon.Registry(), cronStore, cronTz)
 	logger.Info("cron tools enabled", "timezone", cfg.Timezone)
 
-	// conversation buffer for recent message continuity
-	convoStore, err := conversation.NewStore(memory.DB())
+	// conversation buffer for recent message continuity (separate db file)
+	convoDBPath := filepath.Join(filepath.Dir(cfg.MemoryPath), "conversation.db")
+	convoStore, err := conversation.NewStore(convoDBPath)
 	if err != nil {
 		logger.Fatal("failed to create conversation store", "error", err)
 	}
+	defer convoStore.Close()
 	sheldon.SetConversationStore(convoStore)
-	logger.Info("conversation buffer enabled", "max_messages", 12)
+	logger.Info("conversation buffer enabled", "max_messages", 12, "db", convoDBPath)
 
 	// minio storage (optional)
 	var storageClient *storage.Client
@@ -357,14 +359,16 @@ func main() {
 			},
 		)
 
-		// Create usage store for persistent cost tracking
-		usageStore, err := budget.NewStore(memory.DB(), tz)
+		// Create usage store for persistent cost tracking (separate db file)
+		usageDBPath := filepath.Join(filepath.Dir(cfg.MemoryPath), "usage.db")
+		usageStore, err := budget.NewStore(usageDBPath, tz)
 		if err != nil {
 			logger.Warn("failed to create usage store", "error", err)
 		} else {
+			defer usageStore.Close()
 			tracker.SetStore(usageStore)
 			tools.RegisterUsageTools(sheldon.Registry(), usageStore, tz)
-			logger.Info("usage tracking enabled")
+			logger.Info("usage tracking enabled", "db", usageDBPath)
 		}
 
 		sheldon.SetBudget(tracker)
