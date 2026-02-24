@@ -72,7 +72,8 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Fetch secrets from Doppler
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.DOPPLER_TOKEN != ''
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
         uses: dopplerhq/secrets-fetch-action@v1.1.3
         id: doppler-build
         with:
@@ -108,7 +109,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Fetch secrets from Doppler
-        if: secrets.DOPPLER_TOKEN != ''
+        continue-on-error: true
         uses: dopplerhq/secrets-fetch-action@v1.1.3
         id: doppler
         with:
