@@ -280,13 +280,19 @@ func main() {
 	var enabledProviders []string
 
 	if cfg.Bots.Telegram.Enabled {
-		b, err := bot.NewTelegram(cfg.Bots.Telegram.Token, sheldon)
+		b, err := bot.NewTelegram(cfg.Bots.Telegram.Token, sheldon, cfg.Bots.Telegram.OwnerChatID)
 		if err != nil {
 			logger.Fatal("failed to create telegram bot", "error", err)
 		}
 
 		bots = append(bots, b)
 		enabledProviders = append(enabledProviders, "telegram")
+
+		if cfg.Bots.Telegram.OwnerChatID != 0 {
+			logger.Info("telegram auth enabled", "ownerChatID", cfg.Bots.Telegram.OwnerChatID)
+		} else {
+			logger.Warn("telegram auth disabled - bot will respond to anyone")
+		}
 
 		go b.Start(ctx)
 	}
