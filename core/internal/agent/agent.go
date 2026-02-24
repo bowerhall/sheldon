@@ -177,8 +177,11 @@ func (a *Agent) ProcessWithImages(ctx context.Context, sessionID string, userMes
 		}
 	}
 
-	// add chatID to context for tool notifications
+	// add chatID and images to context for tools
 	ctx = context.WithValue(ctx, tools.ChatIDKey, chatID)
+	if len(images) > 0 {
+		ctx = context.WithValue(ctx, tools.ImagesKey, images)
+	}
 
 	response, err := a.runAgentLoop(ctx, sess)
 	if err != nil {
