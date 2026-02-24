@@ -1,8 +1,8 @@
-# Sheldon vs OpenClaw
+# Sheldon vs Other AI Assistants
 
 ## Model Switching
 
-### OpenClaw
+### Other Assistants
 
 ```bash
 /model claude-sonnet-4-20250514
@@ -13,7 +13,7 @@
 
 Or CLI:
 ```bash
-openclaw models set anthropic/claude-opus-4-6
+assistant models set anthropic/claude-opus-4-6
 ```
 
 ### Sheldon
@@ -28,34 +28,34 @@ Tools: `switch_model`, `current_model`, `list_models`, `list_providers`
 
 ### Comparison
 
-| Feature | OpenClaw | Sheldon |
+| Feature | Other Assistants | Sheldon |
 |---------|----------|---------|
 | Switch via chat | `/model <name>` | Natural language |
-| Switch via CLI | `openclaw models set` | Edit runtime_config.json |
+| Switch via CLI | `assistant models set` | Edit runtime_config.json |
 | Hot reload | Yes | Yes (next message) |
 | Multi-provider | Yes | Yes (Claude, OpenAI, Kimi, Ollama) |
 | Pull local models | Via Ollama separately | `pull_model` tool |
 | Model capabilities | Manual config | Auto-detected (vision, video, tools) |
 | Persist across restart | Config file | runtime_config.json |
 
-Both can do it. OpenClaw uses slash commands, Sheldon uses natural language + tools.
+Both can do it. Most assistants use slash commands, Sheldon uses natural language + tools.
 
 ---
 
 ## Pulling Local Models
 
-### OpenClaw
+### Other Assistants
 
 ```bash
 # You run this yourself in terminal
 ollama pull llama3.3
 ollama pull qwen2.5-coder:32b
 
-# Then tell OpenClaw to use it
+# Then switch to it
 /model ollama/llama3.3
 ```
 
-OpenClaw discovers models from Ollama but **can't pull them** - you do that outside the chat.
+Most assistants discover models from Ollama but **can't pull them** - you do that outside the chat.
 
 ### Sheldon
 
@@ -74,7 +74,7 @@ Tools: `pull_model`, `remove_model`, `list_models`
 
 ### Comparison
 
-| Action | OpenClaw | Sheldon |
+| Action | Other Assistants | Sheldon |
 |--------|----------|---------|
 | Pull model | Terminal: `ollama pull x` | Chat: "pull x" |
 | List models | Terminal: `ollama list` | Chat: "what models?" |
@@ -82,29 +82,34 @@ Tools: `pull_model`, `remove_model`, `list_models`
 | Switch to model | Chat: `/model ollama/x` | Chat: "use x" |
 | Auto-discover | Yes | Yes |
 
-Sheldon keeps you in the conversation. OpenClaw makes you context-switch to terminal for model management.
+Sheldon keeps you in the conversation. Most assistants make you context-switch to terminal for model management.
 
 ---
 
 ## Heartbeat & Proactive Systems
 
-### OpenClaw
+### Other Assistants
+
+**Conversational setup:**
+```
+You: "Remind me to check email every morning at 9am"
+Assistant: [creates cron with prompt: "Remind user to check email"]
+```
+
+**Or config file:**
+```yaml
+jobs:
+  - id: email-check
+    schedule: "0 0 9 * * *"
+    prompt: "Check my email"
+```
 
 **Heartbeat:**
 ```
 Every 30 min → Read HEARTBEAT.md → Check tasks → HEARTBEAT_OK or message
 ```
 
-**Cron:**
-```yaml
-# In config file
-jobs:
-  - id: email-check
-    schedule: "0 */30 9-21 * * *"
-    prompt: "Check my email"
-```
-
-Static file-based. Agent reads `HEARTBEAT.md` for instructions, returns `HEARTBEAT_OK` if nothing to do.
+Crons persist to a config file. When a cron fires, it executes the saved prompt verbatim.
 
 ### Sheldon
 
@@ -114,56 +119,68 @@ You: "Check on me every 6 hours"
 Sheldon: [creates cron with keyword "check-in"]
 
 6 hours later...
-Cron fires → Memory recall "check-in" → Gets context about user →
+Cron fires → Memory recall "check-in" → Gets CURRENT context about user →
 Sheldon: "Hey! How's the project going? Last time you mentioned being stuck on the API integration."
 ```
 
-The cron **recalls memory** when it fires, so Sheldon knows WHY it's reaching out.
+The keyword IS a memory query, not a message. When the cron fires, Sheldon recalls facts matching that keyword and decides what to say based on current state.
 
 ### Comparison
 
-| Feature | OpenClaw | Sheldon |
+| Feature | Other Assistants | Sheldon |
 |---------|----------|---------|
-| Setup | Config file + HEARTBEAT.md | "Remind me to..." |
-| Context source | Static markdown file | Memory recall |
-| Fires with | Fixed prompt | Keyword → recalled facts |
-| Feels like | Robot on a timer | Friend who remembers |
-| One-time reminders | Cron that self-deletes | `one_time: true` |
+| Setup | Chat or config file | Chat only |
+| What's stored | Static prompt | Keyword (memory query) |
+| At fire time | Replays saved prompt | Recalls current facts |
+| Adapts to changes | No (same message) | Yes (queries memory) |
+| One-time reminders | Yes | Yes (`one_time: true`) |
 | Pause temporarily | Delete and recreate | `pause_cron` tool |
 
-### Example: Check-in Flow
+### Example: The Key Difference
 
-**OpenClaw:**
-```markdown
-# HEARTBEAT.md
-Check inbox, calendar, and pending tasks.
-If anything urgent, message me.
-Otherwise return HEARTBEAT_OK.
+**Other Assistants:**
 ```
-Same check every time, no memory of past conversations.
+March: "Remind me about my meds every day at 8pm"
+→ Saves prompt: "Remind user about meds"
+
+April: "Oh, I also need to take it with food now"
+→ This info is NOT connected to the cron
+
+8pm every day:
+→ Fires: "Reminder about your meds" (same message forever)
+```
 
 **Sheldon:**
 ```
-You: "Hey, I've been stressed about the deadline. Check on me every few hours."
-Sheldon: [saves fact: user stressed about deadline, creates cron]
+March: "Remind me about my meds every day at 8pm"
+→ Saves fact: medication = "blood pressure meds"
+→ Creates cron with keyword: "meds"
 
-Later...
-Cron fires → Recalls: "user stressed about deadline" →
-Sheldon: "How's the deadline looking? Need help with anything?"
+April: "Oh, I also need to take it with food now"
+→ Saves fact: medication_note = "take with food"
+
+8pm that day:
+→ Fires → Recalls "meds" → Finds both facts
+→ "Time for your blood pressure meds! Remember to take it with food."
 ```
-Contextual, remembers what you talked about.
 
-### The Difference
+The cron adapts because it queries memory at fire time, not when created.
 
-OpenClaw is systematic: configured intervals, checklist-based, returns OK/not-OK.
+### Why This Matters
 
-Sheldon is relational: remembers why it's checking, adapts message to context, feels like a friend who noticed you've been quiet.
+Most assistant crons are schedulers with a static script.
+
+Sheldon's cron is a wake-up trigger with a memory search. The keyword tells Sheldon what to think about, not what to say. This means:
+
+- Updates to related facts automatically appear in reminders
+- Context from recent conversations informs the message
+- The same keyword can produce different messages based on current state
 
 ---
 
 ## Memory
 
-### OpenClaw
+### Other Assistants
 
 ```
 Session starts → Context window fills up → Pruning kicks in → Old messages gone
@@ -192,7 +209,7 @@ Sheldon: [recalls: user lives in Berlin] "Let me check Berlin weather..."
 
 ### Comparison
 
-| Feature | OpenClaw | Sheldon |
+| Feature | Other Assistants | Sheldon |
 |---------|----------|---------|
 | Storage | In-memory | SQLite + vectors |
 | Structure | Flat messages | Graph (entities, facts, edges) |
@@ -204,7 +221,7 @@ Sheldon: [recalls: user lives in Berlin] "Let me check Berlin weather..."
 
 ### Example: Contradiction Handling
 
-**OpenClaw:**
+**Other Assistants:**
 ```
 March: "I live in NYC"
 June: "I moved to Berlin"
@@ -224,18 +241,18 @@ September: "Where do I live?"
 
 ## Code to Deploy
 
-### OpenClaw
+### Other Assistants
 
 ```
 You: "Build me a weather dashboard"
-OpenClaw: [writes code to local files]
-OpenClaw: "I've created the files. Run `npm start` to test it."
+Assistant: [writes code to local files]
+Assistant: "I've created the files. Run `npm start` to test it."
 
 You: *opens terminal, runs npm start, tests locally*
 You: *figures out deployment yourself*
 ```
 
-OpenClaw writes code. Deployment is your problem.
+Most assistants write code. Deployment is your problem.
 
 ### Sheldon
 
@@ -252,7 +269,7 @@ Tools: `write_code`, `build_image`, `deploy_app`, `remove_app`, `list_apps`, `ap
 
 ### Comparison
 
-| Step | OpenClaw | Sheldon |
+| Step | Other Assistants | Sheldon |
 |------|----------|---------|
 | Write code | Yes | Yes (sandboxed coder) |
 | Test locally | You do it | Coder sandbox |
@@ -275,7 +292,7 @@ Request → Coder Sandbox → Git Commit → Docker Build → Registry Push → 
 
 ## Security
 
-### OpenClaw
+### Other Assistants
 
 - Docker socket mounted directly
 - API keys in config files (readable)
@@ -292,7 +309,7 @@ Request → Coder Sandbox → Git Commit → Docker Build → Registry Push → 
 
 ### Comparison
 
-| Layer | OpenClaw | Sheldon |
+| Layer | Other Assistants | Sheldon |
 |-------|----------|---------|
 | Docker access | Direct socket | Socket proxy (filtered) |
 | Secrets | Config file | Env-only |
@@ -330,12 +347,12 @@ Request → Coder Sandbox → Git Commit → Docker Build → Registry Push → 
 
 ## File & Storage
 
-### OpenClaw
+### Other Assistants
 
 ```
 You: "Save this document"
-OpenClaw: [writes to local filesystem]
-OpenClaw: "Saved to ~/documents/note.md"
+Assistant: [writes to local filesystem]
+Assistant: "Saved to ~/documents/note.md"
 
 You: "Send me that file"
 → Not possible via chat
@@ -363,7 +380,7 @@ Tools: `upload_file`, `download_file`, `list_files`, `delete_file`, `share_link`
 
 ### Comparison
 
-| Feature | OpenClaw | Sheldon |
+| Feature | Other Assistants | Sheldon |
 |---------|----------|---------|
 | Storage | Local filesystem | MinIO (S3-compatible) |
 | Share files | Manual | `share_link` (presigned URLs) |
@@ -376,7 +393,7 @@ Tools: `upload_file`, `download_file`, `list_files`, `delete_file`, `share_link`
 
 ## Homelab & Networking
 
-### OpenClaw
+### Other Assistants
 
 No built-in infrastructure management. You set up your own reverse proxy, VPN, storage, etc.
 
@@ -426,7 +443,7 @@ Now your laptop, phone, NAS, and servers are all on a private mesh:
 
 ### Comparison
 
-| Feature | OpenClaw | Sheldon |
+| Feature | Other Assistants | Sheldon |
 |---------|----------|---------|
 | Private mesh VPN | No | Headscale |
 | Remote container management | No | Homelab agent |
@@ -440,7 +457,7 @@ Now your laptop, phone, NAS, and servers are all on a private mesh:
 
 ## Skills
 
-### OpenClaw
+### Other Assistants
 
 ```
 # Install from marketplace
@@ -476,7 +493,7 @@ Tools: `install_skill`, `list_skills`, `read_skill`, `remove_skill`, `use_skill`
 
 ### Comparison
 
-| Feature | OpenClaw | Sheldon |
+| Feature | Other Assistants | Sheldon |
 |---------|----------|---------|
 | Format | JSON + JS/TS | Markdown |
 | Source | Central marketplace | Any URL |
@@ -487,7 +504,7 @@ Tools: `install_skill`, `list_skills`, `read_skill`, `remove_skill`, `use_skill`
 
 ### The Difference
 
-OpenClaw has a bigger ecosystem but you're trusting third-party code.
+Some assistants have bigger ecosystems but you're trusting third-party code.
 
 Sheldon has fewer skills but you verify each one. You can read the markdown, understand what it does, then install. Or ask Sheldon to browse the web for skills and review them together.
 
@@ -495,13 +512,13 @@ Sheldon has fewer skills but you verify each one. You can read the markdown, und
 
 ## Vision & Media
 
-### OpenClaw
+### Other Assistants
 
 ```
 # Supports vision models
 /model gpt-4o
 *send image*
-OpenClaw: "I can see a cat in this image"
+Assistant: "I can see a cat in this image"
 
 # Video via media-understanding subsystem
 scripts/analyze-video.sh video.mp4 --prompt "Summarize"
@@ -527,7 +544,7 @@ Sheldon: "This is a 2-minute tutorial on..."
 
 ### Comparison
 
-| Feature | OpenClaw | Sheldon |
+| Feature | Other Assistants | Sheldon |
 |---------|----------|---------|
 | Receive images | Yes | Yes |
 | Analyze images | Yes | Yes |
@@ -538,7 +555,7 @@ Sheldon: "This is a 2-minute tutorial on..."
 
 ### The Difference
 
-Both handle images and video. OpenClaw routes video to a separate media-understanding subsystem using Gemini. Sheldon processes video inline in the conversation using Claude's native video support.
+Both handle images and video. Some assistants route video to a separate media-understanding subsystem. Sheldon processes video inline in the conversation using Claude's native video support.
 
 Sheldon also auto-detects capabilities per model:
 

@@ -72,6 +72,7 @@ services:
 
       # Required
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - OWNER_CHAT_ID=${OWNER_CHAT_ID:-}
       - KIMI_API_KEY=${KIMI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
