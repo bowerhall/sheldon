@@ -46,10 +46,6 @@ CREATE INDEX IF NOT EXISTS idx_crons_next_run ON crons(next_run);
 CREATE INDEX IF NOT EXISTS idx_crons_chat_id ON crons(chat_id);
 `
 
-const migrationAddPausedUntil = `
-ALTER TABLE crons ADD COLUMN paused_until DATETIME;
-`
-
 // NewStore creates a cron store using the provided database connection
 func NewStore(db *sql.DB, timezone *time.Location) (*Store, error) {
 	if timezone == nil {
@@ -68,10 +64,6 @@ func (s *Store) migrate() error {
 	if _, err := s.db.Exec(schema); err != nil {
 		return err
 	}
-
-	// add paused_until column if it doesn't exist (migration for existing DBs)
-	s.db.Exec(migrationAddPausedUntil) // ignore error if column exists
-
 	return nil
 }
 

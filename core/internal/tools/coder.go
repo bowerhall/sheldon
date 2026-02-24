@@ -113,7 +113,9 @@ func RegisterCoderTool(registry *Registry, bridge *coder.Bridge, memory *sheldon
 		var params struct {
 			MaxAgeHours int `json:"max_age_hours"`
 		}
-		json.Unmarshal([]byte(args), &params)
+		if err := json.Unmarshal([]byte(args), &params); err != nil {
+			return "", fmt.Errorf("invalid arguments: %w", err)
+		}
 
 		if params.MaxAgeHours <= 0 {
 			params.MaxAgeHours = 24

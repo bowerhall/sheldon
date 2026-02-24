@@ -226,8 +226,9 @@ func (a *Agent) ProcessWithMedia(ctx context.Context, sessionID string, userMess
 		}
 	}
 
-	// add chatID and media to context for tools
+	// add session info to context for tools
 	ctx = context.WithValue(ctx, tools.ChatIDKey, chatID)
+	ctx = context.WithValue(ctx, tools.SessionIDKey, sessionID)
 	if len(media) > 0 {
 		ctx = context.WithValue(ctx, tools.MediaKey, media)
 	}

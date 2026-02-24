@@ -16,6 +16,9 @@ import (
 	"github.com/bowerhall/sheldon/internal/storage"
 )
 
+// shared HTTP client for URL fetching (reuses connections)
+var fetchHTTPClient = &http.Client{Timeout: 5 * time.Minute}
+
 // RegisterStorageTools registers MinIO file storage tools
 func RegisterStorageTools(registry *Registry, client *storage.Client) {
 	// upload file tool
@@ -331,8 +334,7 @@ func RegisterStorageTools(registry *Registry, client *storage.Client) {
 		}
 		req.Header.Set("User-Agent", "Sheldon/1.0")
 
-		httpClient := &http.Client{Timeout: 5 * time.Minute}
-		resp, err := httpClient.Do(req)
+		resp, err := fetchHTTPClient.Do(req)
 		if err != nil {
 			return "", fmt.Errorf("download failed: %w", err)
 		}
@@ -398,13 +400,14 @@ func RegisterBackupTool(registry *Registry, client *storage.Client, memoryPath s
 
 		result := fmt.Sprintf("backup created: %s (%d bytes)", backupName, len(data))
 
-		// backup WAL if present
+		// backup WAL if present (non-fatal if it fails)
 		if len(walData) > 0 {
 			walBackupName := fmt.Sprintf("memory_%s.db-wal", timestamp)
 			if err := client.Upload(ctx, client.BackupBucket(), walBackupName, walData, "application/octet-stream"); err != nil {
-				return "", err
+				result += fmt.Sprintf("\nWAL backup failed (non-fatal): %s", err.Error())
+			} else {
+				result += fmt.Sprintf("\nWAL backed up: %s (%d bytes)", walBackupName, len(walData))
 			}
-			result += fmt.Sprintf("\nWAL backed up: %s (%d bytes)", walBackupName, len(walData))
 		}
 
 		return result, nil

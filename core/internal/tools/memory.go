@@ -30,22 +30,6 @@ type MarkSensitiveArgs struct {
 	Sensitive bool   `json:"sensitive"`
 }
 
-var domainNameToID = map[string]int{
-	"identity":      1,
-	"health":        2,
-	"mind":          3,
-	"beliefs":       4,
-	"knowledge":     5,
-	"relationships": 6,
-	"career":        7,
-	"finances":      8,
-	"place":         9,
-	"goals":         10,
-	"preferences":   11,
-	"routines":      12,
-	"events":        13,
-	"patterns":      14,
-}
 
 func RegisterMemoryTools(registry *Registry, memory *sheldonmem.Store) {
 	// save_memory tool - explicit memory storage
@@ -109,7 +93,7 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			domain = "knowledge"
 		}
 
-		domainID, ok := domainNameToID[domain]
+		domainID, ok := sheldonmem.DomainSlugToID[domain]
 		if !ok {
 			domainID = 5 // default to knowledge
 		}
@@ -131,8 +115,7 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			}
 		} else {
 			// default to user
-			chatID := ChatIDFromContext(ctx)
-			entityName := fmt.Sprintf("user_telegram_%d", chatID)
+			entityName := UserEntityName(ctx)
 			entity, err = memory.FindEntityByName(entityName)
 			if err != nil {
 				return "", fmt.Errorf("could not find user entity: %w", err)
@@ -140,11 +123,7 @@ The user must signal intent to save with words like "remember", "save", "don't f
 		}
 
 		var result *sheldonmem.FactResult
-		if params.Sensitive {
-			result, err = memory.AddSensitiveFact(&entity.ID, domainID, params.Field, params.Value, confidence)
-		} else {
-			result, err = memory.AddFact(&entity.ID, domainID, params.Field, params.Value, confidence)
-		}
+		result, err = memory.AddFactWithContext(ctx, &entity.ID, domainID, params.Field, params.Value, confidence, params.Sensitive)
 		if err != nil {
 			return "", fmt.Errorf("failed to save: %w", err)
 		}
@@ -199,6 +178,13 @@ The user must signal intent to save with words like "remember", "save", "don't f
 		domains := params.Domains
 		if len(domains) == 0 {
 			domains = []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
+		} else {
+			// validate domain IDs are in valid range (1-14)
+			for _, d := range domains {
+				if d < 1 || d > 14 {
+					return "", fmt.Errorf("invalid domain ID %d: must be between 1 and 14", d)
+				}
+			}
 		}
 
 		depth := params.Depth
@@ -282,8 +268,7 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			return "", fmt.Errorf("invalid arguments: %w", err)
 		}
 
-		chatID := ChatIDFromContext(ctx)
-		entityName := fmt.Sprintf("user_telegram_%d", chatID)
+		entityName := UserEntityName(ctx)
 		entity, err := memory.FindEntityByName(entityName)
 		if err != nil {
 			return "", fmt.Errorf("could not find user entity: %w", err)

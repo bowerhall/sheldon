@@ -8,6 +8,7 @@ import (
 
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldon/internal/logger"
+	"github.com/bowerhall/sheldonmem"
 )
 
 const extractPrompt = `You are a fact extractor. Analyze the conversation and extract facts worth remembering.
@@ -45,23 +46,6 @@ type extractedFact struct {
 	Confidence float64 `json:"confidence"`
 }
 
-var domainSlugToID = map[string]int{
-	"identity":      1,
-	"health":        2,
-	"mind":          3,
-	"beliefs":       4,
-	"knowledge":     5,
-	"relationships": 6,
-	"career":        7,
-	"finances":      8,
-	"place":         9,
-	"goals":         10,
-	"preferences":   11,
-	"routines":      12,
-	"events":        13,
-	"patterns":      14,
-}
-
 // rememberExchange extracts facts only from the latest user message and response
 // This avoids re-extracting from the conversation buffer
 func (a *Agent) rememberExchange(ctx context.Context, sessionID string, userMessage, assistantResponse string) {
@@ -89,7 +73,7 @@ func (a *Agent) rememberExchange(ctx context.Context, sessionID string, userMess
 	sheldonEntityID := a.getSheldonEntityID()
 
 	for _, fact := range facts {
-		domainID, ok := domainSlugToID[fact.Domain]
+		domainID, ok := sheldonmem.DomainSlugToID[fact.Domain]
 		if !ok {
 			domainID = 1
 		}
@@ -108,7 +92,7 @@ func (a *Agent) rememberExchange(ctx context.Context, sessionID string, userMess
 			continue
 		}
 
-		result, err := a.memory.AddFact(&entityID, domainID, fact.Field, fact.Value, fact.Confidence)
+		result, err := a.memory.AddFactWithContext(ctx, &entityID, domainID, fact.Field, fact.Value, fact.Confidence, false)
 		if err != nil {
 			logger.Error("failed to store fact", "error", err, "field", fact.Field)
 			continue
@@ -151,16 +135,6 @@ func (a *Agent) getOrCreateUserEntity(sessionID string) int64 {
 
 	logger.Info("user entity created", "name", entityName, "id", entity.ID)
 	return entity.ID
-}
-
-func formatConversation(messages []llm.Message) string {
-	var sb strings.Builder
-
-	for _, msg := range messages {
-		fmt.Fprintf(&sb, "%s: %s\n", msg.Role, msg.Content)
-	}
-
-	return sb.String()
 }
 
 func parseExtractedFacts(response string) ([]extractedFact, error) {

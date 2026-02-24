@@ -1,5 +1,23 @@
 package sheldonmem
 
+// DomainSlugToID maps domain slugs to their IDs for quick lookup
+var DomainSlugToID = map[string]int{
+	"identity":      1,
+	"health":        2,
+	"mind":          3,
+	"beliefs":       4,
+	"knowledge":     5,
+	"relationships": 6,
+	"career":        7,
+	"finances":      8,
+	"place":         9,
+	"goals":         10,
+	"preferences":   11,
+	"routines":      12,
+	"events":        13,
+	"patterns":      14,
+}
+
 var defaultDomains = []Domain{
 	{1, "Identity & Self", "identity", "core"},
 	{2, "Body & Health", "health", "core"},

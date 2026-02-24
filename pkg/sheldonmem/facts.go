@@ -119,6 +119,10 @@ func (s *Store) GetFactsByDomain(domainID int) ([]*Fact, error) {
 		facts = append(facts, &f)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return facts, nil
 }
 
@@ -138,6 +142,10 @@ func (s *Store) GetFactsByEntity(entityID int64) ([]*Fact, error) {
 		}
 
 		facts = append(facts, &f)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return facts, nil
@@ -203,6 +211,10 @@ func (s *Store) GetSupersededFacts(field string, entityID *int64) ([]*Fact, erro
 		}
 		facts = append(facts, &f)
 	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return facts, nil
 }
 
@@ -250,6 +262,10 @@ func (s *Store) searchFacts(query string, domainIDs []int, excludeSensitive bool
 			return nil, err
 		}
 		facts = append(facts, &f)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return facts, nil
