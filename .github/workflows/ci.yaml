@@ -72,7 +72,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Fetch secrets from Doppler
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.DOPPLER_TOKEN != ''
         uses: dopplerhq/secrets-fetch-action@v1.1.3
         id: doppler-build
         with:
@@ -84,7 +84,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ steps.doppler-build.outputs.GHCR_TOKEN }}
+          password: ${{ steps.doppler-build.outputs.GHCR_TOKEN || secrets.GHCR_TOKEN }}
 
       - name: Build and push ${{ matrix.name }}
         uses: docker/build-push-action@v6
@@ -108,17 +108,52 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Fetch secrets from Doppler
+        if: secrets.DOPPLER_TOKEN != ''
         uses: dopplerhq/secrets-fetch-action@v1.1.3
         id: doppler
         with:
           doppler-token: ${{ secrets.DOPPLER_TOKEN }}
 
+      - name: Set secrets (Doppler or GitHub fallback)
+        id: secrets
+        run: |
+          # Use Doppler outputs if available, otherwise fall back to GitHub secrets
+          echo "VPS_HOST=${{ steps.doppler.outputs.VPS_HOST || secrets.VPS_HOST }}" >> $GITHUB_OUTPUT
+          echo "VPS_USER=${{ steps.doppler.outputs.VPS_USER || secrets.VPS_USER }}" >> $GITHUB_OUTPUT
+          echo "VPS_SSH_KEY<<EOFKEY" >> $GITHUB_OUTPUT
+          echo "${{ steps.doppler.outputs.VPS_SSH_KEY || secrets.VPS_SSH_KEY }}" >> $GITHUB_OUTPUT
+          echo "EOFKEY" >> $GITHUB_OUTPUT
+          echo "DOMAIN=${{ steps.doppler.outputs.DOMAIN || secrets.DOMAIN }}" >> $GITHUB_OUTPUT
+          echo "GHCR_TOKEN=${{ steps.doppler.outputs.GHCR_TOKEN || secrets.GHCR_TOKEN }}" >> $GITHUB_OUTPUT
+          echo "TELEGRAM_TOKEN=${{ steps.doppler.outputs.TELEGRAM_TOKEN || secrets.TELEGRAM_TOKEN }}" >> $GITHUB_OUTPUT
+          echo "OWNER_CHAT_ID=${{ steps.doppler.outputs.OWNER_CHAT_ID || secrets.OWNER_CHAT_ID }}" >> $GITHUB_OUTPUT
+          echo "ANTHROPIC_API_KEY=${{ steps.doppler.outputs.ANTHROPIC_API_KEY || secrets.ANTHROPIC_API_KEY }}" >> $GITHUB_OUTPUT
+          echo "ACME_EMAIL=${{ steps.doppler.outputs.ACME_EMAIL || secrets.ACME_EMAIL }}" >> $GITHUB_OUTPUT
+          echo "HEARTBEAT_CHAT_ID=${{ steps.doppler.outputs.HEARTBEAT_CHAT_ID || secrets.HEARTBEAT_CHAT_ID }}" >> $GITHUB_OUTPUT
+          echo "EMBEDDER_PROVIDER=${{ steps.doppler.outputs.EMBEDDER_PROVIDER || secrets.EMBEDDER_PROVIDER }}" >> $GITHUB_OUTPUT
+          echo "EMBEDDER_BASE_URL=${{ steps.doppler.outputs.EMBEDDER_BASE_URL || secrets.EMBEDDER_BASE_URL }}" >> $GITHUB_OUTPUT
+          echo "EMBEDDER_MODEL=${{ steps.doppler.outputs.EMBEDDER_MODEL || secrets.EMBEDDER_MODEL }}" >> $GITHUB_OUTPUT
+          echo "CODER_ENABLED=${{ steps.doppler.outputs.CODER_ENABLED || secrets.CODER_ENABLED }}" >> $GITHUB_OUTPUT
+          echo "CODER_ISOLATED=${{ steps.doppler.outputs.CODER_ISOLATED || secrets.CODER_ISOLATED }}" >> $GITHUB_OUTPUT
+          echo "CODER_MODEL=${{ steps.doppler.outputs.CODER_MODEL || secrets.CODER_MODEL }}" >> $GITHUB_OUTPUT
+          echo "CODER_IMAGE=${{ steps.doppler.outputs.CODER_IMAGE || secrets.CODER_IMAGE }}" >> $GITHUB_OUTPUT
+          echo "BROWSER_SANDBOX_IMAGE=${{ steps.doppler.outputs.BROWSER_SANDBOX_IMAGE || secrets.BROWSER_SANDBOX_IMAGE }}" >> $GITHUB_OUTPUT
+          echo "NVIDIA_API_KEY=${{ steps.doppler.outputs.NVIDIA_API_KEY || secrets.NVIDIA_API_KEY }}" >> $GITHUB_OUTPUT
+          echo "KIMI_API_KEY=${{ steps.doppler.outputs.KIMI_API_KEY || secrets.KIMI_API_KEY }}" >> $GITHUB_OUTPUT
+          echo "GIT_TOKEN=${{ steps.doppler.outputs.GIT_TOKEN || secrets.GIT_TOKEN }}" >> $GITHUB_OUTPUT
+          echo "GIT_USER_NAME=${{ steps.doppler.outputs.GIT_USER_NAME || secrets.GIT_USER_NAME }}" >> $GITHUB_OUTPUT
+          echo "GIT_USER_EMAIL=${{ steps.doppler.outputs.GIT_USER_EMAIL || secrets.GIT_USER_EMAIL }}" >> $GITHUB_OUTPUT
+          echo "GIT_ORG_URL=${{ steps.doppler.outputs.GIT_ORG_URL || secrets.GIT_ORG_URL }}" >> $GITHUB_OUTPUT
+          echo "TZ=${{ steps.doppler.outputs.TZ || secrets.TZ }}" >> $GITHUB_OUTPUT
+          echo "STORAGE_ADMIN_PASSWORD=${{ steps.doppler.outputs.STORAGE_ADMIN_PASSWORD || secrets.STORAGE_ADMIN_PASSWORD }}" >> $GITHUB_OUTPUT
+          echo "STORAGE_SHELDON_PASSWORD=${{ steps.doppler.outputs.STORAGE_SHELDON_PASSWORD || secrets.STORAGE_SHELDON_PASSWORD }}" >> $GITHUB_OUTPUT
+
       - name: Setup VPS (first-run)
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ steps.doppler.outputs.VPS_HOST }}
-          username: ${{ steps.doppler.outputs.VPS_USER }}
-          key: ${{ steps.doppler.outputs.VPS_SSH_KEY }}
+          host: ${{ steps.secrets.outputs.VPS_HOST }}
+          username: ${{ steps.secrets.outputs.VPS_USER }}
+          key: ${{ steps.secrets.outputs.VPS_SSH_KEY }}
           script: |
             set -e
 
@@ -139,7 +174,7 @@ jobs:
             if [ ! -f /opt/sheldon/headscale/config.yaml ]; then
               echo "Generating headscale config..."
               cat > /opt/sheldon/headscale/config.yaml << 'HSEOF'
-            server_url: https://hs.${{ steps.doppler.outputs.DOMAIN }}
+            server_url: https://hs.${{ steps.secrets.outputs.DOMAIN }}
             listen_addr: 0.0.0.0:8080
             metrics_listen_addr: 127.0.0.1:9090
             grpc_listen_addr: 127.0.0.1:50443
@@ -174,37 +209,37 @@ jobs:
         run: |
           cat > .env << 'EOF'
           # Generated by Doppler via GitHub Actions
-          TELEGRAM_TOKEN=${{ steps.doppler.outputs.TELEGRAM_TOKEN }}
-          OWNER_CHAT_ID=${{ steps.doppler.outputs.OWNER_CHAT_ID }}
-          ANTHROPIC_API_KEY=${{ steps.doppler.outputs.ANTHROPIC_API_KEY }}
-          DOMAIN=${{ steps.doppler.outputs.DOMAIN }}
-          ACME_EMAIL=${{ steps.doppler.outputs.ACME_EMAIL }}
-          HEARTBEAT_CHAT_ID=${{ steps.doppler.outputs.HEARTBEAT_CHAT_ID }}
-          EMBEDDER_PROVIDER=${{ steps.doppler.outputs.EMBEDDER_PROVIDER }}
-          EMBEDDER_BASE_URL=${{ steps.doppler.outputs.EMBEDDER_BASE_URL }}
-          EMBEDDER_MODEL=${{ steps.doppler.outputs.EMBEDDER_MODEL }}
-          CODER_ENABLED=${{ steps.doppler.outputs.CODER_ENABLED }}
-          CODER_ISOLATED=${{ steps.doppler.outputs.CODER_ISOLATED }}
-          CODER_MODEL=${{ steps.doppler.outputs.CODER_MODEL }}
-          CODER_IMAGE=${{ steps.doppler.outputs.CODER_IMAGE }}
-          BROWSER_SANDBOX_IMAGE=${{ steps.doppler.outputs.BROWSER_SANDBOX_IMAGE }}
-          NVIDIA_API_KEY=${{ steps.doppler.outputs.NVIDIA_API_KEY }}
-          KIMI_API_KEY=${{ steps.doppler.outputs.KIMI_API_KEY }}
-          GIT_TOKEN=${{ steps.doppler.outputs.GIT_TOKEN }}
-          GIT_USER_NAME=${{ steps.doppler.outputs.GIT_USER_NAME }}
-          GIT_USER_EMAIL=${{ steps.doppler.outputs.GIT_USER_EMAIL }}
-          GIT_ORG_URL=${{ steps.doppler.outputs.GIT_ORG_URL }}
-          TZ=${{ steps.doppler.outputs.TZ }}
-          STORAGE_ADMIN_PASSWORD=${{ steps.doppler.outputs.STORAGE_ADMIN_PASSWORD }}
-          STORAGE_SHELDON_PASSWORD=${{ steps.doppler.outputs.STORAGE_SHELDON_PASSWORD }}
+          TELEGRAM_TOKEN=${{ steps.secrets.outputs.TELEGRAM_TOKEN }}
+          OWNER_CHAT_ID=${{ steps.secrets.outputs.OWNER_CHAT_ID }}
+          ANTHROPIC_API_KEY=${{ steps.secrets.outputs.ANTHROPIC_API_KEY }}
+          DOMAIN=${{ steps.secrets.outputs.DOMAIN }}
+          ACME_EMAIL=${{ steps.secrets.outputs.ACME_EMAIL }}
+          HEARTBEAT_CHAT_ID=${{ steps.secrets.outputs.HEARTBEAT_CHAT_ID }}
+          EMBEDDER_PROVIDER=${{ steps.secrets.outputs.EMBEDDER_PROVIDER }}
+          EMBEDDER_BASE_URL=${{ steps.secrets.outputs.EMBEDDER_BASE_URL }}
+          EMBEDDER_MODEL=${{ steps.secrets.outputs.EMBEDDER_MODEL }}
+          CODER_ENABLED=${{ steps.secrets.outputs.CODER_ENABLED }}
+          CODER_ISOLATED=${{ steps.secrets.outputs.CODER_ISOLATED }}
+          CODER_MODEL=${{ steps.secrets.outputs.CODER_MODEL }}
+          CODER_IMAGE=${{ steps.secrets.outputs.CODER_IMAGE }}
+          BROWSER_SANDBOX_IMAGE=${{ steps.secrets.outputs.BROWSER_SANDBOX_IMAGE }}
+          NVIDIA_API_KEY=${{ steps.secrets.outputs.NVIDIA_API_KEY }}
+          KIMI_API_KEY=${{ steps.secrets.outputs.KIMI_API_KEY }}
+          GIT_TOKEN=${{ steps.secrets.outputs.GIT_TOKEN }}
+          GIT_USER_NAME=${{ steps.secrets.outputs.GIT_USER_NAME }}
+          GIT_USER_EMAIL=${{ steps.secrets.outputs.GIT_USER_EMAIL }}
+          GIT_ORG_URL=${{ steps.secrets.outputs.GIT_ORG_URL }}
+          TZ=${{ steps.secrets.outputs.TZ }}
+          STORAGE_ADMIN_PASSWORD=${{ steps.secrets.outputs.STORAGE_ADMIN_PASSWORD }}
+          STORAGE_SHELDON_PASSWORD=${{ steps.secrets.outputs.STORAGE_SHELDON_PASSWORD }}
           EOF
 
       - name: Copy docker-compose.yml
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ steps.doppler.outputs.VPS_HOST }}
-          username: ${{ steps.doppler.outputs.VPS_USER }}
-          key: ${{ steps.doppler.outputs.VPS_SSH_KEY }}
+          host: ${{ steps.secrets.outputs.VPS_HOST }}
+          username: ${{ steps.secrets.outputs.VPS_USER }}
+          key: ${{ steps.secrets.outputs.VPS_SSH_KEY }}
           source: "core/deploy/docker-compose.yml"
           target: "/opt/sheldon/"
           strip_components: 2
@@ -212,18 +247,18 @@ jobs:
       - name: Copy .env
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ steps.doppler.outputs.VPS_HOST }}
-          username: ${{ steps.doppler.outputs.VPS_USER }}
-          key: ${{ steps.doppler.outputs.VPS_SSH_KEY }}
+          host: ${{ steps.secrets.outputs.VPS_HOST }}
+          username: ${{ steps.secrets.outputs.VPS_USER }}
+          key: ${{ steps.secrets.outputs.VPS_SSH_KEY }}
           source: ".env"
           target: "/opt/sheldon/"
 
       - name: Copy essence files
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ steps.doppler.outputs.VPS_HOST }}
-          username: ${{ steps.doppler.outputs.VPS_USER }}
-          key: ${{ steps.doppler.outputs.VPS_SSH_KEY }}
+          host: ${{ steps.secrets.outputs.VPS_HOST }}
+          username: ${{ steps.secrets.outputs.VPS_USER }}
+          key: ${{ steps.secrets.outputs.VPS_SSH_KEY }}
           source: "core/essence/"
           target: "/opt/sheldon/essence/"
           strip_components: 2
@@ -231,9 +266,9 @@ jobs:
       - name: Copy skills
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ steps.doppler.outputs.VPS_HOST }}
-          username: ${{ steps.doppler.outputs.VPS_USER }}
-          key: ${{ steps.doppler.outputs.VPS_SSH_KEY }}
+          host: ${{ steps.secrets.outputs.VPS_HOST }}
+          username: ${{ steps.secrets.outputs.VPS_USER }}
+          key: ${{ steps.secrets.outputs.VPS_SSH_KEY }}
           source: "skills/"
           target: "/opt/sheldon/skills/"
           strip_components: 1
@@ -241,9 +276,9 @@ jobs:
       - name: Copy headscale config
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ steps.doppler.outputs.VPS_HOST }}
-          username: ${{ steps.doppler.outputs.VPS_USER }}
-          key: ${{ steps.doppler.outputs.VPS_SSH_KEY }}
+          host: ${{ steps.secrets.outputs.VPS_HOST }}
+          username: ${{ steps.secrets.outputs.VPS_USER }}
+          key: ${{ steps.secrets.outputs.VPS_SSH_KEY }}
           source: "core/deploy/headscale/"
           target: "/opt/sheldon/headscale/"
           strip_components: 3
@@ -251,17 +286,17 @@ jobs:
       - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ steps.doppler.outputs.VPS_HOST }}
-          username: ${{ steps.doppler.outputs.VPS_USER }}
-          key: ${{ steps.doppler.outputs.VPS_SSH_KEY }}
+          host: ${{ steps.secrets.outputs.VPS_HOST }}
+          username: ${{ steps.secrets.outputs.VPS_USER }}
+          key: ${{ steps.secrets.outputs.VPS_SSH_KEY }}
           script: |
             cd /opt/sheldon
 
             # Substitute domain in headscale config
-            sed -i "s/DOMAIN_PLACEHOLDER/${{ steps.doppler.outputs.DOMAIN }}/g" /opt/sheldon/headscale/config.yaml
+            sed -i "s/DOMAIN_PLACEHOLDER/${{ steps.secrets.outputs.DOMAIN }}/g" /opt/sheldon/headscale/config.yaml
 
             # Login to registry
-            echo "${{ steps.doppler.outputs.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo "${{ steps.secrets.outputs.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
             # Pull images (compose services + sandbox images)
             docker compose pull
