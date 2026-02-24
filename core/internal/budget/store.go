@@ -3,8 +3,6 @@ package budget
 import (
 	"database/sql"
 	"time"
-
-	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
 const schema = `
@@ -28,15 +26,9 @@ type Store struct {
 	timezone *time.Location
 }
 
-// NewStore creates a usage store with its own SQLite database file
-func NewStore(dbPath string, timezone *time.Location) (*Store, error) {
-	db, err := sql.Open("sqlite3", dbPath+"?_journal_mode=WAL&_busy_timeout=5000")
-	if err != nil {
-		return nil, err
-	}
-
+// NewStore creates a usage store using the provided database connection
+func NewStore(db *sql.DB, timezone *time.Location) (*Store, error) {
 	if _, err := db.Exec(schema); err != nil {
-		db.Close()
 		return nil, err
 	}
 
@@ -46,11 +38,6 @@ func NewStore(dbPath string, timezone *time.Location) (*Store, error) {
 	}
 
 	return &Store{db: db, timezone: tz}, nil
-}
-
-// Close closes the database connection
-func (s *Store) Close() error {
-	return s.db.Close()
 }
 
 type UsageRecord struct {

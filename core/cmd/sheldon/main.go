@@ -23,6 +23,7 @@ import (
 	"github.com/bowerhall/sheldon/internal/embedder"
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldon/internal/logger"
+	"github.com/bowerhall/sheldon/internal/operational"
 	"github.com/bowerhall/sheldon/internal/storage"
 	"github.com/bowerhall/sheldon/internal/tools"
 	"github.com/bowerhall/sheldonmem"
@@ -88,8 +89,16 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to open memory", "error", err)
 	}
-
 	defer memory.Close()
+
+	// operational database for ephemeral data (usage, conversation buffer)
+	opsDBPath := filepath.Join(filepath.Dir(cfg.MemoryPath), "operational.db")
+	opsStore, err := operational.Open(opsDBPath)
+	if err != nil {
+		logger.Fatal("failed to open operational store", "error", err)
+	}
+	defer opsStore.Close()
+	logger.Debug("operational store opened", "path", opsDBPath)
 
 	emb, err := embedder.New(embedder.Config{
 		Provider: cfg.Embedder.Provider,
@@ -200,15 +209,13 @@ func main() {
 	tools.RegisterCronTools(sheldon.Registry(), cronStore, cronTz)
 	logger.Info("cron tools enabled", "timezone", cfg.Timezone)
 
-	// conversation buffer for recent message continuity (separate db file)
-	convoDBPath := filepath.Join(filepath.Dir(cfg.MemoryPath), "conversation.db")
-	convoStore, err := conversation.NewStore(convoDBPath)
+	// conversation buffer for recent message continuity
+	convoStore, err := conversation.NewStore(opsStore.DB())
 	if err != nil {
 		logger.Fatal("failed to create conversation store", "error", err)
 	}
-	defer convoStore.Close()
 	sheldon.SetConversationStore(convoStore)
-	logger.Info("conversation buffer enabled", "max_messages", 12, "db", convoDBPath)
+	logger.Info("conversation buffer enabled", "max_messages", 12)
 
 	// minio storage (optional)
 	var storageClient *storage.Client
@@ -359,16 +366,14 @@ func main() {
 			},
 		)
 
-		// Create usage store for persistent cost tracking (separate db file)
-		usageDBPath := filepath.Join(filepath.Dir(cfg.MemoryPath), "usage.db")
-		usageStore, err := budget.NewStore(usageDBPath, tz)
+		// Create usage store for persistent cost tracking
+		usageStore, err := budget.NewStore(opsStore.DB(), tz)
 		if err != nil {
 			logger.Warn("failed to create usage store", "error", err)
 		} else {
-			defer usageStore.Close()
 			tracker.SetStore(usageStore)
 			tools.RegisterUsageTools(sheldon.Registry(), usageStore, tz)
-			logger.Info("usage tracking enabled", "db", usageDBPath)
+			logger.Info("usage tracking enabled")
 		}
 
 		sheldon.SetBudget(tracker)
