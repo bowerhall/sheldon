@@ -111,6 +111,7 @@ func main() {
 
 	sheldon := agent.New(model, extractor, memory, cfg.EssencePath, cfg.Timezone)
 
+	var coderBridge *coder.Bridge
 	if cfg.Coder.Enabled {
 		bridgeCfg := coder.BridgeConfig{
 			SandboxDir:     cfg.Coder.SandboxDir,
@@ -127,12 +128,13 @@ func main() {
 			GitToken:       cfg.Coder.Git.Token,
 		}
 
-		bridge, err := coder.NewBridgeWithConfig(bridgeCfg)
+		var err error
+		coderBridge, err = coder.NewBridgeWithConfig(bridgeCfg)
 		if err != nil {
 			logger.Fatal("failed to create coder bridge", "error", err)
 		}
 
-		tools.RegisterCoderTool(sheldon.Registry(), bridge, memory)
+		tools.RegisterCoderTool(sheldon.Registry(), coderBridge, memory)
 
 		builder, err := deployer.NewBuilder(cfg.Coder.SandboxDir + "/builds")
 		if err != nil {
@@ -226,6 +228,10 @@ func main() {
 			} else {
 				tools.RegisterStorageTools(sheldon.Registry(), storageClient)
 				tools.RegisterBackupTool(sheldon.Registry(), storageClient, cfg.MemoryPath)
+				if coderBridge != nil {
+					tools.RegisterCoderStorageTools(sheldon.Registry(), coderBridge, storageClient)
+					logger.Info("coder storage tools enabled")
+				}
 				logger.Info("storage enabled", "endpoint", cfg.Storage.Endpoint)
 			}
 			cancel()
