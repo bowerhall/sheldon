@@ -41,7 +41,21 @@ func NewTracker(cfg Config, onWarn, onExceeded func(used, limit int)) *Tracker {
 }
 
 func (t *Tracker) SetStore(s *Store) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	t.store = s
+
+	// load today's usage from persistent store
+	if s != nil {
+		if tokens, err := s.TodayTokens(); err == nil {
+			t.tokens = tokens
+			// check if we should have already warned
+			if float64(t.tokens) >= float64(t.dailyLimit)*t.warnAt {
+				t.warnSent = true
+			}
+		}
+	}
 }
 
 func (t *Tracker) Store() *Store {

@@ -119,6 +119,14 @@ func (s *Store) ThisMonth() (*Summary, error) {
 	return s.SummaryRange(start, end)
 }
 
+func (s *Store) TodayTokens() (int, error) {
+	summary, err := s.Today()
+	if err != nil {
+		return 0, err
+	}
+	return summary.TotalInputTokens + summary.TotalOutputTokens, nil
+}
+
 type ModelBreakdown struct {
 	Model        string
 	Requests     int
