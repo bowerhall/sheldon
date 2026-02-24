@@ -8,7 +8,8 @@ type RecallResult struct {
 }
 
 type RecallOptions struct {
-	Depth int // graph traversal depth, default 1
+	Depth            int  // graph traversal depth, default 1
+	ExcludeSensitive bool // if true, exclude sensitive facts from results
 }
 
 func (s *Store) Recall(ctx context.Context, query string, domainIDs []int, limit int) (*RecallResult, error) {
@@ -27,13 +28,21 @@ func (s *Store) RecallWithOptions(ctx context.Context, query string, domainIDs [
 	}
 
 	// 1. Hybrid search for facts (semantic + keyword)
-	facts, err := s.HybridSearch(ctx, query, domainIDs, limit)
-	if err != nil {
-		// fall back to keyword search
-		facts, err = s.SearchFacts(query, domainIDs)
+	var facts []*Fact
+	var err error
+	if opts.ExcludeSensitive {
+		facts, err = s.HybridSearchSafe(ctx, query, domainIDs, limit)
 		if err != nil {
-			return nil, err
+			facts, err = s.SearchFactsSafe(query, domainIDs)
 		}
+	} else {
+		facts, err = s.HybridSearch(ctx, query, domainIDs, limit)
+		if err != nil {
+			facts, err = s.SearchFacts(query, domainIDs)
+		}
+	}
+	if err != nil {
+		return nil, err
 	}
 	result.Facts = facts
 

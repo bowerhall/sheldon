@@ -56,6 +56,7 @@ type Fact struct {
 	LastAccessed *time.Time
 	Supersedes   *int64
 	Active       bool
+	Sensitive    bool
 	CreatedAt    time.Time
 }
 

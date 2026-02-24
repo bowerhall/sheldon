@@ -82,8 +82,9 @@ type MultiBot struct {
 }
 
 type BotInstance struct {
-	Enabled bool
-	Token   string
+	Enabled     bool
+	Token       string
+	OwnerChatID int64
 }
 
 // HeartbeatConfig is kept for backwards compatibility with env vars.

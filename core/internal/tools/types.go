@@ -20,6 +20,7 @@ type ctxKey string
 
 const ChatIDKey ctxKey = "chatID"
 const MediaKey ctxKey = "media"
+const SafeModeKey ctxKey = "safeMode"
 
 func ChatIDFromContext(ctx context.Context) int64 {
 	if id, ok := ctx.Value(ChatIDKey).(int64); ok {
@@ -33,4 +34,11 @@ func MediaFromContext(ctx context.Context) []llm.MediaContent {
 		return media
 	}
 	return nil
+}
+
+func SafeModeFromContext(ctx context.Context) bool {
+	if safe, ok := ctx.Value(SafeModeKey).(bool); ok {
+		return safe
+	}
+	return false
 }

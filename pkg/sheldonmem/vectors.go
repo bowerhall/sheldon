@@ -73,7 +73,7 @@ func (s *Store) SemanticSearch(ctx context.Context, query string, domainIDs []in
 
 	q := fmt.Sprintf(`
 		SELECT f.id, f.entity_id, f.domain_id, f.field, f.value, f.confidence,
-		       f.access_count, f.active, f.created_at, v.distance
+		       f.access_count, f.active, f.sensitive, f.created_at, v.distance
 		FROM vec_facts v
 		JOIN facts f ON v.fact_id = f.id
 		WHERE f.active = 1
@@ -93,7 +93,7 @@ func (s *Store) SemanticSearch(ctx context.Context, query string, domainIDs []in
 	for rows.Next() {
 		var f Fact
 		var distance float32
-		if err := rows.Scan(&f.ID, &f.EntityID, &f.DomainID, &f.Field, &f.Value, &f.Confidence, &f.AccessCount, &f.Active, &f.CreatedAt, &distance); err != nil {
+		if err := rows.Scan(&f.ID, &f.EntityID, &f.DomainID, &f.Field, &f.Value, &f.Confidence, &f.AccessCount, &f.Active, &f.Sensitive, &f.CreatedAt, &distance); err != nil {
 			return nil, err
 		}
 		results = append(results, &ScoredFact{Fact: &f, Distance: distance})
@@ -103,7 +103,22 @@ func (s *Store) SemanticSearch(ctx context.Context, query string, domainIDs []in
 }
 
 func (s *Store) HybridSearch(ctx context.Context, query string, domainIDs []int, limit int) ([]*Fact, error) {
-	keywordFacts, err := s.SearchFacts(query, domainIDs)
+	return s.hybridSearch(ctx, query, domainIDs, limit, false)
+}
+
+// HybridSearchSafe searches but excludes sensitive facts
+func (s *Store) HybridSearchSafe(ctx context.Context, query string, domainIDs []int, limit int) ([]*Fact, error) {
+	return s.hybridSearch(ctx, query, domainIDs, limit, true)
+}
+
+func (s *Store) hybridSearch(ctx context.Context, query string, domainIDs []int, limit int, excludeSensitive bool) ([]*Fact, error) {
+	var keywordFacts []*Fact
+	var err error
+	if excludeSensitive {
+		keywordFacts, err = s.SearchFactsSafe(query, domainIDs)
+	} else {
+		keywordFacts, err = s.SearchFacts(query, domainIDs)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -127,6 +142,10 @@ func (s *Store) HybridSearch(ctx context.Context, query string, domainIDs []int,
 	var results []*Fact
 
 	for _, sf := range semanticFacts {
+		// Filter sensitive facts if excludeSensitive is true
+		if excludeSensitive && sf.Fact.Sensitive {
+			continue
+		}
 		if !seen[sf.Fact.ID] {
 			seen[sf.Fact.ID] = true
 			results = append(results, sf.Fact)

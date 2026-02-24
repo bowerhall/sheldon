@@ -17,11 +17,13 @@ const (
 	queryGetExistingFact   = `SELECT id, value FROM facts WHERE domain_id = ? AND field = ? AND entity_id IS ? AND active = 1`
 	queryDeactivateFact    = `UPDATE facts SET active = 0 WHERE id = ?`
 	queryTouchFact         = `UPDATE facts SET access_count = access_count + 1, last_accessed = datetime('now') WHERE id = ?`
-	queryInsertFact        = `INSERT INTO facts (entity_id, domain_id, field, value, confidence, supersedes) VALUES (?, ?, ?, ?, ?, ?)`
-	queryGetFactsByDomain  = `SELECT id, entity_id, domain_id, field, value, confidence, access_count, active, created_at FROM facts WHERE domain_id = ? AND active = 1`
-	queryGetFactsByEntity  = `SELECT id, entity_id, domain_id, field, value, confidence, access_count, active, created_at FROM facts WHERE entity_id = ? AND active = 1`
-	querySearchFactsPrefix = `SELECT id, entity_id, domain_id, field, value, confidence, access_count, active, created_at FROM facts WHERE active = 1 AND (value LIKE ? OR field LIKE ?) AND domain_id IN (`
+	queryInsertFact        = `INSERT INTO facts (entity_id, domain_id, field, value, confidence, supersedes, sensitive) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	queryMarkSensitive     = `UPDATE facts SET sensitive = ? WHERE id = ?`
+	queryGetFactsByDomain  = `SELECT id, entity_id, domain_id, field, value, confidence, access_count, active, sensitive, created_at FROM facts WHERE domain_id = ? AND active = 1`
+	queryGetFactsByEntity  = `SELECT id, entity_id, domain_id, field, value, confidence, access_count, active, sensitive, created_at FROM facts WHERE entity_id = ? AND active = 1`
+	querySearchFactsPrefix = `SELECT id, entity_id, domain_id, field, value, confidence, access_count, active, sensitive, created_at FROM facts WHERE active = 1 AND (value LIKE ? OR field LIKE ?) AND domain_id IN (`
 	querySearchFactsSuffix = `) ORDER BY (confidence * 0.7 + (1.0 / (julianday('now') - julianday(COALESCE(last_accessed, created_at)) + 1)) * 0.3) DESC LIMIT 20`
+	querySearchFactsSafePrefix = `SELECT id, entity_id, domain_id, field, value, confidence, access_count, active, sensitive, created_at FROM facts WHERE active = 1 AND sensitive = 0 AND (value LIKE ? OR field LIKE ?) AND domain_id IN (`
 
 	queryGetSupersededFacts = `SELECT id, entity_id, domain_id, field, value, confidence, access_count, active, created_at FROM facts WHERE active = 0 AND field = ? AND entity_id IS ? ORDER BY created_at DESC LIMIT 3`
 

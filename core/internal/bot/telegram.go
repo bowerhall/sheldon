@@ -15,13 +15,13 @@ import (
 
 const maxMediaSize = 20 * 1024 * 1024 // 20MB limit for media
 
-func newTelegram(token string, agent *agent.Agent) (Bot, error) {
+func newTelegram(token string, agent *agent.Agent, ownerChatID int64) (Bot, error) {
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, err
 	}
 
-	return &telegram{api: api, agent: agent}, nil
+	return &telegram{api: api, agent: agent, ownerChatID: ownerChatID}, nil
 }
 
 func (t *telegram) Start(ctx context.Context) error {
@@ -44,6 +44,12 @@ func (t *telegram) Start(ctx context.Context) error {
 }
 
 func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
+	// Ignore messages from non-owner chats if owner is configured
+	if t.ownerChatID != 0 && msg.Chat.ID != t.ownerChatID {
+		logger.Warn("ignoring message from unauthorized chat", "chatID", msg.Chat.ID, "from", msg.From.UserName)
+		return
+	}
+
 	sessionID := fmt.Sprintf("telegram:%d", msg.Chat.ID)
 
 	var media []llm.MediaContent

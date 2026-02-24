@@ -3,10 +3,14 @@ package sheldonmem
 import "context"
 
 func (s *Store) AddFact(entityID *int64, domainID int, field, value string, confidence float64) (*FactResult, error) {
-	return s.AddFactWithContext(context.Background(), entityID, domainID, field, value, confidence)
+	return s.AddFactWithContext(context.Background(), entityID, domainID, field, value, confidence, false)
 }
 
-func (s *Store) AddFactWithContext(ctx context.Context, entityID *int64, domainID int, field, value string, confidence float64) (*FactResult, error) {
+func (s *Store) AddSensitiveFact(entityID *int64, domainID int, field, value string, confidence float64) (*FactResult, error) {
+	return s.AddFactWithContext(context.Background(), entityID, domainID, field, value, confidence, true)
+}
+
+func (s *Store) AddFactWithContext(ctx context.Context, entityID *int64, domainID int, field, value string, confidence float64, sensitive bool) (*FactResult, error) {
 	// 1. Check exact field match first
 	var existingID int64
 	var existingValue string
@@ -23,7 +27,7 @@ func (s *Store) AddFactWithContext(ctx context.Context, entityID *int64, domainI
 		}
 
 		s.DeleteFactEmbedding(existingID)
-		fact, err := s.insertFact(ctx, entityID, domainID, field, value, confidence, &existingID)
+		fact, err := s.insertFact(ctx, entityID, domainID, field, value, confidence, &existingID, sensitive)
 		if err != nil {
 			return nil, err
 		}
@@ -51,7 +55,7 @@ func (s *Store) AddFactWithContext(ctx context.Context, entityID *int64, domainI
 				return nil, err
 			}
 			s.DeleteFactEmbedding(similar.ID)
-			fact, err := s.insertFact(ctx, entityID, domainID, field, value, confidence, &similar.ID)
+			fact, err := s.insertFact(ctx, entityID, domainID, field, value, confidence, &similar.ID, sensitive)
 			if err != nil {
 				return nil, err
 			}
@@ -60,15 +64,15 @@ func (s *Store) AddFactWithContext(ctx context.Context, entityID *int64, domainI
 	}
 
 	// 3. No match → insert new
-	fact, err := s.insertFact(ctx, entityID, domainID, field, value, confidence, nil)
+	fact, err := s.insertFact(ctx, entityID, domainID, field, value, confidence, nil, sensitive)
 	if err != nil {
 		return nil, err
 	}
 	return &FactResult{Fact: fact}, nil
 }
 
-func (s *Store) insertFact(ctx context.Context, entityID *int64, domainID int, field, value string, confidence float64, supersedes *int64) (*Fact, error) {
-	result, err := s.db.Exec(queryInsertFact, entityID, domainID, field, value, confidence, supersedes)
+func (s *Store) insertFact(ctx context.Context, entityID *int64, domainID int, field, value string, confidence float64, supersedes *int64, sensitive bool) (*Fact, error) {
+	result, err := s.db.Exec(queryInsertFact, entityID, domainID, field, value, confidence, supersedes, sensitive)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +91,14 @@ func (s *Store) insertFact(ctx context.Context, entityID *int64, domainID int, f
 		Confidence: confidence,
 		Supersedes: supersedes,
 		Active:     true,
+		Sensitive:  sensitive,
 	}, nil
+}
+
+// MarkSensitive marks a fact as sensitive or not
+func (s *Store) MarkSensitive(factID int64, sensitive bool) error {
+	_, err := s.db.Exec(queryMarkSensitive, sensitive, factID)
+	return err
 }
 
 func (s *Store) GetFactsByDomain(domainID int) ([]*Fact, error) {
@@ -101,7 +112,7 @@ func (s *Store) GetFactsByDomain(domainID int) ([]*Fact, error) {
 
 	for rows.Next() {
 		var f Fact
-		if err := rows.Scan(&f.ID, &f.EntityID, &f.DomainID, &f.Field, &f.Value, &f.Confidence, &f.AccessCount, &f.Active, &f.CreatedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.EntityID, &f.DomainID, &f.Field, &f.Value, &f.Confidence, &f.AccessCount, &f.Active, &f.Sensitive, &f.CreatedAt); err != nil {
 			return nil, err
 		}
 
@@ -122,7 +133,7 @@ func (s *Store) GetFactsByEntity(entityID int64) ([]*Fact, error) {
 
 	for rows.Next() {
 		var f Fact
-		if err := rows.Scan(&f.ID, &f.EntityID, &f.DomainID, &f.Field, &f.Value, &f.Confidence, &f.AccessCount, &f.Active, &f.CreatedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.EntityID, &f.DomainID, &f.Field, &f.Value, &f.Confidence, &f.AccessCount, &f.Active, &f.Sensitive, &f.CreatedAt); err != nil {
 			return nil, err
 		}
 
@@ -196,6 +207,15 @@ func (s *Store) GetSupersededFacts(field string, entityID *int64) ([]*Fact, erro
 }
 
 func (s *Store) SearchFacts(query string, domainIDs []int) ([]*Fact, error) {
+	return s.searchFacts(query, domainIDs, false)
+}
+
+// SearchFactsSafe searches facts but excludes sensitive ones
+func (s *Store) SearchFactsSafe(query string, domainIDs []int) ([]*Fact, error) {
+	return s.searchFacts(query, domainIDs, true)
+}
+
+func (s *Store) searchFacts(query string, domainIDs []int, excludeSensitive bool) ([]*Fact, error) {
 	if len(domainIDs) == 0 {
 		return nil, nil
 	}
@@ -211,7 +231,12 @@ func (s *Store) SearchFacts(query string, domainIDs []int) ([]*Fact, error) {
 		args = append(args, id)
 	}
 
-	rows, err := s.db.Query(querySearchFactsPrefix+placeholders+querySearchFactsSuffix, args...)
+	prefix := querySearchFactsPrefix
+	if excludeSensitive {
+		prefix = querySearchFactsSafePrefix
+	}
+
+	rows, err := s.db.Query(prefix+placeholders+querySearchFactsSuffix, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +246,7 @@ func (s *Store) SearchFacts(query string, domainIDs []int) ([]*Fact, error) {
 
 	for rows.Next() {
 		var f Fact
-		if err := rows.Scan(&f.ID, &f.EntityID, &f.DomainID, &f.Field, &f.Value, &f.Confidence, &f.AccessCount, &f.Active, &f.CreatedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.EntityID, &f.DomainID, &f.Field, &f.Value, &f.Confidence, &f.AccessCount, &f.Active, &f.Sensitive, &f.CreatedAt); err != nil {
 			return nil, err
 		}
 		facts = append(facts, &f)

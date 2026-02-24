@@ -15,11 +15,13 @@ type Bot interface {
 }
 
 type Config struct {
-	Provider string
-	Token    string
+	Provider    string
+	Token       string
+	OwnerChatID int64
 }
 
 type telegram struct {
-	api   *tgbotapi.BotAPI
-	agent *agent.Agent
+	api         *tgbotapi.BotAPI
+	agent       *agent.Agent
+	ownerChatID int64
 }

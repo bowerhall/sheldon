@@ -22,6 +22,12 @@ type SaveMemoryArgs struct {
 	Value      string  `json:"value"`
 	Domain     string  `json:"domain,omitempty"`
 	Confidence float64 `json:"confidence,omitempty"`
+	Sensitive  bool    `json:"sensitive,omitempty"`
+}
+
+type MarkSensitiveArgs struct {
+	Field     string `json:"field"`
+	Sensitive bool   `json:"sensitive"`
 }
 
 var domainNameToID = map[string]int{
@@ -83,6 +89,10 @@ The user must signal intent to save with words like "remember", "save", "don't f
 					"type":        "number",
 					"description": "How certain is this fact? 0.0-1.0. Use 1.0 for explicit user statements. Default: 1.0",
 				},
+				"sensitive": map[string]any{
+					"type":        "boolean",
+					"description": "Mark as sensitive (passwords, tokens, private keys, financial details). Sensitive facts are excluded when recalling during web browsing to prevent prompt injection extraction. Default: false",
+				},
 			},
 			"required": []string{"field", "value"},
 		},
@@ -129,7 +139,12 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			}
 		}
 
-		result, err := memory.AddFact(&entity.ID, domainID, params.Field, params.Value, confidence)
+		var result *sheldonmem.FactResult
+		if params.Sensitive {
+			result, err = memory.AddSensitiveFact(&entity.ID, domainID, params.Field, params.Value, confidence)
+		} else {
+			result, err = memory.AddFact(&entity.ID, domainID, params.Field, params.Value, confidence)
+		}
 		if err != nil {
 			return "", fmt.Errorf("failed to save: %w", err)
 		}
@@ -139,11 +154,16 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			subjectLabel = "self"
 		}
 
-		if result.Superseded != nil {
-			return fmt.Sprintf("Updated (%s): %s = %s (was: %s)", subjectLabel, params.Field, params.Value, result.Superseded.Value), nil
+		sensitiveLabel := ""
+		if params.Sensitive {
+			sensitiveLabel = " [SENSITIVE]"
 		}
 
-		return fmt.Sprintf("Saved (%s): %s = %s", subjectLabel, params.Field, params.Value), nil
+		if result.Superseded != nil {
+			return fmt.Sprintf("Updated (%s): %s = %s (was: %s)%s", subjectLabel, params.Field, params.Value, result.Superseded.Value, sensitiveLabel), nil
+		}
+
+		return fmt.Sprintf("Saved (%s): %s = %s%s", subjectLabel, params.Field, params.Value, sensitiveLabel), nil
 	})
 
 	recallTool := llm.Tool{
@@ -186,7 +206,10 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			depth = 1
 		}
 
-		opts := sheldonmem.RecallOptions{Depth: depth}
+		opts := sheldonmem.RecallOptions{
+			Depth:            depth,
+			ExcludeSensitive: SafeModeFromContext(ctx),
+		}
 		result, err := memory.RecallWithOptions(ctx, params.Query, domains, 10, opts)
 		if err != nil {
 			return "", err
@@ -201,7 +224,11 @@ The user must signal intent to save with words like "remember", "save", "don't f
 		if len(result.Facts) > 0 {
 			sb.WriteString("Facts:\n")
 			for _, f := range result.Facts {
-				fmt.Fprintf(&sb, "- %s: %s\n", f.Field, f.Value)
+				sensitiveMarker := ""
+				if f.Sensitive {
+					sensitiveMarker = " [SENSITIVE]"
+				}
+				fmt.Fprintf(&sb, "- %s: %s%s\n", f.Field, f.Value, sensitiveMarker)
 
 				// check for superseded (contradicting) values
 				superseded, _ := memory.GetSupersededFacts(f.Field, f.EntityID)
@@ -228,5 +255,64 @@ The user must signal intent to save with words like "remember", "save", "don't f
 		}
 
 		return sb.String(), nil
+	})
+
+	markSensitiveTool := llm.Tool{
+		Name:        "mark_sensitive",
+		Description: "Mark an existing fact as sensitive or not sensitive. Sensitive facts are protected from prompt injection - they won't be revealed when processing web content.",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"field": map[string]any{
+					"type":        "string",
+					"description": "The field name of the fact to mark (e.g., 'api_key', 'password')",
+				},
+				"sensitive": map[string]any{
+					"type":        "boolean",
+					"description": "Whether to mark as sensitive (true) or not sensitive (false)",
+				},
+			},
+			"required": []string{"field", "sensitive"},
+		},
+	}
+
+	registry.Register(markSensitiveTool, func(ctx context.Context, args string) (string, error) {
+		var params MarkSensitiveArgs
+		if err := json.Unmarshal([]byte(args), &params); err != nil {
+			return "", fmt.Errorf("invalid arguments: %w", err)
+		}
+
+		chatID := ChatIDFromContext(ctx)
+		entityName := fmt.Sprintf("user_telegram_%d", chatID)
+		entity, err := memory.FindEntityByName(entityName)
+		if err != nil {
+			return "", fmt.Errorf("could not find user entity: %w", err)
+		}
+
+		facts, err := memory.GetFactsByEntity(entity.ID)
+		if err != nil {
+			return "", fmt.Errorf("could not get facts: %w", err)
+		}
+
+		var found *sheldonmem.Fact
+		for _, f := range facts {
+			if f.Field == params.Field {
+				found = f
+				break
+			}
+		}
+
+		if found == nil {
+			return fmt.Sprintf("No fact found with field '%s'", params.Field), nil
+		}
+
+		if err := memory.MarkSensitive(found.ID, params.Sensitive); err != nil {
+			return "", fmt.Errorf("failed to update: %w", err)
+		}
+
+		if params.Sensitive {
+			return fmt.Sprintf("Marked '%s' as sensitive - it will be protected from prompt injection", params.Field), nil
+		}
+		return fmt.Sprintf("Marked '%s' as not sensitive", params.Field), nil
 	})
 }

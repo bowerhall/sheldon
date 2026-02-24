@@ -9,7 +9,7 @@ import (
 func New(cfg Config, agent *agent.Agent) (Bot, error) {
 	switch cfg.Provider {
 	case "telegram":
-		return NewTelegram(cfg.Token, agent)
+		return NewTelegram(cfg.Token, agent, cfg.OwnerChatID)
 	case "discord":
 		return NewDiscord(cfg.Token, agent)
 	default:
@@ -17,8 +17,8 @@ func New(cfg Config, agent *agent.Agent) (Bot, error) {
 	}
 }
 
-func NewTelegram(token string, agent *agent.Agent) (Bot, error) {
-	return newTelegram(token, agent)
+func NewTelegram(token string, agent *agent.Agent, ownerChatID int64) (Bot, error) {
+	return newTelegram(token, agent, ownerChatID)
 }
 
 func NewDiscord(token string, agent *agent.Agent) (Bot, error) {

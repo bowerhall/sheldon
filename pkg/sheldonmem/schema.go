@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS facts (
     last_accessed DATETIME,
     supersedes INTEGER REFERENCES facts(id),
     active INTEGER DEFAULT 1,
+    sensitive INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT (datetime('now'))
 );
 

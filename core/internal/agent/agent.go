@@ -318,14 +318,29 @@ func (a *Agent) loadSkill(name string) string {
 	return string(content)
 }
 
+// browserTools trigger isolated mode - they process untrusted external content
+var browserTools = map[string]bool{
+	"browse":       true,
+	"browse_click": true,
+	"browse_fill":  true,
+	"search_web":   true,
+}
+
 func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string, error) {
 	availableTools := a.tools.Tools()
 	toolFailures := make(map[string]int) // track consecutive failures per tool
+	isolatedMode := false                // restrict tools after browse/code to prevent prompt injection
 
 	for i := range maxToolIterations {
-		logger.Debug("agent loop iteration", "iteration", i, "messages", len(sess.Messages()))
+		// filter out sensitive tools if we've entered isolated mode
+		loopTools := availableTools
+		if isolatedMode {
+			loopTools = filterIsolatedTools(availableTools)
+		}
 
-		resp, err := a.llm.ChatWithTools(ctx, a.systemPrompt, sess.Messages(), availableTools)
+		logger.Debug("agent loop iteration", "iteration", i, "messages", len(sess.Messages()), "isolatedMode", isolatedMode)
+
+		resp, err := a.llm.ChatWithTools(ctx, a.systemPrompt, sess.Messages(), loopTools)
 		if err != nil {
 			if a.alerts != nil {
 				a.alerts.Critical("llm", "Chat request failed", err)
@@ -349,9 +364,15 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 		sess.AddMessage("assistant", resp.Content, resp.ToolCalls, "")
 
 		for _, tc := range resp.ToolCalls {
-			logger.Info("executing tool", "name", tc.Name)
+			logger.Info("executing tool", "name", tc.Name, "isolatedMode", isolatedMode)
 
 			result, err := a.tools.Execute(ctx, tc.Name, tc.Arguments)
+
+			// enter isolated mode after browser tools to prevent prompt injection
+			if browserTools[tc.Name] {
+				isolatedMode = true
+				logger.Info("entered isolated mode", "trigger", tc.Name)
+			}
 			if err != nil {
 				toolFailures[tc.Name]++
 				logger.Warn("tool execution failed", "name", tc.Name, "error", err, "failures", toolFailures[tc.Name])
@@ -378,6 +399,67 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 
 	logger.Warn("agent loop hit max iterations", "max", maxToolIterations)
 	return "I apologize, but I'm having trouble completing this request. Please try again.", nil
+}
+
+// tools disabled during isolated operations (browse/code) to prevent prompt injection attacks
+// isolated mode is read-only: no state changes allowed after processing untrusted content
+var disabledDuringIsolation = map[string]bool{
+	// data extraction
+	"recall_memory": true,
+
+	// data poisoning
+	"save_memory":     true,
+	"mark_sensitive":  true,
+
+	// config changes
+	"set_config":    true,
+	"reset_config":  true,
+	"switch_model":  true,
+	"pull_model":    true,
+	"remove_model":  true,
+
+	// scheduled tasks
+	"set_cron":    true,
+	"delete_cron": true,
+	"pause_cron":  true,
+	"resume_cron": true,
+
+	// code & deployment
+	"write_code":  true,
+	"deploy_app":  true,
+	"remove_app":  true,
+	"build_image": true,
+
+	// skills
+	"install_skill": true,
+	"save_skill":    true,
+	"remove_skill":  true,
+
+	// file operations
+	"upload_file": true,
+	"delete_file": true,
+	"save_media":  true,
+
+	// external actions
+	"open_pr":     true,
+	"create_repo": true,
+	"send_image":  true,
+	"send_video":  true,
+
+	// container management
+	"start_container":   true,
+	"stop_container":    true,
+	"restart_container": true,
+}
+
+func filterIsolatedTools(tools []llm.Tool) []llm.Tool {
+	filtered := make([]llm.Tool, 0, len(tools))
+	for _, t := range tools {
+		if !disabledDuringIsolation[t.Name] {
+			filtered = append(filtered, t)
+		}
+	}
+	return filtered
 }
 
 // ProcessSystemTrigger handles a scheduled trigger (cron-based). Unlike user messages,

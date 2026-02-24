@@ -199,10 +199,16 @@ func loadMultiBotConfig() MultiBot {
 	telegramToken := os.Getenv("TELEGRAM_TOKEN")
 	discordToken := os.Getenv("DISCORD_TOKEN")
 
+	var ownerChatID int64
+	if id, err := strconv.ParseInt(os.Getenv("OWNER_CHAT_ID"), 10, 64); err == nil {
+		ownerChatID = id
+	}
+
 	return MultiBot{
 		Telegram: BotInstance{
-			Enabled: telegramToken != "",
-			Token:   telegramToken,
+			Enabled:     telegramToken != "",
+			Token:       telegramToken,
+			OwnerChatID: ownerChatID,
 		},
 		Discord: BotInstance{
 			Enabled: discordToken != "",
