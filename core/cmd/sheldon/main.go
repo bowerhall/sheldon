@@ -404,9 +404,21 @@ func main() {
 		embedderProvider = "none"
 	}
 
+	// show actual active model (runtime config overrides env var)
+	activeLLM := cfg.LLM.Provider
+	activeModel := cfg.LLM.Model
+	if runtimeCfg != nil {
+		if p := runtimeCfg.Get("llm_provider"); p != "" {
+			activeLLM = p
+		}
+		if m := runtimeCfg.Get("llm_model"); m != "" {
+			activeModel = m
+		}
+	}
+
 	logger.Info("sheldon started",
 		"bots", enabledProviders,
-		"llm", cfg.LLM.Provider,
+		"llm", activeLLM+"/"+activeModel,
 		"embedder", embedderProvider,
 		"essence", cfg.EssencePath,
 		"memory", cfg.MemoryPath,
