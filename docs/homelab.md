@@ -219,6 +219,103 @@ Sheldon uses three buckets:
 
 ---
 
+## Using Headscale for Personal Devices
+
+Sheldon's Headscale isn't just for homelab-agents - it's a full Tailscale replacement for all your devices.
+
+### Join Your Devices
+
+```bash
+# On any device with Tailscale installed
+tailscale up --login-server=https://hs.yourdomain.com
+```
+
+Approve the device:
+```bash
+# On your VPS
+docker exec headscale headscale nodes list
+docker exec headscale headscale nodes register --user default --key nodekey:xxx
+```
+
+### What You Can Do
+
+| Use Case | Example |
+|----------|---------|
+| SSH between devices | `ssh laptop.sheldon.local` |
+| Access home NAS | `smb://nas.sheldon.local` |
+| Remote desktop | Connect to `desktop.sheldon.local:3389` |
+| Share files | Access any device's services |
+| Exit node | Route traffic through home |
+
+### Magic DNS
+
+All devices get a `.sheldon.local` hostname:
+- `laptop.sheldon.local`
+- `phone.sheldon.local`
+- `gpu-beast.sheldon.local`
+
+---
+
+## Access Control Lists (ACLs)
+
+ACLs restrict which devices can access which services. By default, Sheldon deploys with an ACL that protects the homelab-agent API.
+
+### Default ACL
+
+```json
+{
+  "acls": [
+    {"action": "accept", "src": ["tag:sheldon"], "dst": ["*:8080"]},
+    {"action": "accept", "src": ["*"], "dst": ["*:*"]}
+  ]
+}
+```
+
+**Rule 1:** Only devices tagged `tag:sheldon` can reach port 8080 (homelab-agent)
+**Rule 2:** All other traffic flows normally (full Tailscale functionality)
+
+### Why This Matters
+
+Without the ACL, any device on your Headscale network could manage containers on any machine. With it:
+- Your laptop can access everything **except** homelab-agent APIs
+- Only Sheldon VPS can manage containers remotely
+- Normal networking (SSH, file sharing, etc.) is unaffected
+
+### Tagging Nodes
+
+The CI automatically tags the VPS on deploy. To manually tag:
+
+```bash
+# List nodes
+docker exec headscale headscale nodes list
+
+# Tag a node
+docker exec headscale headscale nodes tag -i <node-id> -t tag:sheldon
+```
+
+### Custom ACLs
+
+Edit `deploy/headscale/acl.json` to customize:
+
+```json
+{
+  "acls": [
+    // Only VPS can access homelab-agent
+    {"action": "accept", "src": ["tag:sheldon"], "dst": ["*:8080"]},
+
+    // Block phone from SSH
+    {"action": "deny", "src": ["phone"], "dst": ["*:22"]},
+
+    // Allow everything else
+    {"action": "accept", "src": ["*"], "dst": ["*:*"]}
+  ]
+}
+```
+
+Push to main and the CI will deploy the new ACL.
+
+---
+
 ## Security Model
 
 ### Network Security
@@ -226,6 +323,7 @@ Sheldon uses three buckets:
 - All traffic between machines is encrypted (WireGuard)
 - No ports exposed to the internet except VPS services
 - Machines authenticate with pre-auth keys (single-use)
+- ACLs restrict homelab-agent access to Sheldon VPS only
 
 ### Permission Boundaries
 
