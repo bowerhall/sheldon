@@ -162,6 +162,17 @@ S3-compatible storage via MinIO for files, backups, and sharing. Access the cons
 
 ---
 
+## Web Interfaces
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| MinIO Console | `https://storage.yourdomain.com` | File browser, buckets, share links |
+| Traefik Dashboard | `https://traefik.yourdomain.com` | Routes, services, TLS certs |
+| Deployed Apps | `https://appname.yourdomain.com` | Apps Sheldon deploys for you |
+| Headscale | CLI only | Private mesh network management |
+
+---
+
 ## Architecture
 
 ```

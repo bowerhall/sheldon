@@ -15,6 +15,7 @@ type Tracker struct {
 	onExceeded func(used, limit int)
 	warnSent   bool
 	timezone   *time.Location
+	store      *Store
 }
 
 type Config struct {
@@ -37,6 +38,14 @@ func NewTracker(cfg Config, onWarn, onExceeded func(used, limit int)) *Tracker {
 		onExceeded: onExceeded,
 		timezone:   tz,
 	}
+}
+
+func (t *Tracker) SetStore(s *Store) {
+	t.store = s
+}
+
+func (t *Tracker) Store() *Store {
+	return t.store
 }
 
 func (t *Tracker) Add(tokens int) bool {
@@ -63,6 +72,16 @@ func (t *Tracker) Add(tokens int) bool {
 	}
 
 	return true
+}
+
+func (t *Tracker) Record(provider, model string, inputTokens, outputTokens int) bool {
+	totalTokens := inputTokens + outputTokens
+
+	if t.store != nil {
+		t.store.Record(provider, model, inputTokens, outputTokens)
+	}
+
+	return t.Add(totalTokens)
 }
 
 func (t *Tracker) Usage() (used, limit int) {

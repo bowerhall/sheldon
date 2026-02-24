@@ -12,9 +12,10 @@ import (
 )
 
 type openaiCompatible struct {
-	apiKey  string
-	baseURL string
-	model   string
+	provider string
+	apiKey   string
+	baseURL  string
+	model    string
 }
 
 type openaiRequest struct {
@@ -79,11 +80,12 @@ type openaiResponse struct {
 	} `json:"error,omitempty"`
 }
 
-func newOpenAICompatible(apiKey, baseURL, model string) LLM {
+func newOpenAICompatible(provider, apiKey, baseURL, model string) LLM {
 	return &openaiCompatible{
-		apiKey:  apiKey,
-		baseURL: baseURL,
-		model:   model,
+		provider: provider,
+		apiKey:   apiKey,
+		baseURL:  baseURL,
+		model:    model,
 	}
 }
 
@@ -259,4 +261,12 @@ func (o *openaiCompatible) Capabilities() Capabilities {
 		VideoInput: false,
 		ToolUse:    true,
 	}
+}
+
+func (o *openaiCompatible) Provider() string {
+	return o.provider
+}
+
+func (o *openaiCompatible) Model() string {
+	return o.model
 }

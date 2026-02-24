@@ -334,7 +334,7 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 		}
 
 		if resp.Usage != nil && a.budget != nil {
-			if !a.budget.Add(resp.Usage.TotalTokens) {
+			if !a.budget.Record(a.llm.Provider(), a.llm.Model(), resp.Usage.PromptTokens, resp.Usage.CompletionTokens) {
 				return "I've reached my daily API limit. Please try again tomorrow!", nil
 			}
 		}

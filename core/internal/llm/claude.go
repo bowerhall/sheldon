@@ -491,3 +491,11 @@ func (c *claude) Capabilities() Capabilities {
 		ToolUse:    true,
 	}
 }
+
+func (c *claude) Provider() string {
+	return "claude"
+}
+
+func (c *claude) Model() string {
+	return c.model
+}

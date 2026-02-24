@@ -351,6 +351,16 @@ func main() {
 			},
 		)
 
+		// Create usage store for persistent cost tracking
+		usageStore, err := budget.NewStore(memory.DB(), tz)
+		if err != nil {
+			logger.Warn("failed to create usage store", "error", err)
+		} else {
+			tracker.SetStore(usageStore)
+			tools.RegisterUsageTools(sheldon.Registry(), usageStore, tz)
+			logger.Info("usage tracking enabled")
+		}
+
 		sheldon.SetBudget(tracker)
 		logger.Info("budget tracking enabled", "limit", cfg.Budget.DailyLimit, "warnAt", cfg.Budget.WarnAt)
 	}

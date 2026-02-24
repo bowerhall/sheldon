@@ -65,4 +65,6 @@ type LLM interface {
 	Chat(ctx context.Context, systemPrompt string, messages []Message) (string, error)
 	ChatWithTools(ctx context.Context, systemPrompt string, messages []Message, tools []Tool) (*ChatResponse, error)
 	Capabilities() Capabilities
+	Provider() string
+	Model() string
 }

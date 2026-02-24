@@ -29,7 +29,7 @@ func New(cfg Config) (LLM, error) {
 			model = "gpt-4o-mini"
 		}
 
-		return newOpenAICompatible(cfg.APIKey, baseURL, model), nil
+		return newOpenAICompatible("openai", cfg.APIKey, baseURL, model), nil
 	case "kimi":
 		model := cfg.Model
 
@@ -37,7 +37,7 @@ func New(cfg Config) (LLM, error) {
 			model = "kimi-k2-0711-preview"
 		}
 
-		return newOpenAICompatible(cfg.APIKey, "https://api.moonshot.ai/v1", model), nil
+		return newOpenAICompatible("kimi", cfg.APIKey, "https://api.moonshot.ai/v1", model), nil
 	case "ollama":
 		baseURL := cfg.BaseURL
 		if baseURL == "" {
@@ -50,14 +50,14 @@ func New(cfg Config) (LLM, error) {
 		}
 
 		// Ollama's OpenAI-compatible endpoint
-		return newOpenAICompatible("ollama", baseURL+"/v1", model), nil
+		return newOpenAICompatible("ollama", "ollama", baseURL+"/v1", model), nil
 	default:
 		// check if it's an OpenAI-compatible provider
 		if baseURL, ok := openAICompatibleProviders[cfg.Provider]; ok {
 			if cfg.BaseURL != "" {
 				baseURL = cfg.BaseURL
 			}
-			return newOpenAICompatible(cfg.APIKey, baseURL, cfg.Model), nil
+			return newOpenAICompatible(cfg.Provider, cfg.APIKey, baseURL, cfg.Model), nil
 		}
 		return nil, fmt.Errorf("unknown provider: %s", cfg.Provider)
 	}
