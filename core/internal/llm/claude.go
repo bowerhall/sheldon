@@ -9,10 +9,15 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strings"
+	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 )
+
+const maxRetries = 3
+const baseDelay = 2 * time.Second
 
 // validToolIDPattern matches Claude's required pattern for tool IDs
 var validToolIDPattern = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
@@ -134,12 +139,39 @@ func (c *claude) ChatWithTools(ctx context.Context, systemPrompt string, message
 		params.Tools = c.convertTools(tools)
 	}
 
-	resp, err := c.client.Messages.New(ctx, params)
+	var resp *anthropic.Message
+	var err error
+	for attempt := range maxRetries {
+		resp, err = c.client.Messages.New(ctx, params)
+		if err == nil {
+			break
+		}
+		if !isRetryableError(err) {
+			return nil, err
+		}
+		if attempt < maxRetries-1 {
+			delay := baseDelay * time.Duration(1<<attempt)
+			time.Sleep(delay)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	return c.parseResponse(resp), nil
+}
+
+func isRetryableError(err error) bool {
+	errStr := err.Error()
+	return strings.Contains(errStr, "529") ||
+		strings.Contains(errStr, "overloaded") ||
+		strings.Contains(errStr, "Overloaded") ||
+		strings.Contains(errStr, "503") ||
+		strings.Contains(errStr, "502")
+}
+
+func isRetryableStatus(code int) bool {
+	return code == 529 || code == 503 || code == 502 || code == 500
 }
 
 // chatWithToolsRaw uses raw HTTP API for video support
@@ -165,28 +197,43 @@ func (c *claude) chatWithToolsRaw(ctx context.Context, systemPrompt string, mess
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(jsonBody))
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+	var body []byte
+	var statusCode int
+	for attempt := range maxRetries {
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(jsonBody))
+		if err != nil {
+			return nil, fmt.Errorf("create request: %w", err)
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("x-api-key", c.apiKey)
+		httpReq.Header.Set("anthropic-version", "2023-06-01")
+
+		resp, err := http.DefaultClient.Do(httpReq)
+		if err != nil {
+			return nil, fmt.Errorf("http request: %w", err)
+		}
+
+		body, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("read response: %w", err)
+		}
+
+		statusCode = resp.StatusCode
+		if statusCode == 200 {
+			break
+		}
+		if !isRetryableStatus(statusCode) {
+			return nil, fmt.Errorf("api error (status %d): %s", statusCode, string(body))
+		}
+		if attempt < maxRetries-1 {
+			delay := baseDelay * time.Duration(1<<attempt)
+			time.Sleep(delay)
+		}
 	}
 
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("x-api-key", c.apiKey)
-	httpReq.Header.Set("anthropic-version", "2023-06-01")
-
-	resp, err := http.DefaultClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("http request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
-	}
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("api error (status %d): %s", resp.StatusCode, string(body))
+	if statusCode != 200 {
+		return nil, fmt.Errorf("api error (status %d): %s", statusCode, string(body))
 	}
 
 	var rawResp rawResponse
