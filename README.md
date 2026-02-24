@@ -237,11 +237,13 @@ cd sheldon
 5. **SSH Key**: Add your public key
 6. Create and note the IP address
 
-### 3. Setup Doppler (Secrets Manager)
+### 3. Configure Secrets
 
-1. Sign up at [doppler.com](https://doppler.com) (free tier)
-2. Create project: `sheldon`
-3. Add secrets:
+Choose **one** of these options:
+
+#### Option A: GitHub Secrets Only (Simple)
+
+Add these secrets directly in GitHub (repo → Settings → Secrets → Actions):
 
 | Secret | Purpose |
 |--------|---------|
@@ -259,19 +261,23 @@ cd sheldon
 | `GIT_TOKEN` | GitHub PAT for code push *(optional, enables coder git)* |
 | `GIT_ORG_URL` | e.g., `https://github.com/you` *(optional, with GIT_TOKEN)* |
 
+#### Option B: Doppler (Recommended for teams/multiple environments)
+
+1. Sign up at [doppler.com](https://doppler.com) (free tier)
+2. Create project: `sheldon`
+3. Add the same secrets listed above in Doppler
+4. Generate Service Token: Project Settings → Service Tokens → Generate
+5. Add **one** secret to GitHub:
+   - Name: `DOPPLER_TOKEN`
+   - Value: paste the service token (starts with `dp.st.`)
+
+*With Doppler, you only need one GitHub secret. All other secrets are fetched from Doppler at deploy time.*
+
+---
+
 *Sheldon can switch LLM/coder models at runtime. Add more API keys later (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) and Sheldon will use them.*
 
-4. Generate Service Token: Project Settings → Service Tokens → Generate
-5. Copy the token (starts with `dp.st.`)
-
-### 4. Add Doppler Token to GitHub
-
-1. Your repo → Settings → Secrets and variables → Actions
-2. New repository secret:
-   - Name: `DOPPLER_TOKEN`
-   - Value: paste the service token
-
-### 5. Setup DNS *(optional, if using DOMAIN)*
+### 4. Setup DNS *(optional, if using DOMAIN)*
 
 Add a wildcard record pointing to your VPS:
 
@@ -281,7 +287,7 @@ A    *.yourdomain.com    → YOUR_VPS_IP
 
 This enables `storage.`, `hs.`, and any apps Sheldon deploys.
 
-### 6. Deploy
+### 5. Deploy
 
 ```bash
 git push origin main
@@ -291,7 +297,7 @@ GitHub Actions will build images, SSH into your VPS, install Docker, and deploy 
 
 Watch progress: `https://github.com/YOUR_USERNAME/sheldon/actions`
 
-### 7. Message Your Bot
+### 6. Message Your Bot
 
 Open Telegram, find your bot, send a message. Sheldon is live.
 
