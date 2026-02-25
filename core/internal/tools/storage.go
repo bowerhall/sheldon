@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -323,6 +325,11 @@ func RegisterStorageTools(registry *Registry, client *storage.Client) {
 			return "", fmt.Errorf("invalid arguments: %w", err)
 		}
 
+		// SSRF protection: validate URL before fetching
+		if err := validateExternalURL(params.URL); err != nil {
+			return "", fmt.Errorf("URL blocked: %w", err)
+		}
+
 		bucket := client.UserBucket()
 		if params.Space == "agent" {
 			bucket = client.AgentBucket()
@@ -457,4 +464,69 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// validateExternalURL checks if a URL is safe to fetch (prevents SSRF)
+func validateExternalURL(rawURL string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+
+	// only allow http and https
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("invalid scheme: only http and https allowed")
+	}
+
+	host := parsed.Hostname()
+
+	// block localhost variants
+	if host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "0.0.0.0" {
+		return fmt.Errorf("localhost access not allowed")
+	}
+
+	// resolve hostname to check IP
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		// if we can't resolve, allow it (might be valid external host)
+		return nil
+	}
+
+	for _, ip := range ips {
+		if isPrivateIP(ip) {
+			return fmt.Errorf("private/internal IP access not allowed: %s", ip)
+		}
+	}
+
+	return nil
+}
+
+// isPrivateIP checks if an IP is private, loopback, or cloud metadata
+func isPrivateIP(ip net.IP) bool {
+	// loopback (127.x.x.x, ::1)
+	if ip.IsLoopback() {
+		return true
+	}
+
+	// link-local (169.254.x.x - includes cloud metadata)
+	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return true
+	}
+
+	// private ranges
+	if ip.IsPrivate() {
+		return true
+	}
+
+	// unspecified (0.0.0.0, ::)
+	if ip.IsUnspecified() {
+		return true
+	}
+
+	// explicit check for cloud metadata IP
+	if ip.String() == "169.254.169.254" {
+		return true
+	}
+
+	return false
 }
