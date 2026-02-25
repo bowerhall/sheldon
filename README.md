@@ -317,7 +317,9 @@ cd core && go run ./cmd/sheldon
 
 ## Model Management
 
-Sheldon uses a unified provider system for all LLM needs. Set one API key per provider in Doppler:
+Sheldon uses a unified provider system for all LLM needs. Add API keys to Doppler, redeploy once, then switch freely at runtime.
+
+**Core providers:**
 
 | Provider | Env Key | Models |
 |----------|---------|--------|
@@ -326,22 +328,34 @@ Sheldon uses a unified provider system for all LLM needs. Set one API key per pr
 | OpenAI | `OPENAI_API_KEY` | gpt-4o, gpt-4o-mini |
 | Ollama | - | Any local model (llama3.2, qwen2.5, etc.) |
 
+**OpenAI-compatible providers** (add key to enable):
+
+| Provider | Env Key |
+|----------|---------|
+| Mistral | `MISTRAL_API_KEY` |
+| Groq | `GROQ_API_KEY` |
+| Together | `TOGETHER_API_KEY` |
+| DeepSeek | `DEEPSEEK_API_KEY` |
+| Fireworks | `FIREWORKS_API_KEY` |
+| Perplexity | `PERPLEXITY_API_KEY` |
+
 **Switch models at runtime:**
 ```
 "Switch to claude"
 "Use gpt-4o for the coder"
 "List available models"
+"List providers"
 "Pull llama3.2"
 "Remove the unused model"
 ```
 
 **Components that use models:**
-- `llm` - Main chat (default: kimi)
-- `coder` - Code generation (default: kimi-k2.5:cloud)
-- `extractor` - Memory extraction (default: ollama/qwen2.5:3b)
-- `embedder` - Embeddings (default: ollama/nomic-embed-text)
+- `llm` - Main chat (switchable at runtime)
+- `coder` - Code generation (switchable at runtime)
+- `extractor` - Memory extraction (fixed: ollama/qwen2.5:3b)
+- `embedder` - Embeddings (fixed: ollama/nomic-embed-text)
 
-Each component uses the API key for its configured provider. No separate keys needed.
+*Note: extractor and embedder are locked at runtime. Changing embedder would break vector compatibility with existing memories.*
 
 ## Project Structure
 

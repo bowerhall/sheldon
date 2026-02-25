@@ -413,3 +413,81 @@ ghcr.io/{owner}/sheldon-coder-sandbox:latest
 ghcr.io/{owner}/sheldon-browser-sandbox:latest
 ghcr.io/{owner}/sheldon-homelab-agent:latest
 ```
+
+---
+
+## Raspberry Pi Hosting
+
+Sheldon can run on a Raspberry Pi with Ollama offloaded to a more powerful homelab machine.
+
+```
+┌─────────────────────┐      ┌─────────────────────┐
+│   Raspberry Pi 4    │      │   Homelab / NUC     │
+│   (4GB, $55)        │◄────►│   (GPU or bigger)   │
+│                     │      │                     │
+│   - Sheldon         │  HS  │   - Ollama          │
+│   - Traefik         │      │   - nomic-embed     │
+│   - MinIO           │      │   - qwen2.5:3b      │
+│   - Headscale       │      │                     │
+└─────────────────────┘      └─────────────────────┘
+        HS = Headscale (WireGuard mesh)
+```
+
+### Hardware Requirements
+
+| Device | RAM | Storage | Notes |
+|--------|-----|---------|-------|
+| Pi 4 (2GB) | Minimum | USB SSD required | Tight, may swap |
+| Pi 4 (4GB) | Recommended | USB SSD required | Comfortable headroom |
+| Pi 4 (8GB) | Ideal | USB SSD required | Room for future features |
+| Pi 5 | Any | USB SSD required | Faster builds, better I/O |
+
+**Important:** SD cards are too slow and wear out quickly. Use a USB 3.0 SSD.
+
+### Building for ARM64
+
+The standard Docker images are multi-arch. If you need to build locally:
+
+```bash
+cd core
+GOOS=linux GOARCH=arm64 go build -o bin/sheldon-arm64 ./cmd/sheldon
+```
+
+Or build the Docker image on the Pi:
+
+```bash
+docker build -t sheldon:local .
+```
+
+### Setup
+
+1. **Flash Raspberry Pi OS (64-bit)** to your SSD
+2. **Install Docker:**
+   ```bash
+   curl -fsSL https://get.docker.com | sh
+   sudo usermod -aG docker $USER
+   ```
+
+3. **Set `OLLAMA_HOST`** to point to your homelab machine:
+   ```env
+   OLLAMA_HOST=http://100.64.0.5:11434
+   ```
+
+4. **Deploy** using the standard docker-compose with the ARM64 images
+
+### Limitations
+
+| Feature | Impact on Pi |
+|---------|--------------|
+| Browser sandbox | Heavy - Chromium uses 500MB+ RAM |
+| Coder sandbox | Slow - compilation takes longer |
+| Memory (SQLite) | Fine - low overhead |
+| Telegram/Discord | Fine - minimal resources |
+| MinIO | Fine - but use external disk |
+
+### Tips
+
+- **Disable browser tools** if not needed (saves RAM)
+- **Use swap** (2-4GB) as safety net
+- **Monitor temperature** - add a heatsink or fan
+- **External MinIO** - consider running MinIO on NAS instead of Pi
