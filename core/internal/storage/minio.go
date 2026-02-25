@@ -190,3 +190,42 @@ func (c *Client) InitBackupBucket(ctx context.Context) error {
 
 	return nil
 }
+
+// BucketStats holds size info for a bucket
+type BucketStats struct {
+	Name       string
+	TotalSize  int64
+	FileCount  int64
+}
+
+// GetBucketStats returns size statistics for all Sheldon buckets
+func (c *Client) GetBucketStats(ctx context.Context) ([]BucketStats, error) {
+	buckets := []string{c.userBucket, c.agentBucket, c.BackupBucket()}
+	var stats []BucketStats
+
+	for _, bucket := range buckets {
+		exists, err := c.mc.BucketExists(ctx, bucket)
+		if err != nil || !exists {
+			continue
+		}
+
+		var totalSize int64
+		var fileCount int64
+
+		for obj := range c.mc.ListObjects(ctx, bucket, minio.ListObjectsOptions{Recursive: true}) {
+			if obj.Err != nil {
+				continue
+			}
+			totalSize += obj.Size
+			fileCount++
+		}
+
+		stats = append(stats, BucketStats{
+			Name:      bucket,
+			TotalSize: totalSize,
+			FileCount: fileCount,
+		})
+	}
+
+	return stats, nil
+}

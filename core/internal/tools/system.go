@@ -9,19 +9,20 @@ import (
 	"syscall"
 
 	"github.com/bowerhall/sheldon/internal/llm"
+	"github.com/bowerhall/sheldon/internal/storage"
 )
 
-func RegisterSystemTools(registry *Registry, memoryPath string) {
-	registerSystemStatus(registry, memoryPath)
+func RegisterSystemTools(registry *Registry, memoryPath string, storageClient *storage.Client) {
+	registerSystemStatus(registry, memoryPath, storageClient)
 }
 
-func registerSystemStatus(registry *Registry, memoryPath string) {
+func registerSystemStatus(registry *Registry, memoryPath string, storageClient *storage.Client) {
 	tool := llm.Tool{
 		Name: "system_status",
-		Description: `Check system disk space and memory database size. Use this before pulling large models or when you need to know storage capacity. Returns:
+		Description: `Check system disk space, memory database size, and MinIO storage usage. Use this before pulling large models or when you need to know storage capacity. Returns:
 - Available disk space
 - Memory database size (facts + embeddings)
-- Total/used disk space`,
+- MinIO bucket sizes (if configured)`,
 		Parameters: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -66,6 +67,24 @@ func registerSystemStatus(registry *Registry, memoryPath string) {
 		convoPath := filepath.Join(dir, "conversation.db")
 		if info, err := os.Stat(convoPath); err == nil {
 			sb.WriteString(fmt.Sprintf("  Conversation buffer: %s\n", formatBytes(uint64(info.Size()))))
+		}
+
+		// Get MinIO bucket stats if storage is configured
+		if storageClient != nil {
+			sb.WriteString("\nMinIO Storage:\n")
+			stats, err := storageClient.GetBucketStats(ctx)
+			if err != nil {
+				sb.WriteString(fmt.Sprintf("  Error: %v\n", err))
+			} else if len(stats) == 0 {
+				sb.WriteString("  No buckets found\n")
+			} else {
+				var totalSize int64
+				for _, s := range stats {
+					sb.WriteString(fmt.Sprintf("  %s: %s (%d files)\n", s.Name, formatBytes(uint64(s.TotalSize)), s.FileCount))
+					totalSize += s.TotalSize
+				}
+				sb.WriteString(fmt.Sprintf("  Total: %s\n", formatBytes(uint64(totalSize))))
+			}
 		}
 
 		return sb.String(), nil
