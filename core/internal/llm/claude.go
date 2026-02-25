@@ -481,6 +481,13 @@ func (c *claude) parseResponse(resp *anthropic.Message) *ChatResponse {
 		}
 	}
 
+	// Extract usage from SDK response
+	result.Usage = &Usage{
+		PromptTokens:     int(resp.Usage.InputTokens),
+		CompletionTokens: int(resp.Usage.OutputTokens),
+		TotalTokens:      int(resp.Usage.InputTokens + resp.Usage.OutputTokens),
+	}
+
 	return result
 }
 
