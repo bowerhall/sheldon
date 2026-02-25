@@ -394,6 +394,17 @@ Sheldon uses a unified provider system for all LLM needs. Add API keys to Dopple
 
 *Note: extractor and embedder are locked at runtime. Changing embedder would break vector compatibility with existing memories.*
 
+### Provider Fallback
+
+If a provider's credits are exhausted, Sheldon auto-switches to the next available:
+
+**kimi** → **claude** → **openai** → **ollama** (installed models only)
+
+Ollama is last resort and only uses already-installed models (never pulls new ones). Customize preference:
+```
+OLLAMA_FALLBACK_MODELS=llama3.2,qwen2.5:7b,mistral
+```
+
 ## Project Structure
 
 ```
