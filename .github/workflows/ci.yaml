@@ -168,7 +168,7 @@ jobs:
 
             # Create directories
             mkdir -p /opt/sheldon/{data,skills,letsencrypt,essence,headscale}
-            chown -R 1000:1000 /opt/sheldon/data
+            chown -R 1000:1000 /opt/sheldon/data /opt/sheldon/skills
             touch /opt/sheldon/apps.yml
 
             # Generate headscale config if missing
@@ -292,6 +292,9 @@ jobs:
           key: ${{ steps.secrets.outputs.VPS_SSH_KEY }}
           script: |
             cd /opt/sheldon
+
+            # Fix ownership after scp (runs as root)
+            chown -R 1000:1000 /opt/sheldon/skills
 
             # Substitute domain in headscale config
             sed -i "s/DOMAIN_PLACEHOLDER/${{ steps.secrets.outputs.DOMAIN }}/g" /opt/sheldon/headscale/config.yaml
