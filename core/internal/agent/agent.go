@@ -25,14 +25,15 @@ const maxToolFailures = 3
 func New(model, extractor llm.LLM, memory *sheldonmem.Store, essencePath, timezone string) *Agent {
 	systemPrompt := loadSystemPrompt(essencePath)
 
-	registry := tools.NewRegistry()
-	tools.RegisterMemoryTools(registry, memory)
-
 	loc, err := time.LoadLocation(timezone)
 	if err != nil {
 		logger.Warn("invalid timezone, using UTC", "timezone", timezone, "error", err)
 		loc = time.UTC
 	}
+
+	registry := tools.NewRegistry()
+	tools.RegisterMemoryTools(registry, memory)
+	tools.RegisterTimeTools(registry, loc)
 
 	return &Agent{
 		llm:          model,

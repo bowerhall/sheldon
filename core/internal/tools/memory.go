@@ -16,6 +16,8 @@ type RecallArgs struct {
 	Domains   []int  `json:"domains,omitempty"`
 	Depth     int    `json:"depth,omitempty"`
 	TimeRange string `json:"time_range,omitempty"` // e.g., "today", "yesterday", "this_week", "last_week", "this_month"
+	Since     string `json:"since,omitempty"`      // specific date: "2025-02-20" or datetime: "2025-02-20T14:00:00"
+	Until     string `json:"until,omitempty"`      // specific date: "2025-02-25" or datetime: "2025-02-25T23:59:59"
 }
 
 type SaveMemoryArgs struct {
@@ -169,7 +171,15 @@ The user must signal intent to save with words like "remember", "save", "don't f
 				"time_range": map[string]any{
 					"type":        "string",
 					"enum":        []string{"today", "yesterday", "this_week", "last_week", "this_month", "last_month"},
-					"description": "Filter memories by time period. Use when user asks about recent events or specific time frames like 'yesterday', 'last week', etc.",
+					"description": "Filter memories by relative time period. Use for 'yesterday', 'last week', etc.",
+				},
+				"since": map[string]any{
+					"type":        "string",
+					"description": "Filter memories from this date onwards. Format: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS. Use for specific dates like 'February 20th'.",
+				},
+				"until": map[string]any{
+					"type":        "string",
+					"description": "Filter memories up to this date. Format: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS. Use with 'since' for date ranges.",
 				},
 			},
 			"required": []string{"query"},
@@ -204,11 +214,26 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			ExcludeSensitive: SafeModeFromContext(ctx),
 		}
 
-		// Apply time range filter if specified
+		// Apply time filters
 		if params.TimeRange != "" {
 			since, until := parseTimeRange(params.TimeRange)
 			opts.Since = since
 			opts.Until = until
+		}
+		// Specific dates override time_range
+		if params.Since != "" {
+			if t, err := parseDateTime(params.Since); err == nil {
+				opts.Since = &t
+			}
+		}
+		if params.Until != "" {
+			if t, err := parseDateTime(params.Until); err == nil {
+				// If only date provided, extend to end of day
+				if len(params.Until) == 10 {
+					t = t.Add(24*time.Hour - time.Second)
+				}
+				opts.Until = &t
+			}
 		}
 
 		result, err := memory.RecallWithOptions(ctx, params.Query, domains, 10, opts)
@@ -359,4 +384,17 @@ func parseTimeRange(timeRange string) (*time.Time, *time.Time) {
 	}
 
 	return &since, &until
+}
+
+// parseDateTime parses a date or datetime string
+func parseDateTime(s string) (time.Time, error) {
+	// Try datetime format first
+	if t, err := time.Parse("2006-01-02T15:04:05", s); err == nil {
+		return t, nil
+	}
+	// Try date-only format
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return t, nil
+	}
+	return time.Time{}, fmt.Errorf("invalid date format: %s", s)
 }
