@@ -25,8 +25,19 @@ import (
 // ollama is last resort - only used if a local model is already installed
 var fallbackProviders = []string{"kimi", "claude", "openai", "ollama"}
 
-const maxToolIterations = 10
+const defaultMaxToolIterations = 20
 const maxToolFailures = 3
+
+// maxToolIterations is configurable via AGENT_MAX_ITERATIONS env var
+var maxToolIterations = defaultMaxToolIterations
+
+func init() {
+	if v := os.Getenv("AGENT_MAX_ITERATIONS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			maxToolIterations = n
+		}
+	}
+}
 
 func New(model, extractor llm.LLM, memory *sheldonmem.Store, essencePath, timezone string) *Agent {
 	systemPrompt := loadSystemPrompt(essencePath)
