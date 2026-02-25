@@ -22,6 +22,7 @@ type discord struct {
 	ownerID        string
 	trustedChannel string
 	ctx            context.Context
+	activeSessions map[string]context.CancelFunc
 }
 
 func newDiscord(token string, agent *agent.Agent, guildID, ownerID, trustedChannel string) (Bot, error) {
@@ -36,6 +37,7 @@ func newDiscord(token string, agent *agent.Agent, guildID, ownerID, trustedChann
 		guildID:        guildID,
 		ownerID:        ownerID,
 		trustedChannel: trustedChannel,
+		activeSessions: make(map[string]context.CancelFunc),
 	}
 
 	session.AddHandler(d.handleMessage)
@@ -123,7 +125,43 @@ func (d *discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate
 }
 
 func (d *discord) processMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
-	sessionID := fmt.Sprintf("discord:%s", m.ChannelID)
+	channelID := m.ChannelID
+	sessionID := fmt.Sprintf("discord:%s", channelID)
+
+	// Check for stop command
+	if isStopCommand(m.Content) {
+		sessionMu.Lock()
+		if cancel, ok := d.activeSessions[channelID]; ok {
+			cancel()
+			delete(d.activeSessions, channelID)
+			sessionMu.Unlock()
+			logger.Info("operation cancelled by user", "session", sessionID)
+			s.ChannelMessageSend(channelID, "Stopped.")
+			return
+		}
+		sessionMu.Unlock()
+		s.ChannelMessageSend(channelID, "Nothing to stop.")
+		return
+	}
+
+	// Cancel any existing operation for this channel before starting new one
+	sessionMu.Lock()
+	if cancel, ok := d.activeSessions[channelID]; ok {
+		cancel()
+		delete(d.activeSessions, channelID)
+	}
+
+	// Create cancellable context for this operation
+	opCtx, cancel := context.WithCancel(d.ctx)
+	d.activeSessions[channelID] = cancel
+	sessionMu.Unlock()
+
+	// Clean up when done
+	defer func() {
+		sessionMu.Lock()
+		delete(d.activeSessions, channelID)
+		sessionMu.Unlock()
+	}()
 
 	var media []llm.MediaContent
 	text := m.Content
@@ -165,11 +203,15 @@ func (d *discord) processMessage(s *discordgo.Session, m *discordgo.MessageCreat
 		logger.Info("message received", "session", sessionID, "from", m.Author.Username, "text", truncate(text, 50), "trusted", trusted)
 	}
 
-	response, err := d.agent.ProcessWithOptions(d.ctx, sessionID, text, agent.ProcessOptions{
+	response, err := d.agent.ProcessWithOptions(opCtx, sessionID, text, agent.ProcessOptions{
 		Media:   media,
 		Trusted: trusted,
 	})
 	if err != nil {
+		if opCtx.Err() == context.Canceled {
+			logger.Info("operation was cancelled", "session", sessionID)
+			return
+		}
 		logger.Error("agent failed", "error", err)
 		response = "Something went wrong."
 	}

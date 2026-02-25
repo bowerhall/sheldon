@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/bowerhall/sheldon/internal/agent"
@@ -12,6 +14,8 @@ import (
 	"github.com/bowerhall/sheldon/internal/logger"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
+
+var sessionMu sync.Mutex
 
 const maxMediaSize = 20 * 1024 * 1024 // 20MB limit for media
 
@@ -21,7 +25,12 @@ func newTelegram(token string, agent *agent.Agent, ownerChatID int64) (Bot, erro
 		return nil, err
 	}
 
-	return &telegram{api: api, agent: agent, ownerChatID: ownerChatID}, nil
+	return &telegram{
+		api:            api,
+		agent:          agent,
+		ownerChatID:    ownerChatID,
+		activeSessions: make(map[int64]context.CancelFunc),
+	}, nil
 }
 
 func (t *telegram) Start(ctx context.Context) error {
@@ -43,6 +52,18 @@ func (t *telegram) Start(ctx context.Context) error {
 	}
 }
 
+// isStopCommand checks if the message is a request to stop current operation
+func isStopCommand(text string) bool {
+	lower := strings.ToLower(strings.TrimSpace(text))
+	stopWords := []string{"stop", "cancel", "abort", "nevermind", "never mind", "quit", "halt"}
+	for _, word := range stopWords {
+		if lower == word {
+			return true
+		}
+	}
+	return false
+}
+
 func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 	// Ignore messages from non-owner chats if owner is configured
 	if t.ownerChatID != 0 && msg.Chat.ID != t.ownerChatID {
@@ -50,7 +71,45 @@ func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 		return
 	}
 
-	sessionID := fmt.Sprintf("telegram:%d", msg.Chat.ID)
+	chatID := msg.Chat.ID
+	sessionID := fmt.Sprintf("telegram:%d", chatID)
+
+	// Check for stop command
+	if isStopCommand(msg.Text) {
+		sessionMu.Lock()
+		if cancel, ok := t.activeSessions[chatID]; ok {
+			cancel()
+			delete(t.activeSessions, chatID)
+			sessionMu.Unlock()
+			logger.Info("operation cancelled by user", "session", sessionID)
+			reply := tgbotapi.NewMessage(chatID, "Stopped.")
+			t.api.Send(reply)
+			return
+		}
+		sessionMu.Unlock()
+		reply := tgbotapi.NewMessage(chatID, "Nothing to stop.")
+		t.api.Send(reply)
+		return
+	}
+
+	// Cancel any existing operation for this chat before starting new one
+	sessionMu.Lock()
+	if cancel, ok := t.activeSessions[chatID]; ok {
+		cancel()
+		delete(t.activeSessions, chatID)
+	}
+
+	// Create cancellable context for this operation
+	opCtx, cancel := context.WithCancel(ctx)
+	t.activeSessions[chatID] = cancel
+	sessionMu.Unlock()
+
+	// Clean up when done
+	defer func() {
+		sessionMu.Lock()
+		delete(t.activeSessions, chatID)
+		sessionMu.Unlock()
+	}()
 
 	var media []llm.MediaContent
 	var text string
@@ -104,13 +163,17 @@ func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 		logger.Info("message received", "session", sessionID, "from", msg.From.UserName, "text", truncate(text, 50))
 	}
 
-	response, err := t.agent.ProcessWithMedia(ctx, sessionID, text, media)
+	response, err := t.agent.ProcessWithMedia(opCtx, sessionID, text, media)
 	if err != nil {
+		if opCtx.Err() == context.Canceled {
+			logger.Info("operation was cancelled", "session", sessionID)
+			return // Don't send error message, user already got "Stopped."
+		}
 		logger.Error("agent failed", "error", err)
 		response = "Something went wrong."
 	}
 
-	reply := tgbotapi.NewMessage(msg.Chat.ID, response)
+	reply := tgbotapi.NewMessage(chatID, response)
 	reply.ReplyToMessageID = msg.MessageID
 
 	if _, err := t.api.Send(reply); err != nil {

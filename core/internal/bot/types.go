@@ -24,7 +24,8 @@ type Config struct {
 }
 
 type telegram struct {
-	api         *tgbotapi.BotAPI
-	agent       *agent.Agent
-	ownerChatID int64
+	api            *tgbotapi.BotAPI
+	agent          *agent.Agent
+	ownerChatID    int64
+	activeSessions map[int64]context.CancelFunc
 }
