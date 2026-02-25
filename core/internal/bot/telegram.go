@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/bowerhall/sheldon/internal/agent"
@@ -14,10 +12,6 @@ import (
 	"github.com/bowerhall/sheldon/internal/logger"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
-
-var sessionMu sync.Mutex
-
-const maxMediaSize = 20 * 1024 * 1024 // 20MB limit for media
 
 func newTelegram(token string, agent *agent.Agent, ownerChatID int64) (Bot, error) {
 	api, err := tgbotapi.NewBotAPI(token)
@@ -50,18 +44,6 @@ func (t *telegram) Start(ctx context.Context) error {
 			go t.handleMessage(ctx, update.Message)
 		}
 	}
-}
-
-// isStopCommand checks if the message is a request to stop current operation
-func isStopCommand(text string) bool {
-	lower := strings.ToLower(strings.TrimSpace(text))
-	stopWords := []string{"stop", "cancel", "abort", "nevermind", "never mind", "quit", "halt"}
-	for _, word := range stopWords {
-		if lower == word {
-			return true
-		}
-	}
-	return false
 }
 
 func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
