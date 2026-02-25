@@ -84,6 +84,15 @@ func (s *Store) RecallWithOptions(ctx context.Context, query string, domainIDs [
 	}
 	result.Facts = facts
 
+	// Track salience: increment access_count for recalled facts
+	if len(facts) > 0 {
+		factIDs := make([]int64, len(facts))
+		for i, f := range facts {
+			factIDs[i] = f.ID
+		}
+		s.TouchFacts(factIDs) // fire and forget, don't fail recall on touch error
+	}
+
 	// 2. Search for entities matching the query
 	entities, err := s.SearchEntities(query)
 	if err != nil {

@@ -1,6 +1,10 @@
 package sheldonmem
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"strings"
+)
 
 func (s *Store) AddFact(entityID *int64, domainID int, field, value string, confidence float64) (*FactResult, error) {
 	return s.AddFactWithContext(context.Background(), entityID, domainID, field, value, confidence, false)
@@ -292,4 +296,23 @@ func (s *Store) searchFacts(query string, domainIDs []int, excludeSensitive bool
 	}
 
 	return facts, nil
+}
+
+// TouchFacts increments access_count and updates last_accessed for the given fact IDs.
+// This tracks salience - frequently accessed facts are more important.
+func (s *Store) TouchFacts(factIDs []int64) error {
+	if len(factIDs) == 0 {
+		return nil
+	}
+
+	placeholders := make([]string, len(factIDs))
+	args := make([]interface{}, len(factIDs))
+	for i, id := range factIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(queryTouchFacts, strings.Join(placeholders, ","))
+	_, err := s.db.Exec(query, args...)
+	return err
 }

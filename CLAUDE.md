@@ -69,11 +69,11 @@ sheldon/
 ├── pkg/sheldonmem/        # memory package (standalone, extractable)
 │   ├── store.go           # Open, Close, DB
 │   ├── entities.go        # entity CRUD
-│   ├── facts.go           # fact CRUD, contradiction detection
+│   ├── facts.go           # fact CRUD, contradiction detection, salience tracking
 │   ├── edges.go           # relationship edges
 │   ├── vectors.go         # sqlite-vec integration
-│   ├── recall.go          # hybrid retrieval (keyword + semantic)
-│   ├── decay.go           # memory decay/cleanup
+│   ├── recall.go          # hybrid retrieval (keyword + semantic + salience)
+│   ├── decay.go           # salience-aware memory decay
 │   └── domains.go         # 14 life domains
 │
 ├── skills/                # markdown skill definitions
@@ -111,7 +111,35 @@ fact, _ := memory.AddFact(&entityID, domainID, "city", "Portland", 0.9)
 
 // hybrid recall (keyword + semantic)
 result, _ := memory.Recall(ctx, "user's location", []int{9}, 5)
+// recall automatically increments access_count for salience tracking
 ```
+
+### Salience-Aware Memory Decay
+
+Facts are scored by salience to determine importance:
+
+```
+salience = (recency * 0.4) + (access_count * 0.4) + (confidence * 0.2)
+```
+
+- **Recency**: 1.0 if accessed today, decays to 0 over 90 days
+- **Access count**: How often the fact was recalled (caps at 10)
+- **Confidence**: Original extraction confidence (0-1)
+
+Decay removes facts that are: old (> MaxAge) AND low salience (< threshold)
+
+```go
+// Default: 6 months old + salience < 0.2
+deleted, _ := memory.Decay(sheldonmem.DefaultDecayConfig)
+
+// Custom config
+memory.Decay(sheldonmem.DecayConfig{
+    MaxAge:            90 * 24 * time.Hour,  // 3 months
+    SalienceThreshold: 0.3,                   // stricter threshold
+})
+```
+
+This means frequently-recalled facts survive longer, even if old.
 
 ### Coder Security Model
 

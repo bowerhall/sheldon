@@ -37,4 +37,6 @@ const (
 
 	queryInsertVecFact = `INSERT INTO vec_facts (fact_id, embedding) VALUES (?, ?)`
 	queryDeleteVecFact = `DELETE FROM vec_facts WHERE fact_id = ?`
+
+	queryTouchFacts = `UPDATE facts SET access_count = access_count + 1, last_accessed = datetime('now') WHERE id IN (%s)`
 )
