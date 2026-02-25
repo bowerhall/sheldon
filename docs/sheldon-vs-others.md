@@ -90,26 +90,31 @@ Sheldon keeps you in the conversation. Most assistants make you context-switch t
 
 ### Other Assistants
 
-**Conversational setup:**
-```
-You: "Remind me to check email every morning at 9am"
-Assistant: [creates cron with prompt: "Remind user to check email"]
-```
-
-**Or config file:**
-```yaml
-jobs:
-  - id: email-check
-    schedule: "0 0 9 * * *"
-    prompt: "Check my email"
+**Heartbeat (config-only):**
+```json
+{
+  "heartbeat": {
+    "every": "30m"
+  }
+}
 ```
 
-**Heartbeat:**
-```
-Every 30 min → Read HEARTBEAT.md → Check tasks → HEARTBEAT_OK or message
+Every 30 min → Read `HEARTBEAT.md` checklist → Process tasks → Report status or message.
+
+Heartbeat typically runs with **full session context** (can be 100k-200k tokens per run). Some communities recommend disabling native heartbeat and using isolated cron jobs instead for cost savings.
+
+**Cron (CLI or conversational skill):**
+```bash
+assistant cron add --name "Morning brief" --cron "0 7 * * *" --session isolated
 ```
 
-Crons persist to a config file. When a cron fires, it executes the saved prompt verbatim.
+Or via a conversational skill:
+```
+You: "Remind me in 20 minutes"
+→ Agent builds CLI command internally
+```
+
+The skill translates natural language to CLI commands. When cron fires, it executes the saved prompt.
 
 ### Sheldon
 
@@ -129,10 +134,13 @@ The keyword IS a memory query, not a message. When the cron fires, Sheldon recal
 
 | Feature | Other Assistants | Sheldon |
 |---------|----------|---------|
-| Setup | Chat or config file | Chat only |
+| Heartbeat config | JSON file | Conversational |
+| Cron setup | CLI or skill | Natural language tools |
 | What's stored | Static prompt | Keyword (memory query) |
 | At fire time | Replays saved prompt | Recalls current facts |
 | Adapts to changes | No (same message) | Yes (queries memory) |
+| "Check less often" | Edit config, restart | "Check on me every 4 hours" |
+| Token cost | High (full context) | Lower (cron triggers isolated) |
 | One-time reminders | Yes | Yes (`one_time: true`) |
 | Pause temporarily | Delete and recreate | `pause_cron` tool |
 
@@ -141,7 +149,7 @@ The keyword IS a memory query, not a message. When the cron fires, Sheldon recal
 **Other Assistants:**
 ```
 March: "Remind me about my meds every day at 8pm"
-→ Saves prompt: "Remind user about meds"
+→ Creates cron with prompt: "Remind user about meds"
 
 April: "Oh, I also need to take it with food now"
 → This info is NOT connected to the cron
@@ -168,13 +176,14 @@ The cron adapts because it queries memory at fire time, not when created.
 
 ### Why This Matters
 
-Most assistant crons are schedulers with a static script.
+Most assistant crons are schedulers with a static prompt. The `HEARTBEAT.md` approach is a checklist pattern — scan tasks, report status.
 
 Sheldon's cron is a wake-up trigger with a memory search. The keyword tells Sheldon what to think about, not what to say. This means:
 
 - Updates to related facts automatically appear in reminders
 - Context from recent conversations informs the message
 - The same keyword can produce different messages based on current state
+- No config file editing or restarts needed to change check-in frequency
 
 ---
 
@@ -186,17 +195,17 @@ Sheldon's cron is a wake-up trigger with a memory search. The keyword tells Shel
 Session starts → Context window fills up → Pruning kicks in → Old messages gone
 ```
 
-Memory is the conversation history. When it gets too long, older messages are dropped. No persistence between sessions unless you configure external memory plugins.
+Memory is the conversation history. When it gets too long, older messages are dropped. Some assistants have optional memory plugins for RAG-based retrieval, but they're separate from the core system.
 
 ### Sheldon
 
 ```
-You: "I moved to Berlin last month"
-Sheldon: [saves fact: user lives in Berlin, domain: Place & Environment]
+You: "I moved to Portland last month"
+Sheldon: [saves fact: user lives in Portland, domain: Place & Environment]
 
 3 months later...
 You: "What's the weather like where I live?"
-Sheldon: [recalls: user lives in Berlin] "Let me check Berlin weather..."
+Sheldon: [recalls: user lives in Portland] "Let me check Portland weather..."
 ```
 
 **Architecture:**
@@ -211,20 +220,20 @@ Sheldon: [recalls: user lives in Berlin] "Let me check Berlin weather..."
 
 | Feature | Other Assistants | Sheldon |
 |---------|----------|---------|
-| Storage | In-memory | SQLite + vectors |
+| Storage | In-memory (+ optional plugins) | SQLite + vectors |
 | Structure | Flat messages | Graph (entities, facts, edges) |
-| Persistence | Session only | Lifetime |
-| Semantic search | No | Yes (Ollama embeddings) |
+| Persistence | Session only (without plugins) | Lifetime |
+| Semantic search | Via plugin | Built-in (Ollama embeddings) |
 | Contradictions | Manual | Auto-detected and superseded |
 | Domains | None | 14 life domains |
-| Recall | Scroll up | `recall_memory` tool |
+| Recall | Scroll up or plugin | `recall_memory` tool |
 
 ### Example: Contradiction Handling
 
 **Other Assistants:**
 ```
 March: "I live in NYC"
-June: "I moved to Berlin"
+June: "I moved to LA"
 September: "Where do I live?"
 → Both facts in context, model has to figure it out (or old one pruned)
 ```
@@ -232,9 +241,9 @@ September: "Where do I live?"
 **Sheldon:**
 ```
 March: [saves: city = NYC, confidence 0.9]
-June: [saves: city = Berlin, confidence 0.9] → auto-supersedes NYC fact
+June: [saves: city = LA, confidence 0.9] → auto-supersedes NYC fact
 September: "Where do I live?"
-→ [recalls: city = Berlin] "You live in Berlin"
+→ [recalls: city = LA] "You live in LA"
 ```
 
 ---

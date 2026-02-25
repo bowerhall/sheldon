@@ -106,7 +106,7 @@ tools.RegisterUnifiedBrowserTools(agentLoop.Registry(), browserRunner, config)
 
 ```go
 // sheldonmem - fact storage with contradiction detection
-fact, _ := memory.AddFact(&entityID, domainID, "city", "Berlin", 0.9)
+fact, _ := memory.AddFact(&entityID, domainID, "city", "Portland", 0.9)
 // automatically supersedes previous "city" fact for same entity
 
 // hybrid recall (keyword + semantic)

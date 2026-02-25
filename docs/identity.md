@@ -14,11 +14,11 @@ Agent-directed facts accumulate over time:
 
 | Category         | Example facts                                                              |
 | ---------------- | -------------------------------------------------------------------------- |
-| Identity         | nickname: "K", communication_lang: "English + Pidgin OK"                   |
+| Identity         | nickname: "K", communication_lang: "English + French OK"                   |
 | Tone             | tone_preference: "concise", humor_style: "dry, occasional"                 |
 | Self-corrections | "I over-explain career advice", "I should ask before using Opus"           |
 | User dynamics    | "Kadet prefers options not directives", "confirm before financial actions"   |
-| Operational      | "use Opus for career", "morning briefing at 8am Berlin time"                |
+| Operational      | "use Opus for career", "morning briefing at 8am local time"                 |
 | Trust levels     | "autonomous for apartments", "confirm for finances"                          |
 
 **Context assembly order:**
