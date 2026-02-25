@@ -19,6 +19,9 @@ import (
 	"github.com/bowerhall/sheldonmem"
 )
 
+// fallbackProviders is the priority order for automatic failover
+var fallbackProviders = []string{"kimi", "claude", "openai", "ollama"}
+
 const maxToolIterations = 10
 const maxToolFailures = 3
 
@@ -353,6 +356,30 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 
 		resp, err := a.llm.ChatWithTools(ctx, a.systemPrompt, sess.Messages(), loopTools)
 		if err != nil {
+			// try fallback provider if quota exhausted
+			if isQuotaError(err) {
+				currentProvider := a.llm.Provider()
+				logger.Warn("quota exhausted, trying fallback", "provider", currentProvider, "error", err)
+
+				newLLM, newProvider, fallbackErr := a.tryFallbackProvider(ctx, currentProvider)
+				if fallbackErr != nil {
+					if a.alerts != nil {
+						a.alerts.Critical("llm", "All providers exhausted", err)
+					}
+					return fmt.Sprintf("My %s credits are exhausted and no fallback providers are available. Please add credits or configure another provider (KIMI_API_KEY, OPENAI_API_KEY).", currentProvider), nil
+				}
+
+				// switch to fallback and retry
+				a.llm = newLLM
+				if a.notify != nil {
+					chatID := ctx.Value(tools.ChatIDKey)
+					if id, ok := chatID.(int64); ok && id != 0 {
+						a.notify(id, fmt.Sprintf("Switched from %s to %s (credits exhausted)", currentProvider, newProvider))
+					}
+				}
+				continue // retry with new provider
+			}
+
 			if a.alerts != nil {
 				a.alerts.Critical("llm", "Chat request failed", err)
 			}
@@ -500,4 +527,79 @@ func (a *Agent) ProcessSystemTrigger(ctx context.Context, sessionID string, trig
 	// system triggers don't extract facts - they're internal prompts, not user input
 
 	return response, nil
+}
+
+// isQuotaError checks if an error indicates exhausted credits/quota
+func isQuotaError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "credit") ||
+		strings.Contains(errStr, "quota") ||
+		strings.Contains(errStr, "insufficient") ||
+		strings.Contains(errStr, "402") ||
+		strings.Contains(errStr, "payment required") ||
+		strings.Contains(errStr, "billing") ||
+		strings.Contains(errStr, "exceeded")
+}
+
+// tryFallbackProvider attempts to switch to another configured provider
+func (a *Agent) tryFallbackProvider(ctx context.Context, currentProvider string) (llm.LLM, string, error) {
+	if a.runtimeConfig == nil {
+		return nil, "", fmt.Errorf("no runtime config available")
+	}
+
+	for _, provider := range fallbackProviders {
+		if provider == currentProvider {
+			continue
+		}
+
+		// check if provider is configured
+		if provider != "ollama" {
+			envKey := config.EnvKeyForProvider(provider)
+			if envKey == "" || os.Getenv(envKey) == "" {
+				continue
+			}
+		}
+
+		// try to create LLM for this provider
+		apiKey := os.Getenv(config.EnvKeyForProvider(provider))
+		model := defaultModelForProvider(provider)
+
+		newLLM, err := llm.New(llm.Config{
+			Provider: provider,
+			APIKey:   apiKey,
+			Model:    model,
+		})
+		if err != nil {
+			logger.Warn("failed to create fallback LLM", "provider", provider, "error", err)
+			continue
+		}
+
+		// update runtime config
+		a.runtimeConfig.Set("llm_provider", provider)
+		a.runtimeConfig.Set("llm_model", model)
+		a.lastLLMHash = provider + ":" + model
+
+		logger.Info("switched to fallback provider", "provider", provider, "model", model)
+		return newLLM, provider, nil
+	}
+
+	return nil, "", fmt.Errorf("no fallback providers available")
+}
+
+func defaultModelForProvider(provider string) string {
+	switch provider {
+	case "kimi":
+		return "kimi-k2-0711-preview"
+	case "claude":
+		return "claude-sonnet-4-20250514"
+	case "openai":
+		return "gpt-4o"
+	case "ollama":
+		return "qwen2.5:3b"
+	default:
+		return ""
+	}
 }
