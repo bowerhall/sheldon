@@ -328,11 +328,14 @@ func registerPullModel(registry *Registry, mr *config.ModelRegistry) {
 	tool := llm.Tool{
 		Name: "pull_model",
 		Description: `Download a model from ollama. IMPORTANT: Before pulling, you MUST:
-1. Confirm the user explicitly wants to download this specific model
-2. Explain the model size and that it will take time to download
-3. Only proceed after getting explicit confirmation
+1. Call system_status to check available disk space
+2. Confirm the user explicitly wants to download this specific model
+3. Warn if disk space is tight (less than 10GB for large models, less than 2GB for small models)
+4. Explain the model size and that it will take time to download
+5. Only proceed after getting explicit confirmation
 
-Never pull models just because the user asked IF you can - only pull when they explicitly request it.`,
+Never pull models just because the user asked IF you can - only pull when they explicitly request it.
+If disk space is critically low (<2GB available), refuse to pull and suggest removing unused models first.`,
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{

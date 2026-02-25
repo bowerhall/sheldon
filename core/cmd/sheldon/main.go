@@ -280,6 +280,7 @@ func main() {
 	sheldon.SetLLMFactory(llmFactory, runtimeCfg)
 	tools.RegisterModelTools(sheldon.Registry(), runtimeCfg, modelRegistry)
 	tools.RegisterRemoteTools(sheldon.Registry(), runtimeCfg)
+	tools.RegisterSystemTools(sheldon.Registry(), cfg.MemoryPath)
 	logger.Info("model management enabled", "ollama", runtimeCfg.Get("ollama_host"))
 
 	ctx, cancel := context.WithCancel(context.Background())
