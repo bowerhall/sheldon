@@ -1,6 +1,9 @@
 package sheldonmem
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type RecallResult struct {
 	Facts    []*Fact
@@ -8,8 +11,10 @@ type RecallResult struct {
 }
 
 type RecallOptions struct {
-	Depth            int  // graph traversal depth, default 1
-	ExcludeSensitive bool // if true, exclude sensitive facts from results
+	Depth            int        // graph traversal depth, default 1
+	ExcludeSensitive bool       // if true, exclude sensitive facts from results
+	Since            *time.Time // only facts created after this time
+	Until            *time.Time // only facts created before this time
 }
 
 func (s *Store) Recall(ctx context.Context, query string, domainIDs []int, limit int) (*RecallResult, error) {
@@ -43,6 +48,21 @@ func (s *Store) RecallWithOptions(ctx context.Context, query string, domainIDs [
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	// Apply time filters if specified
+	if opts.Since != nil || opts.Until != nil {
+		filtered := make([]*Fact, 0, len(facts))
+		for _, f := range facts {
+			if opts.Since != nil && f.CreatedAt.Before(*opts.Since) {
+				continue
+			}
+			if opts.Until != nil && f.CreatedAt.After(*opts.Until) {
+				continue
+			}
+			filtered = append(filtered, f)
+		}
+		facts = filtered
 	}
 	result.Facts = facts
 

@@ -5,15 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldonmem"
 )
 
 type RecallArgs struct {
-	Query   string `json:"query"`
-	Domains []int  `json:"domains,omitempty"`
-	Depth   int    `json:"depth,omitempty"`
+	Query     string `json:"query"`
+	Domains   []int  `json:"domains,omitempty"`
+	Depth     int    `json:"depth,omitempty"`
+	TimeRange string `json:"time_range,omitempty"` // e.g., "today", "yesterday", "this_week", "last_week", "this_month"
 }
 
 type SaveMemoryArgs struct {
@@ -164,6 +166,11 @@ The user must signal intent to save with words like "remember", "save", "don't f
 					"type":        "integer",
 					"description": "Graph traversal depth (1=direct connections, 2=friends of friends, 3=deeper). Use higher depth when exploring relationships or need broader context. Default: 1.",
 				},
+				"time_range": map[string]any{
+					"type":        "string",
+					"enum":        []string{"today", "yesterday", "this_week", "last_week", "this_month", "last_month"},
+					"description": "Filter memories by time period. Use when user asks about recent events or specific time frames like 'yesterday', 'last week', etc.",
+				},
 			},
 			"required": []string{"query"},
 		},
@@ -196,6 +203,14 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			Depth:            depth,
 			ExcludeSensitive: SafeModeFromContext(ctx),
 		}
+
+		// Apply time range filter if specified
+		if params.TimeRange != "" {
+			since, until := parseTimeRange(params.TimeRange)
+			opts.Since = since
+			opts.Until = until
+		}
+
 		result, err := memory.RecallWithOptions(ctx, params.Query, domains, 10, opts)
 		if err != nil {
 			return "", err
@@ -300,4 +315,48 @@ The user must signal intent to save with words like "remember", "save", "don't f
 		}
 		return fmt.Sprintf("Marked '%s' as not sensitive", params.Field), nil
 	})
+}
+
+// parseTimeRange converts a time range string to Since/Until times
+func parseTimeRange(timeRange string) (*time.Time, *time.Time) {
+	now := time.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	var since, until time.Time
+
+	switch timeRange {
+	case "today":
+		since = today
+		until = today.Add(24 * time.Hour)
+	case "yesterday":
+		since = today.Add(-24 * time.Hour)
+		until = today
+	case "this_week":
+		// Start of this week (Monday)
+		weekday := int(now.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		since = today.Add(-time.Duration(weekday-1) * 24 * time.Hour)
+		until = now
+	case "last_week":
+		weekday := int(now.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		thisWeekStart := today.Add(-time.Duration(weekday-1) * 24 * time.Hour)
+		since = thisWeekStart.Add(-7 * 24 * time.Hour)
+		until = thisWeekStart
+	case "this_month":
+		since = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		until = now
+	case "last_month":
+		thisMonthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		since = thisMonthStart.AddDate(0, -1, 0)
+		until = thisMonthStart
+	default:
+		return nil, nil
+	}
+
+	return &since, &until
 }
