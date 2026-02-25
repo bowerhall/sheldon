@@ -164,12 +164,12 @@ S3-compatible storage via MinIO for files, backups, and sharing. Access the cons
 
 ## Privacy & Sensitive Data
 
-Sheldon can store sensitive facts (API keys, passwords, private info) that are protected from exposure.
+Sheldon can store sensitive facts (personal info you don't want exposed) that are protected in public contexts.
 
 **Mark facts as sensitive:**
 ```
-"Remember my GitHub token is ghp_xxx and mark it sensitive"
-"Mark my SSN as sensitive"
+"My salary is $85k, mark that sensitive"
+"Remember I'm seeing a therapist - keep that private"
 ```
 
 **Protection layers:**
