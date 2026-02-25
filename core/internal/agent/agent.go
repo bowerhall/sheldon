@@ -2,7 +2,9 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -20,6 +22,7 @@ import (
 )
 
 // fallbackProviders is the priority order for automatic failover
+// ollama is last resort - only used if a local model is already installed
 var fallbackProviders = []string{"kimi", "claude", "openai", "ollama"}
 
 const maxToolIterations = 10
@@ -545,6 +548,7 @@ func isQuotaError(err error) bool {
 }
 
 // tryFallbackProvider attempts to switch to another configured provider
+// For ollama: only uses already-installed models, never pulls new ones
 func (a *Agent) tryFallbackProvider(ctx context.Context, currentProvider string) (llm.LLM, string, error) {
 	if a.runtimeConfig == nil {
 		return nil, "", fmt.Errorf("no runtime config available")
@@ -555,22 +559,36 @@ func (a *Agent) tryFallbackProvider(ctx context.Context, currentProvider string)
 			continue
 		}
 
-		// check if provider is configured
-		if provider != "ollama" {
+		var apiKey, model, baseURL string
+
+		if provider == "ollama" {
+			// check for installed local model (don't pull new ones)
+			model = a.findInstalledOllamaModel(ctx)
+			if model == "" {
+				logger.Debug("no installed ollama models for fallback")
+				continue
+			}
+			baseURL = a.runtimeConfig.Get("ollama_host")
+			if baseURL == "" {
+				baseURL = "http://localhost:11434"
+			}
+			apiKey = "ollama"
+		} else {
+			// cloud provider - check if API key is configured
 			envKey := config.EnvKeyForProvider(provider)
 			if envKey == "" || os.Getenv(envKey) == "" {
 				continue
 			}
+			apiKey = os.Getenv(envKey)
+			model = defaultModelForProvider(provider)
 		}
 
 		// try to create LLM for this provider
-		apiKey := os.Getenv(config.EnvKeyForProvider(provider))
-		model := defaultModelForProvider(provider)
-
 		newLLM, err := llm.New(llm.Config{
 			Provider: provider,
 			APIKey:   apiKey,
 			Model:    model,
+			BaseURL:  baseURL,
 		})
 		if err != nil {
 			logger.Warn("failed to create fallback LLM", "provider", provider, "error", err)
@@ -589,6 +607,68 @@ func (a *Agent) tryFallbackProvider(ctx context.Context, currentProvider string)
 	return nil, "", fmt.Errorf("no fallback providers available")
 }
 
+// findInstalledOllamaModel checks for a suitable chat model already installed in ollama
+func (a *Agent) findInstalledOllamaModel(ctx context.Context) string {
+	ollamaHost := a.runtimeConfig.Get("ollama_host")
+	if ollamaHost == "" {
+		ollamaHost = "http://localhost:11434"
+	}
+
+	// preferred models in order (larger = better for chat)
+	preferred := []string{
+		"llama3.2", "llama3.1", "llama3",
+		"qwen2.5:7b", "qwen2.5:3b", "qwen2.5",
+		"mistral", "gemma2",
+	}
+
+	// get installed models via ollama API
+	resp, err := http.Get(ollamaHost + "/api/tags")
+	if err != nil {
+		logger.Debug("ollama not reachable", "error", err)
+		return ""
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Models []struct {
+			Name string `json:"name"`
+		} `json:"models"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return ""
+	}
+
+	installed := make(map[string]bool)
+	for _, m := range result.Models {
+		installed[m.Name] = true
+		// also index without tag for partial matching
+		if idx := strings.Index(m.Name, ":"); idx > 0 {
+			installed[m.Name[:idx]] = true
+		}
+	}
+
+	// return first preferred model that's installed
+	for _, pref := range preferred {
+		if installed[pref] {
+			// find exact name with tag
+			for _, m := range result.Models {
+				if m.Name == pref || strings.HasPrefix(m.Name, pref+":") {
+					return m.Name
+				}
+			}
+		}
+	}
+
+	// fallback: return any installed model (skip embeddings)
+	for _, m := range result.Models {
+		if !strings.Contains(m.Name, "embed") {
+			return m.Name
+		}
+	}
+
+	return ""
+}
+
 func defaultModelForProvider(provider string) string {
 	switch provider {
 	case "kimi":
@@ -597,8 +677,6 @@ func defaultModelForProvider(provider string) string {
 		return "claude-sonnet-4-20250514"
 	case "openai":
 		return "gpt-4o"
-	case "ollama":
-		return "qwen2.5:3b"
 	default:
 		return ""
 	}
