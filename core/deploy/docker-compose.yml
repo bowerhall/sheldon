@@ -121,6 +121,9 @@ services:
       # Alert chat ID (optional) - for budget warnings and error alerts
       - HEARTBEAT_CHAT_ID=${HEARTBEAT_CHAT_ID:-}
 
+      # Budget (daily token limit, default 2M)
+      - BUDGET_DAILY_LIMIT=${BUDGET_DAILY_LIMIT:-2000000}
+
       # Timezone
       - TZ=${TZ:-UTC}
     networks:
