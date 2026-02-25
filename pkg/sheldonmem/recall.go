@@ -32,37 +32,55 @@ func (s *Store) RecallWithOptions(ctx context.Context, query string, domainIDs [
 		depth = 3 // cap to prevent excessive traversal
 	}
 
-	// 1. Hybrid search for facts (semantic + keyword)
 	var facts []*Fact
 	var err error
-	if opts.ExcludeSensitive {
-		facts, err = s.HybridSearchSafe(ctx, query, domainIDs, limit)
+
+	// If time range is specified and query is broad, get all facts from that time range
+	isBroadQuery := query == "" || query == "*" || query == "everything" || query == "all"
+	if (opts.Since != nil || opts.Until != nil) && isBroadQuery {
+		since := "1970-01-01"
+		until := "2100-01-01"
+		if opts.Since != nil {
+			since = opts.Since.Format("2006-01-02 15:04:05")
+		}
+		if opts.Until != nil {
+			until = opts.Until.Format("2006-01-02 15:04:05")
+		}
+		facts, err = s.GetFactsByTimeRange(since, until, opts.ExcludeSensitive)
 		if err != nil {
-			facts, err = s.SearchFactsSafe(query, domainIDs)
+			return nil, err
 		}
 	} else {
-		facts, err = s.HybridSearch(ctx, query, domainIDs, limit)
+		// Normal path: semantic/keyword search then filter
+		if opts.ExcludeSensitive {
+			facts, err = s.HybridSearchSafe(ctx, query, domainIDs, limit)
+			if err != nil {
+				facts, err = s.SearchFactsSafe(query, domainIDs)
+			}
+		} else {
+			facts, err = s.HybridSearch(ctx, query, domainIDs, limit)
+			if err != nil {
+				facts, err = s.SearchFacts(query, domainIDs)
+			}
+		}
 		if err != nil {
-			facts, err = s.SearchFacts(query, domainIDs)
+			return nil, err
 		}
-	}
-	if err != nil {
-		return nil, err
-	}
 
-	// Apply time filters if specified
-	if opts.Since != nil || opts.Until != nil {
-		filtered := make([]*Fact, 0, len(facts))
-		for _, f := range facts {
-			if opts.Since != nil && f.CreatedAt.Before(*opts.Since) {
-				continue
+		// Apply time filters if specified
+		if opts.Since != nil || opts.Until != nil {
+			filtered := make([]*Fact, 0, len(facts))
+			for _, f := range facts {
+				if opts.Since != nil && f.CreatedAt.Before(*opts.Since) {
+					continue
+				}
+				if opts.Until != nil && f.CreatedAt.After(*opts.Until) {
+					continue
+				}
+				filtered = append(filtered, f)
 			}
-			if opts.Until != nil && f.CreatedAt.After(*opts.Until) {
-				continue
-			}
-			filtered = append(filtered, f)
+			facts = filtered
 		}
-		facts = filtered
 	}
 	result.Facts = facts
 

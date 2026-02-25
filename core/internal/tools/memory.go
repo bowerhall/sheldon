@@ -155,7 +155,7 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			"properties": map[string]any{
 				"query": map[string]any{
 					"type":        "string",
-					"description": "What to search for in memory (e.g., 'favorite food', 'wife's name', 'work schedule')",
+					"description": "What to search for in memory (e.g., 'favorite food', 'wife's name'). Use '*' or 'everything' to browse all facts (useful with time_range to see everything from a specific period)",
 				},
 				"domains": map[string]any{
 					"type":        "array",

@@ -222,6 +222,29 @@ func (s *Store) SearchFacts(query string, domainIDs []int) ([]*Fact, error) {
 	return s.searchFacts(query, domainIDs, false)
 }
 
+func (s *Store) GetFactsByTimeRange(since, until string, excludeSensitive bool) ([]*Fact, error) {
+	query := queryGetFactsByTimeRange
+	if excludeSensitive {
+		query = queryGetFactsByTimeRangeSafe
+	}
+
+	rows, err := s.db.Query(query, since, until)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var facts []*Fact
+	for rows.Next() {
+		var f Fact
+		if err := rows.Scan(&f.ID, &f.EntityID, &f.DomainID, &f.Field, &f.Value, &f.Confidence, &f.AccessCount, &f.Active, &f.Sensitive, &f.CreatedAt); err != nil {
+			return nil, err
+		}
+		facts = append(facts, &f)
+	}
+	return facts, rows.Err()
+}
+
 // SearchFactsSafe searches facts but excludes sensitive ones
 func (s *Store) SearchFactsSafe(query string, domainIDs []int) ([]*Fact, error) {
 	return s.searchFacts(query, domainIDs, true)

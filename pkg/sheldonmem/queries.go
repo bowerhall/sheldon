@@ -27,6 +27,9 @@ const (
 
 	queryGetSupersededFacts = `SELECT id, entity_id, domain_id, field, value, confidence, access_count, active, created_at FROM facts WHERE active = 0 AND field = ? AND entity_id IS ? ORDER BY created_at DESC LIMIT 3`
 
+	queryGetFactsByTimeRange     = `SELECT id, entity_id, domain_id, field, value, confidence, access_count, active, sensitive, created_at FROM facts WHERE active = 1 AND created_at >= ? AND created_at < ? ORDER BY created_at DESC LIMIT 50`
+	queryGetFactsByTimeRangeSafe = `SELECT id, entity_id, domain_id, field, value, confidence, access_count, active, sensitive, created_at FROM facts WHERE active = 1 AND sensitive = 0 AND created_at >= ? AND created_at < ? ORDER BY created_at DESC LIMIT 50`
+
 	queryInsertEdge         = `INSERT INTO edges (source_id, target_id, relation, strength, metadata) VALUES (?, ?, ?, ?, ?)`
 	queryGetEdgesFrom       = `SELECT id, source_id, target_id, relation, strength, metadata, created_at FROM edges WHERE source_id = ?`
 	queryGetEdgesTo         = `SELECT id, source_id, target_id, relation, strength, metadata, created_at FROM edges WHERE target_id = ?`
