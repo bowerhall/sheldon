@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const maxMessages = 12
+const defaultMaxMessages = 24
 
 type Message struct {
 	Role      string
@@ -14,7 +14,8 @@ type Message struct {
 }
 
 type Store struct {
-	db *sql.DB
+	db          *sql.DB
+	maxMessages int
 }
 
 const schema = `
@@ -36,8 +37,11 @@ const migrationSQL = `
 `
 
 // NewStore creates a conversation buffer using the provided database connection
-func NewStore(db *sql.DB) (*Store, error) {
-	s := &Store{db: db}
+func NewStore(db *sql.DB, maxMessages int) (*Store, error) {
+	if maxMessages <= 0 {
+		maxMessages = defaultMaxMessages
+	}
+	s := &Store{db: db, maxMessages: maxMessages}
 	if err := s.migrate(); err != nil {
 		return nil, err
 	}
@@ -93,7 +97,7 @@ func (s *Store) Add(sessionID string, role, content string) error {
 			WHERE session_id = ?
 			ORDER BY created_at DESC
 			LIMIT ?
-		)`, sessionID, sessionID, maxMessages)
+		)`, sessionID, sessionID, s.maxMessages)
 
 	return err
 }
@@ -104,7 +108,7 @@ func (s *Store) GetRecent(sessionID string) ([]Message, error) {
 		FROM recent_messages
 		WHERE session_id = ?
 		ORDER BY created_at ASC
-		LIMIT ?`, sessionID, maxMessages)
+		LIMIT ?`, sessionID, s.maxMessages)
 	if err != nil {
 		return nil, err
 	}

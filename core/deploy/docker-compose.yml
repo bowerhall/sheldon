@@ -124,6 +124,9 @@ services:
       # Budget (daily token limit, default 2M)
       - BUDGET_DAILY_LIMIT=${BUDGET_DAILY_LIMIT:-2000000}
 
+      # Conversation buffer (recent messages in context, default 24)
+      - CONVERSATION_BUFFER_SIZE=${CONVERSATION_BUFFER_SIZE:-24}
+
       # Timezone
       - TZ=${TZ:-UTC}
     networks:

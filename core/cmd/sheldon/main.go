@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -210,12 +211,16 @@ func main() {
 	logger.Info("cron tools enabled", "timezone", cfg.Timezone)
 
 	// conversation buffer for recent message continuity
-	convoStore, err := conversation.NewStore(opsStore.DB())
+	convoBufferSize := 24 // default
+	if size, err := strconv.Atoi(os.Getenv("CONVERSATION_BUFFER_SIZE")); err == nil && size > 0 {
+		convoBufferSize = size
+	}
+	convoStore, err := conversation.NewStore(opsStore.DB(), convoBufferSize)
 	if err != nil {
 		logger.Fatal("failed to create conversation store", "error", err)
 	}
 	sheldon.SetConversationStore(convoStore)
-	logger.Info("conversation buffer enabled", "max_messages", 12)
+	logger.Info("conversation buffer enabled", "max_messages", convoBufferSize)
 
 	// minio storage (optional)
 	var storageClient *storage.Client
