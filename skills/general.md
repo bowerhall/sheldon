@@ -37,6 +37,13 @@ docs: add api documentation
 - add .gitignore for language-specific ignores
 - keep code minimal and focused
 
+## Database
+
+- **Default to SQLite** for simple/single-user apps - no external deps, just a file
+- **External DB URL** for production apps - ask user if they have one (Supabase, PlanetScale, etc.)
+- Always use a volume mount for SQLite persistence: `/data/app.db`
+- Never hardcode database credentials - use environment variables
+
 ## Never
 
 - don't add features not requested
