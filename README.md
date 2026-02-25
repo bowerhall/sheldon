@@ -162,6 +162,43 @@ S3-compatible storage via MinIO for files, backups, and sharing. Access the cons
 
 ---
 
+## Privacy & Sensitive Data
+
+Sheldon can store sensitive facts (API keys, passwords, private info) that are protected from exposure.
+
+**Mark facts as sensitive:**
+```
+"Remember my GitHub token is ghp_xxx and mark it sensitive"
+"Mark my SSN as sensitive"
+```
+
+**Protection layers:**
+
+| Context | Sensitive Facts |
+|---------|-----------------|
+| Telegram with `OWNER_CHAT_ID` | Accessible (you're the owner) |
+| Discord DM with `DISCORD_OWNER_ID` | Accessible (you're the owner) |
+| Discord `DISCORD_TRUSTED_CHANNEL` | Accessible (private channel) |
+| Discord other channels | Hidden (SafeMode) |
+| Web browsing (isolated mode) | Hidden + recall tool blocked |
+
+**Discord setup for privacy:**
+```env
+DISCORD_GUILD_ID=123...        # Who can talk to Sheldon
+DISCORD_OWNER_ID=456...        # Your user ID - DMs get full access
+# OR
+DISCORD_TRUSTED_CHANNEL=789... # Private channel with full access
+```
+
+If neither `DISCORD_OWNER_ID` nor `DISCORD_TRUSTED_CHANNEL` is set, all conversations have full access (backwards compatible).
+
+**Get your Discord IDs:**
+- User ID: Settings → Advanced → Developer Mode → right-click yourself → Copy User ID
+- Channel ID: Right-click channel → Copy Channel ID
+- Server ID: Right-click server → Copy Server ID
+
+---
+
 ## Web Interfaces
 
 | Service | URL | Purpose |

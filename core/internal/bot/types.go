@@ -15,9 +15,12 @@ type Bot interface {
 }
 
 type Config struct {
-	Provider    string
-	Token       string
-	OwnerChatID int64
+	Provider       string
+	Token          string
+	OwnerChatID    int64  // Telegram: restrict to this chat ID
+	GuildID        string // Discord: restrict to this guild/server ID
+	OwnerID        string // Discord: user ID with full access (sensitive facts)
+	TrustedChannel string // Discord: channel ID with full access
 }
 
 type telegram struct {

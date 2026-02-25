@@ -15,6 +15,12 @@ import (
 
 type NotifyFunc func(chatID int64, message string)
 
+// ProcessOptions configures how a message is processed
+type ProcessOptions struct {
+	Media   []llm.MediaContent
+	Trusted bool // if true, sensitive facts are accessible; if false, SafeMode is enabled
+}
+
 // TriggerFunc processes a system trigger through the agent loop and returns the response
 type TriggerFunc func(chatID int64, sessionID string, prompt string) (string, error)
 

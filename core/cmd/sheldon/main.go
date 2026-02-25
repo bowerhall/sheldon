@@ -307,7 +307,7 @@ func main() {
 	}
 
 	if cfg.Bots.Discord.Enabled {
-		b, err := bot.NewDiscord(cfg.Bots.Discord.Token, sheldon)
+		b, err := bot.NewDiscord(cfg.Bots.Discord.Token, sheldon, cfg.Bots.Discord.GuildID, cfg.Bots.Discord.OwnerID, cfg.Bots.Discord.TrustedChannel)
 		if err != nil {
 			logger.Fatal("failed to create discord bot", "error", err)
 		}

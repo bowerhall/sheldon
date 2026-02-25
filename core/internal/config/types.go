@@ -82,9 +82,12 @@ type MultiBot struct {
 }
 
 type BotInstance struct {
-	Enabled     bool
-	Token       string
-	OwnerChatID int64
+	Enabled        bool
+	Token          string
+	OwnerChatID    int64  // Telegram: restrict to this chat ID
+	GuildID        string // Discord: restrict to this guild/server ID
+	OwnerID        string // Discord: user ID with full access (sensitive facts)
+	TrustedChannel string // Discord: channel ID with full access (alternative to OwnerID)
 }
 
 // HeartbeatConfig is kept for backwards compatibility with env vars.

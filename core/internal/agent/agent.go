@@ -121,10 +121,15 @@ func loadSystemPrompt(essencePath string) string {
 }
 
 func (a *Agent) Process(ctx context.Context, sessionID string, userMessage string) (string, error) {
-	return a.ProcessWithMedia(ctx, sessionID, userMessage, nil)
+	return a.ProcessWithOptions(ctx, sessionID, userMessage, ProcessOptions{Trusted: true})
 }
 
 func (a *Agent) ProcessWithMedia(ctx context.Context, sessionID string, userMessage string, media []llm.MediaContent) (string, error) {
+	return a.ProcessWithOptions(ctx, sessionID, userMessage, ProcessOptions{Media: media, Trusted: true})
+}
+
+func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMessage string, opts ProcessOptions) (string, error) {
+	media := opts.Media
 	logger.Debug("message received", "session", sessionID, "media", len(media))
 
 	if err := a.refreshLLMIfNeeded(); err != nil {
@@ -232,6 +237,10 @@ func (a *Agent) ProcessWithMedia(ctx context.Context, sessionID string, userMess
 	ctx = context.WithValue(ctx, tools.SessionIDKey, sessionID)
 	if len(media) > 0 {
 		ctx = context.WithValue(ctx, tools.MediaKey, media)
+	}
+	// SafeMode excludes sensitive facts - enabled when not trusted
+	if !opts.Trusted {
+		ctx = context.WithValue(ctx, tools.SafeModeKey, true)
 	}
 
 	response, err := a.runAgentLoop(ctx, sess)

@@ -212,8 +212,11 @@ func loadMultiBotConfig() MultiBot {
 			OwnerChatID: ownerChatID,
 		},
 		Discord: BotInstance{
-			Enabled: discordToken != "",
-			Token:   discordToken,
+			Enabled:        discordToken != "",
+			Token:          discordToken,
+			GuildID:        os.Getenv("DISCORD_GUILD_ID"),
+			OwnerID:        os.Getenv("DISCORD_OWNER_ID"),
+			TrustedChannel: os.Getenv("DISCORD_TRUSTED_CHANNEL"),
 		},
 	}
 }
