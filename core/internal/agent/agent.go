@@ -360,9 +360,9 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 		resp, err := a.llm.ChatWithTools(ctx, a.systemPrompt, sess.Messages(), loopTools)
 		if err != nil {
 			// try fallback provider if quota exhausted
-			if isQuotaError(err) {
+			if shouldFallback(err) {
 				currentProvider := a.llm.Provider()
-				logger.Warn("quota exhausted, trying fallback", "provider", currentProvider, "error", err)
+				logger.Warn("provider unavailable, trying fallback", "provider", currentProvider, "error", err)
 
 				newLLM, newProvider, fallbackErr := a.tryFallbackProvider(ctx, currentProvider)
 				if fallbackErr != nil {
@@ -532,19 +532,32 @@ func (a *Agent) ProcessSystemTrigger(ctx context.Context, sessionID string, trig
 	return response, nil
 }
 
-// isQuotaError checks if an error indicates exhausted credits/quota
-func isQuotaError(err error) bool {
+// shouldFallback checks if an error warrants switching to another provider
+// Triggers on: quota/credit issues, overloaded servers, rate limits
+func shouldFallback(err error) bool {
 	if err == nil {
 		return false
 	}
 	errStr := strings.ToLower(err.Error())
-	return strings.Contains(errStr, "credit") ||
+	// quota/credit errors
+	if strings.Contains(errStr, "credit") ||
 		strings.Contains(errStr, "quota") ||
 		strings.Contains(errStr, "insufficient") ||
 		strings.Contains(errStr, "402") ||
 		strings.Contains(errStr, "payment required") ||
 		strings.Contains(errStr, "billing") ||
-		strings.Contains(errStr, "exceeded")
+		strings.Contains(errStr, "exceeded") {
+		return true
+	}
+	// overloaded/rate limit errors
+	if strings.Contains(errStr, "overloaded") ||
+		strings.Contains(errStr, "529") ||
+		strings.Contains(errStr, "rate limit") ||
+		strings.Contains(errStr, "too many requests") ||
+		strings.Contains(errStr, "429") {
+		return true
+	}
+	return false
 }
 
 // tryFallbackProvider attempts to switch to another configured provider
