@@ -227,6 +227,7 @@ Sheldon: [recalls: user lives in Portland] "Let me check Portland weather..."
 | Contradictions | Manual | Auto-detected and superseded |
 | Domains | None | 14 life domains |
 | Recall | Scroll up or plugin | `recall_memory` tool |
+| Time-based recall | Automatic decay only | Explicit queries |
 
 ### Example: Contradiction Handling
 
@@ -245,6 +246,37 @@ June: [saves: city = LA, confidence 0.9] → auto-supersedes NYC fact
 September: "Where do I live?"
 → [recalls: city = LA] "You live in LA"
 ```
+
+### Example: Time-Based Recall
+
+**Other Assistants:**
+```
+You: "What did I tell you last week?"
+→ Time decay scoring prioritizes recent memories automatically
+→ Can't explicitly query "last week" - system decides what's relevant
+→ Old memories naturally drop in ranking
+```
+
+Time decay is automatic - you can't ask for memories from a specific period.
+
+**Sheldon:**
+```
+You: "What did I tell you yesterday?"
+Sheldon: [recalls with time_range: "yesterday"]
+→ "Yesterday you mentioned finishing the API refactor and wanting to start on the frontend."
+
+You: "What did we discuss on February 20th?"
+Sheldon: [recalls with since: "2025-02-20", until: "2025-02-20"]
+→ "On February 20th you talked about your new apartment search criteria."
+
+You: "Show me everything from last week"
+Sheldon: [recalls with time_range: "last_week", query: "*"]
+→ Lists all facts saved during that period
+```
+
+Sheldon has a `current_time` tool so it always knows today's date, and `recall_memory` accepts:
+- `time_range`: "today", "yesterday", "this_week", "last_week", "this_month"
+- `since` / `until`: specific dates like "2025-02-20"
 
 ---
 
