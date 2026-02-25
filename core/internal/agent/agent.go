@@ -369,7 +369,7 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 					if a.alerts != nil {
 						a.alerts.Critical("llm", "All providers exhausted", err)
 					}
-					return fmt.Sprintf("My %s credits are exhausted and no fallback providers are available. Please add credits or configure another provider (KIMI_API_KEY, OPENAI_API_KEY).", currentProvider), nil
+					return fmt.Sprintf("%s is unavailable and no fallback providers are configured. Please try again later or add another provider (KIMI_API_KEY, OPENAI_API_KEY).", currentProvider), nil
 				}
 
 				// switch to fallback and retry
@@ -377,7 +377,7 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 				if a.notify != nil {
 					chatID := ctx.Value(tools.ChatIDKey)
 					if id, ok := chatID.(int64); ok && id != 0 {
-						a.notify(id, fmt.Sprintf("Switched from %s to %s (credits exhausted)", currentProvider, newProvider))
+						a.notify(id, fmt.Sprintf("Switched from %s to %s (provider unavailable)", currentProvider, newProvider))
 					}
 				}
 				continue // retry with new provider
