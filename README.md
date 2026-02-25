@@ -5,7 +5,7 @@ A personal AI assistant that remembers your entire life, runs on your own infras
 ## Features
 
 - 🚀 **Zero-cost embeddings** — Local Ollama models, no API fees
-- 🧠 **Unified memory** — SQLite + sqlite-vec, single file, no external DB
+- 🧠 **Unified memory** — SQLite + sqlite-vec, single file, salience-aware decay
 - 🔒 **Isolated coder** — Ephemeral Docker containers for safe code execution
 - 🌐 **Browser automation** — Sandboxed agent-browser for JS-heavy sites
 - ⚡ **One-click deploy** — Push to GitHub → deployed on VPS (~€8/mo)
