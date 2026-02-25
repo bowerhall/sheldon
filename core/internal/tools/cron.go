@@ -36,28 +36,39 @@ func RegisterCronTools(registry *Registry, cronStore *cron.Store, timezone *time
 		Name: "set_cron",
 		Description: `Schedule a trigger. When the cron fires, you'll wake up with the keyword's recalled context and decide what to do.
 
-IMPORTANT: For ONE-TIME triggers (like "remind me at 3pm" or "check on me in 2 hours"), set one_time=true.
-This auto-deletes the cron after it fires once. Without this, it will repeat forever.
+CRITICAL - Distinguish ONE-TIME vs RECURRING:
 
-For RECURRING triggers (like "check on me every 6 hours" or "remind me daily"), leave one_time=false.`,
+ONE-TIME (set one_time=true):
+- "remind me IN 10 minutes" → schedule="@every 10m", one_time=true
+- "check on me IN 2 hours" → schedule="@every 2h", one_time=true
+- "remind me AT 3pm" → schedule="0 0 15 * * *", one_time=true
+- "do this tomorrow at 9am" → schedule="0 0 9 * * *", one_time=true
+
+RECURRING (one_time=false or omit):
+- "remind me EVERY 10 minutes" → schedule="@every 10m"
+- "check on me EVERY 6 hours" → schedule="@every 6h"
+- "remind me DAILY at 8pm" → schedule="0 0 20 * * *"
+
+The word "IN" means ONE-TIME. The word "EVERY" or "DAILY" means RECURRING.
+If unsure, ask the user to clarify.`,
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"keyword": map[string]any{
 					"type":        "string",
-					"description": "Short keyword for memory search when cron fires (e.g., 'heartbeat', 'meds', 'standup', 'build-weather-app')",
+					"description": "Short keyword for memory search when cron fires (e.g., 'checkin', 'meds', 'standup')",
 				},
 				"schedule": map[string]any{
 					"type":        "string",
-					"description": "Cron expression (6 fields with seconds): second minute hour day-of-month month day-of-week. Examples: '0 0 20 * * *' (8pm daily), '*/30 * * * * *' (every 30 seconds), '0 0 9 * * 1-5' (9am weekdays), '0 0 */6 * * *' (every 6 hours). For intervals use: '@every 30s', '@every 1m', '@every 5m', '@hourly', '@daily'. Note: seconds field is 0-59, so use '@every 60s' not '*/60' for every minute.",
+					"description": "Cron expression or interval. Intervals: '@every 5m', '@every 1h', '@every 30s'. Cron (6 fields): '0 0 20 * * *' (8pm daily), '0 0 9 * * 1-5' (9am weekdays).",
 				},
 				"one_time": map[string]any{
 					"type":        "boolean",
-					"description": "If true, auto-delete after firing once. Use for single reminders like 'remind me at 3pm'. Default: false (recurring).",
+					"description": "MUST be true for 'in X minutes/hours' requests. Auto-deletes after firing once. Default: false (recurring).",
 				},
 				"expires_in": map[string]any{
 					"type":        "string",
-					"description": "When to auto-delete. Examples: '2 weeks', '1 month', '1 day'. Ignored if one_time=true.",
+					"description": "Auto-delete after duration. Examples: '2 weeks', '1 month'. Ignored if one_time=true.",
 				},
 			},
 			"required": []string{"keyword", "schedule"},
