@@ -607,6 +607,13 @@ func (a *Agent) tryFallbackProvider(ctx context.Context, currentProvider string)
 	return nil, "", fmt.Errorf("no fallback providers available")
 }
 
+// default ollama models to try for fallback (in preference order)
+var defaultOllamaFallbackModels = []string{
+	"llama3.2", "llama3.1", "llama3",
+	"qwen2.5:7b", "qwen2.5:3b", "qwen2.5",
+	"mistral", "gemma2",
+}
+
 // findInstalledOllamaModel checks for a suitable chat model already installed in ollama
 func (a *Agent) findInstalledOllamaModel(ctx context.Context) string {
 	ollamaHost := a.runtimeConfig.Get("ollama_host")
@@ -614,11 +621,13 @@ func (a *Agent) findInstalledOllamaModel(ctx context.Context) string {
 		ollamaHost = "http://localhost:11434"
 	}
 
-	// preferred models in order (larger = better for chat)
-	preferred := []string{
-		"llama3.2", "llama3.1", "llama3",
-		"qwen2.5:7b", "qwen2.5:3b", "qwen2.5",
-		"mistral", "gemma2",
+	// check for custom preference via env
+	preferred := defaultOllamaFallbackModels
+	if custom := os.Getenv("OLLAMA_FALLBACK_MODELS"); custom != "" {
+		preferred = strings.Split(custom, ",")
+		for i := range preferred {
+			preferred[i] = strings.TrimSpace(preferred[i])
+		}
 	}
 
 	// get installed models via ollama API
