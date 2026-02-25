@@ -20,13 +20,19 @@ type Store struct {
 const schema = `
 CREATE TABLE IF NOT EXISTS recent_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    chat_id INTEGER NOT NULL,
+    session_id TEXT NOT NULL,
     role TEXT NOT NULL,
     content TEXT NOT NULL,
     created_at DATETIME DEFAULT (datetime('now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_recent_messages_chat ON recent_messages(chat_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recent_messages_session ON recent_messages(session_id, created_at DESC);
+`
+
+// migration to convert old chat_id to session_id
+const migrationSQL = `
+-- Check if old table exists with chat_id column
+-- SQLite doesn't support IF EXISTS for columns, so we handle this in Go
 `
 
 // NewStore creates a conversation buffer using the provided database connection
@@ -39,14 +45,41 @@ func NewStore(db *sql.DB) (*Store, error) {
 }
 
 func (s *Store) migrate() error {
-	_, err := s.db.Exec(schema)
+	// Check if old schema exists (chat_id column)
+	var hasOldSchema bool
+	err := s.db.QueryRow(`
+		SELECT COUNT(*) > 0 FROM pragma_table_info('recent_messages')
+		WHERE name = 'chat_id'
+	`).Scan(&hasOldSchema)
+
+	if err == nil && hasOldSchema {
+		// Migrate old data: convert chat_id to session_id with telegram prefix
+		// (assuming old data was telegram-only)
+		_, _ = s.db.Exec(`
+			ALTER TABLE recent_messages RENAME TO recent_messages_old;
+		`)
+		_, err = s.db.Exec(schema)
+		if err != nil {
+			return err
+		}
+		_, _ = s.db.Exec(`
+			INSERT INTO recent_messages (session_id, role, content, created_at)
+			SELECT 'telegram:' || chat_id, role, content, created_at
+			FROM recent_messages_old;
+		`)
+		_, _ = s.db.Exec(`DROP TABLE recent_messages_old;`)
+		return nil
+	}
+
+	// Fresh install
+	_, err = s.db.Exec(schema)
 	return err
 }
 
-func (s *Store) Add(chatID int64, role, content string) error {
+func (s *Store) Add(sessionID string, role, content string) error {
 	_, err := s.db.Exec(
-		`INSERT INTO recent_messages (chat_id, role, content) VALUES (?, ?, ?)`,
-		chatID, role, content,
+		`INSERT INTO recent_messages (session_id, role, content) VALUES (?, ?, ?)`,
+		sessionID, role, content,
 	)
 	if err != nil {
 		return err
@@ -55,23 +88,23 @@ func (s *Store) Add(chatID int64, role, content string) error {
 	// trim to max messages (FIFO)
 	_, err = s.db.Exec(`
 		DELETE FROM recent_messages
-		WHERE chat_id = ? AND id NOT IN (
+		WHERE session_id = ? AND id NOT IN (
 			SELECT id FROM recent_messages
-			WHERE chat_id = ?
+			WHERE session_id = ?
 			ORDER BY created_at DESC
 			LIMIT ?
-		)`, chatID, chatID, maxMessages)
+		)`, sessionID, sessionID, maxMessages)
 
 	return err
 }
 
-func (s *Store) GetRecent(chatID int64) ([]Message, error) {
+func (s *Store) GetRecent(sessionID string) ([]Message, error) {
 	rows, err := s.db.Query(`
 		SELECT role, content, created_at
 		FROM recent_messages
-		WHERE chat_id = ?
+		WHERE session_id = ?
 		ORDER BY created_at ASC
-		LIMIT ?`, chatID, maxMessages)
+		LIMIT ?`, sessionID, maxMessages)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +124,7 @@ func (s *Store) GetRecent(chatID int64) ([]Message, error) {
 	return messages, nil
 }
 
-func (s *Store) Clear(chatID int64) error {
-	_, err := s.db.Exec(`DELETE FROM recent_messages WHERE chat_id = ?`, chatID)
+func (s *Store) Clear(sessionID string) error {
+	_, err := s.db.Exec(`DELETE FROM recent_messages WHERE session_id = ?`, sessionID)
 	return err
 }

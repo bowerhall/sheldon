@@ -193,7 +193,7 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 
 	// load recent conversation history for continuity
 	if len(sess.Messages()) == 0 && a.convo != nil {
-		recent, err := a.convo.GetRecent(chatID)
+		recent, err := a.convo.GetRecent(sessionID)
 		if err != nil {
 			logger.Warn("failed to load recent messages", "error", err)
 		} else if len(recent) > 0 {
@@ -204,13 +204,13 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 			}
 			if startIdx < len(recent) {
 				loaded := recent[startIdx:]
-				logger.Info("loading recent conversation", "chatID", chatID, "messages", len(loaded), "skipped", startIdx)
+				logger.Info("loading recent conversation", "session", sessionID, "messages", len(loaded), "skipped", startIdx)
 				for _, m := range loaded {
 					sess.AddMessage(m.Role, m.Content, nil, "")
 				}
 			}
 		} else {
-			logger.Debug("no recent messages found", "chatID", chatID)
+			logger.Debug("no recent messages found", "session", sessionID)
 		}
 	} else if a.convo == nil {
 		logger.Warn("conversation store not configured")
@@ -251,10 +251,10 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 
 	// save to recent conversation buffer
 	if a.convo != nil {
-		if err := a.convo.Add(chatID, "user", userMessage); err != nil {
+		if err := a.convo.Add(sessionID, "user", userMessage); err != nil {
 			logger.Warn("failed to save user message to conversation buffer", "error", err)
 		}
-		if err := a.convo.Add(chatID, "assistant", response); err != nil {
+		if err := a.convo.Add(sessionID, "assistant", response); err != nil {
 			logger.Warn("failed to save assistant response to conversation buffer", "error", err)
 		}
 	}
