@@ -208,12 +208,16 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 	caps := a.llm.Capabilities()
 	hasImage := false
 	hasVideo := false
+	hasPDF := false
 	for _, m := range media {
 		if m.Type == llm.MediaTypeImage {
 			hasImage = true
 		}
 		if m.Type == llm.MediaTypeVideo {
 			hasVideo = true
+		}
+		if m.Type == llm.MediaTypePDF {
+			hasPDF = true
 		}
 	}
 
@@ -226,6 +230,9 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 	}
 	if hasVideo && !caps.VideoInput {
 		limitations = append(limitations, "video")
+	}
+	if hasPDF && !caps.PDFInput {
+		limitations = append(limitations, "PDF")
 	}
 
 	if len(limitations) > 0 {
@@ -244,6 +251,9 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 				mediaForLLM = append(mediaForLLM, m)
 			}
 			if m.Type == llm.MediaTypeVideo && caps.VideoInput {
+				mediaForLLM = append(mediaForLLM, m)
+			}
+			if m.Type == llm.MediaTypePDF && caps.PDFInput {
 				mediaForLLM = append(mediaForLLM, m)
 			}
 		}

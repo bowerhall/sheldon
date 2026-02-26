@@ -140,6 +140,20 @@ func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 
 		text = msg.Caption
 		logger.Info("video note received", "session", sessionID, "from", msg.From.UserName)
+	} else if msg.Document != nil && isPDF(msg.Document.MimeType) {
+		data, _, err := t.downloadFile(msg.Document.FileID)
+		if err != nil {
+			logger.Error("failed to download document", "error", err)
+		} else {
+			media = append(media, llm.MediaContent{
+				Type:     llm.MediaTypePDF,
+				Data:     data,
+				MimeType: "application/pdf",
+			})
+		}
+
+		text = msg.Caption
+		logger.Info("PDF received", "session", sessionID, "from", msg.From.UserName, "filename", msg.Document.FileName, "caption", truncate(text, 50))
 	} else {
 		text = msg.Text
 		logger.Info("message received", "session", sessionID, "from", msg.From.UserName, "text", truncate(text, 50))
@@ -231,10 +245,27 @@ func (t *telegram) SendVideo(chatID int64, data []byte, caption string) error {
 	return err
 }
 
+func (t *telegram) SendDocument(chatID int64, data []byte, filename, caption string) error {
+	docBytes := tgbotapi.FileBytes{Name: filename, Bytes: data}
+	msg := tgbotapi.NewDocument(chatID, docBytes)
+	msg.Caption = caption
+	_, err := t.api.Send(msg)
+	if err != nil {
+		logger.Error("send document failed", "error", err, "chatID", chatID)
+	} else {
+		logger.Info("document sent", "chatID", chatID, "filename", filename, "caption", truncate(caption, 50))
+	}
+	return err
+}
+
 func truncate(s string, max int) string {
 	if len(s) <= max {
 		return s
 	}
 
 	return s[:max] + "..."
+}
+
+func isPDF(mimeType string) bool {
+	return mimeType == "application/pdf"
 }

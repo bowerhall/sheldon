@@ -107,6 +107,26 @@ func (d *discord) SendVideo(chatID int64, data []byte, caption string) error {
 	return err
 }
 
+func (d *discord) SendDocument(chatID int64, data []byte, filename, caption string) error {
+	channelID := fmt.Sprintf("%d", chatID)
+	reader := bytes.NewReader(data)
+	_, err := d.session.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
+		Content: caption,
+		Files: []*discordgo.File{
+			{
+				Name:   filename,
+				Reader: reader,
+			},
+		},
+	})
+	if err != nil {
+		logger.Error("discord send document failed", "error", err, "channelID", channelID)
+	} else {
+		logger.Info("discord document sent", "channelID", channelID, "filename", filename)
+	}
+	return err
+}
+
 func (d *discord) handleMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
@@ -179,19 +199,25 @@ func (d *discord) processMessage(s *discordgo.Session, m *discordgo.MessageCreat
 			continue
 		}
 
-		mediaType := llm.MediaTypeImage
-		if strings.HasPrefix(mimeType, "video/") {
+		var mediaType llm.MediaType
+		switch {
+		case strings.HasPrefix(mimeType, "image/"):
+			mediaType = llm.MediaTypeImage
+		case strings.HasPrefix(mimeType, "video/"):
 			mediaType = llm.MediaTypeVideo
+		case mimeType == "application/pdf":
+			mediaType = llm.MediaTypePDF
+		default:
+			logger.Warn("unsupported attachment type", "mimeType", mimeType)
+			continue
 		}
 
-		if mediaType == llm.MediaTypeImage || mediaType == llm.MediaTypeVideo {
-			media = append(media, llm.MediaContent{
-				Type:     mediaType,
-				Data:     data,
-				MimeType: mimeType,
-			})
-			logger.Info("attachment received", "type", mediaType, "size", len(data))
-		}
+		media = append(media, llm.MediaContent{
+			Type:     mediaType,
+			Data:     data,
+			MimeType: mimeType,
+		})
+		logger.Info("attachment received", "type", mediaType, "size", len(data))
 	}
 
 	// Determine if this is a trusted context (can access sensitive facts)

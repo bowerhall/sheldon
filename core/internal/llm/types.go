@@ -14,6 +14,7 @@ type MediaType string
 const (
 	MediaTypeImage MediaType = "image"
 	MediaTypeVideo MediaType = "video"
+	MediaTypePDF   MediaType = "pdf"
 )
 
 type MediaContent struct {
@@ -58,6 +59,7 @@ type Usage struct {
 type Capabilities struct {
 	Vision      bool
 	VideoInput  bool
+	PDFInput    bool
 	ToolUse     bool
 }
 

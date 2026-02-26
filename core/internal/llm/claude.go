@@ -102,21 +102,21 @@ func (c *claude) Chat(ctx context.Context, systemPrompt string, messages []Messa
 }
 
 func (c *claude) ChatWithTools(ctx context.Context, systemPrompt string, messages []Message, tools []Tool) (*ChatResponse, error) {
-	// Check if any message contains video - use raw API if so
-	hasVideo := false
+	// Check if any message contains video or PDF - use raw API if so
+	needsRawAPI := false
 	for _, msg := range messages {
 		for _, media := range msg.Media {
-			if media.Type == MediaTypeVideo {
-				hasVideo = true
+			if media.Type == MediaTypeVideo || media.Type == MediaTypePDF {
+				needsRawAPI = true
 				break
 			}
 		}
-		if hasVideo {
+		if needsRawAPI {
 			break
 		}
 	}
 
-	if hasVideo {
+	if needsRawAPI {
 		return c.chatWithToolsRaw(ctx, systemPrompt, messages, tools)
 	}
 
@@ -301,6 +301,15 @@ func (c *claude) convertMessagesRaw(messages []Message) []rawMessage {
 							Data:      base64.StdEncoding.EncodeToString(media.Data),
 						},
 					})
+				case MediaTypePDF:
+					blocks = append(blocks, rawContentBlock{
+						Type: "document",
+						Source: &rawMediaSource{
+							Type:      "base64",
+							MediaType: media.MimeType,
+							Data:      base64.StdEncoding.EncodeToString(media.Data),
+						},
+					})
 				}
 			}
 
@@ -401,6 +410,9 @@ func (c *claude) convertMessages(messages []Message) []anthropic.MessageParam {
 					// Claude SDK doesn't support inline video yet
 					// Add a note so the model knows a video was sent
 					blocks = append(blocks, anthropic.NewTextBlock("[Video attached - video analysis not yet supported]"))
+				case MediaTypePDF:
+					// PDF should go through raw API, but fallback just in case
+					blocks = append(blocks, anthropic.NewTextBlock("[PDF attached - use raw API for PDF support]"))
 				}
 			}
 
@@ -495,6 +507,7 @@ func (c *claude) Capabilities() Capabilities {
 	return Capabilities{
 		Vision:     true,
 		VideoInput: true,
+		PDFInput:   true,
 		ToolUse:    true,
 	}
 }

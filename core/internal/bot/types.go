@@ -12,6 +12,7 @@ type Bot interface {
 	Send(chatID int64, message string) error
 	SendPhoto(chatID int64, data []byte, caption string) error
 	SendVideo(chatID int64, data []byte, caption string) error
+	SendDocument(chatID int64, data []byte, filename, caption string) error
 }
 
 type Config struct {
