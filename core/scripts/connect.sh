@@ -61,6 +61,15 @@ fi
 
 echo -e "${GREEN}✓${NC} Tailscale installed"
 
+# Start Tailscale daemon on macOS
+if [ "$OS" = "Darwin" ]; then
+    if ! pgrep -x "tailscaled" > /dev/null; then
+        echo "Starting Tailscale daemon..."
+        brew services start tailscale
+        sleep 3
+    fi
+fi
+
 # Connect to Headscale
 echo "Connecting to Sheldon network..."
 tailscale up --login-server="$HEADSCALE_URL" --authkey="$AUTHKEY"
