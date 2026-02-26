@@ -36,8 +36,8 @@ services:
       - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
       - "traefik.http.routers.dashboard.service=api@internal"
-      - "traefik.http.routers.dashboard.middlewares=tailscale-only"
-      - "traefik.http.middlewares.tailscale-only.ipwhitelist.sourcerange=100.64.0.0/10"
+      - "traefik.http.routers.dashboard.middlewares=dashboard-auth"
+      - "traefik.http.middlewares.dashboard-auth.basicauth.users=${TRAEFIK_DASHBOARD_AUTH}"
 
   # Docker socket proxy - limits what Sheldon can do with docker
   docker-proxy:
