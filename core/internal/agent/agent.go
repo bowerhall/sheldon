@@ -142,13 +142,50 @@ func loadSystemPrompt(essencePath string) string {
 func (a *Agent) buildDynamicPrompt() string {
 	prompt := a.systemPrompt
 
-	// Add active notes to context
-	noteKeys, err := a.memory.ListNotes()
-	if err == nil && len(noteKeys) > 0 {
-		prompt += fmt.Sprintf("\n\n## Active Notes\n%s", strings.Join(noteKeys, ", "))
+	// Add active notes with age to context
+	notes, err := a.memory.ListNotesWithAge()
+	if err == nil && len(notes) > 0 {
+		var parts []string
+		for _, n := range notes {
+			age := formatAge(n.UpdatedAt)
+			parts = append(parts, fmt.Sprintf("%s (%s)", n.Key, age))
+		}
+		prompt += fmt.Sprintf("\n\n## Active Notes\n%s", strings.Join(parts, ", "))
 	}
 
 	return prompt
+}
+
+// formatAge returns a human-readable age string like "2 days ago" or "3 hours ago"
+func formatAge(t time.Time) string {
+	d := time.Since(t)
+
+	switch {
+	case d < time.Hour:
+		mins := int(d.Minutes())
+		if mins <= 1 {
+			return "just now"
+		}
+		return fmt.Sprintf("%d mins ago", mins)
+	case d < 24*time.Hour:
+		hours := int(d.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	case d < 7*24*time.Hour:
+		days := int(d.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	default:
+		weeks := int(d.Hours() / 24 / 7)
+		if weeks == 1 {
+			return "1 week ago"
+		}
+		return fmt.Sprintf("%d weeks ago", weeks)
+	}
 }
 
 func (a *Agent) Process(ctx context.Context, sessionID string, userMessage string) (string, error) {
