@@ -10,9 +10,6 @@ services:
     image: traefik:v2.11
     container_name: traefik
     restart: unless-stopped
-    depends_on:
-      traefik-init:
-        condition: service_completed_successfully
     command:
       - "--api.dashboard=true"
       - "--providers.docker=true"
@@ -35,27 +32,6 @@ services:
     labels:
       # Disable self-discovery (use file provider for dashboard instead)
       - "traefik.enable=false"
-
-  # Processes traefik config template with domain
-  traefik-init:
-    image: alpine:latest
-    container_name: traefik-init
-    volumes:
-      - ./traefik:/etc/traefik/dynamic
-    environment:
-      - DOMAIN=${DOMAIN}
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        # Process template if exists, otherwise just ensure directory
-        if [ -f /etc/traefik/dynamic/dynamic.yml.template ]; then
-          sed "s/DOMAIN_PLACEHOLDER/$${DOMAIN}/g" /etc/traefik/dynamic/dynamic.yml.template > /etc/traefik/dynamic/dynamic.yml
-          echo "Traefik config: domain set to $${DOMAIN}"
-        elif [ ! -f /etc/traefik/dynamic/dynamic.yml ]; then
-          echo "Warning: No traefik config template found"
-        else
-          echo "Traefik config: already configured"
-        fi
 
   # Docker socket proxy - limits what Sheldon can do with docker
   docker-proxy:
