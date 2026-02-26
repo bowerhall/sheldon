@@ -336,7 +336,8 @@ User: "What should I cook tonight?"
 | Tool | Purpose |
 |------|---------|
 | `save_note(key, content)` | Create or update a working note |
-| `get_note(key)` | Retrieve note (searches both tiers) |
+| `get_note(key)` | Retrieve single note (searches both tiers) |
+| `get_notes(keys[])` | Retrieve multiple notes at once (for bulk operations) |
 | `delete_note(key)` | Remove a note permanently |
 | `archive_note(old_key, new_key)` | Move working note to archive tier |
 | `list_archived_notes(pattern)` | Search archived notes by pattern |

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldonmem"
@@ -33,6 +34,10 @@ type ListArchivedNotesArgs struct {
 
 type RestoreNoteArgs struct {
 	Key string `json:"key"`
+}
+
+type GetNotesArgs struct {
+	Keys []string `json:"keys"`
 }
 
 func RegisterNoteTools(registry *Registry, memory *sheldonmem.Store) {
@@ -108,6 +113,57 @@ Notes are key-value: the key identifies the note, content can be text, markdown,
 		}
 
 		return note.Content, nil
+	})
+
+	getNotesTool := llm.Tool{
+		Name: "get_notes",
+		Description: `Retrieve multiple notes at once. Use this instead of multiple get_note calls when you need several notes.
+
+Examples:
+- Comparing budgets: get_notes(["budget_2025_01", "budget_2025_02", "budget_2025_03"])
+- Building a report: get_notes(["meal_plan", "shopping_list", "weekly_goals"])
+- Exporting history: first list_archived_notes("budget"), then get_notes with those keys`,
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"keys": map[string]any{
+					"type":        "array",
+					"items":       map[string]any{"type": "string"},
+					"description": "List of note keys to retrieve",
+				},
+			},
+			"required": []string{"keys"},
+		},
+	}
+
+	registry.Register(getNotesTool, func(ctx context.Context, args string) (string, error) {
+		var params GetNotesArgs
+		if err := json.Unmarshal([]byte(args), &params); err != nil {
+			return "", fmt.Errorf("invalid arguments: %w", err)
+		}
+
+		if len(params.Keys) == 0 {
+			return "No keys provided", nil
+		}
+
+		notes, err := memory.GetNotes(params.Keys)
+		if err != nil {
+			return "", fmt.Errorf("failed to get notes: %w", err)
+		}
+
+		if len(notes) == 0 {
+			return "No notes found for the provided keys", nil
+		}
+
+		// Format as key: content pairs
+		var result strings.Builder
+		for i, note := range notes {
+			if i > 0 {
+				result.WriteString("\n---\n")
+			}
+			result.WriteString(fmt.Sprintf("## %s\n%s", note.Key, note.Content))
+		}
+		return result.String(), nil
 	})
 
 	deleteNoteTool := llm.Tool{

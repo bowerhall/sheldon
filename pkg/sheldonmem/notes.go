@@ -2,6 +2,8 @@ package sheldonmem
 
 import (
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -159,4 +161,40 @@ func (s *Store) ListArchivedNotes(pattern string) ([]NoteInfo, error) {
 type NoteInfo struct {
 	Key       string
 	UpdatedAt time.Time
+}
+
+// GetNotes retrieves multiple notes by keys in a single call
+func (s *Store) GetNotes(keys []string) ([]*Note, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+
+	// Build query with placeholders
+	placeholders := make([]string, len(keys))
+	args := make([]interface{}, len(keys))
+	for i, k := range keys {
+		placeholders[i] = "?"
+		args[i] = k
+	}
+
+	query := fmt.Sprintf(`
+		SELECT key, content, tier, updated_at
+		FROM notes WHERE key IN (%s)
+	`, strings.Join(placeholders, ","))
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var notes []*Note
+	for rows.Next() {
+		var note Note
+		if err := rows.Scan(&note.Key, &note.Content, &note.Tier, &note.UpdatedAt); err != nil {
+			return nil, err
+		}
+		notes = append(notes, &note)
+	}
+	return notes, rows.Err()
 }
