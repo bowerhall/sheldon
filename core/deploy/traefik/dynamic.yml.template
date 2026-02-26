@@ -1,0 +1,20 @@
+# Traefik Dashboard - IP-restricted to Tailscale network
+# This file is processed by traefik-init to substitute DOMAIN_PLACEHOLDER
+
+http:
+  routers:
+    dashboard:
+      rule: "Host(`traefik.DOMAIN_PLACEHOLDER`)"
+      entryPoints:
+        - websecure
+      service: api@internal
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - tailscale-only
+
+  middlewares:
+    tailscale-only:
+      ipAllowList:
+        sourceRange:
+          - "100.64.0.0/10"
