@@ -42,12 +42,17 @@ if ! command -v tailscale &> /dev/null; then
     echo "Installing Tailscale..."
     case "$OS" in
         Darwin)
-            if command -v brew &> /dev/null; then
-                brew install tailscale
-            else
-                echo -e "${RED}Please install Homebrew first: https://brew.sh${NC}"
-                exit 1
-            fi
+            echo ""
+            echo -e "${CYAN}On macOS, install the Tailscale app for easiest setup:${NC}"
+            echo "  https://apps.apple.com/app/tailscale/id1475387142"
+            echo ""
+            echo "Or with Homebrew (requires sudo):"
+            echo "  brew install tailscale"
+            echo "  sudo brew services start tailscale"
+            echo ""
+            echo "Then run:"
+            echo "  tailscale up --login-server=$HEADSCALE_URL --authkey=$AUTHKEY"
+            exit 0
             ;;
         Linux)
             curl -fsSL https://tailscale.com/install.sh | sh
@@ -61,12 +66,14 @@ fi
 
 echo -e "${GREEN}✓${NC} Tailscale installed"
 
-# Start Tailscale daemon on macOS
+# Start Tailscale daemon on macOS (if using brew version with sudo)
 if [ "$OS" = "Darwin" ]; then
     if ! pgrep -x "tailscaled" > /dev/null; then
-        echo "Starting Tailscale daemon..."
-        brew services start tailscale
-        sleep 3
+        echo -e "${CYAN}Tailscale daemon not running. If using brew:${NC}"
+        echo "  sudo brew services start tailscale"
+        echo ""
+        echo "Or use the Tailscale app which handles this automatically."
+        exit 1
     fi
 fi
 
