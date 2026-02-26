@@ -1,14 +1,6 @@
 # Headscale Configuration
 # Self-hosted Tailscale coordination server for Sheldon homelabs
-#
-# After starting, create a user:
-#   docker compose exec headscale headscale users create sheldon
-#
-# Generate auth key for invite script:
-#   docker compose exec headscale headscale preauthkeys create --user sheldon --reusable --expiration 24h
-#
-# Tag the Sheldon VPS for ACL (restricts who can call homelab-agent):
-#   docker compose exec headscale headscale nodes tag -i 1 -t tag:sheldon
+# User and config are auto-initialized by headscale-init container
 
 server_url: https://hs.DOMAIN_PLACEHOLDER
 listen_addr: 0.0.0.0:8080

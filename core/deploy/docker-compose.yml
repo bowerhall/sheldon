@@ -30,6 +30,14 @@ services:
       - ./letsencrypt:/letsencrypt
     networks:
       - sheldon-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=tailscale-only"
+      - "traefik.http.middlewares.tailscale-only.ipwhitelist.sourcerange=100.64.0.0/10"
 
   # Docker socket proxy - limits what Sheldon can do with docker
   docker-proxy:
@@ -218,11 +226,13 @@ services:
       - sheldon-net
 
   # Headscale - self-hosted Tailscale coordination server
-  # Config is auto-generated on first deploy if missing
   headscale:
     image: headscale/headscale:latest
     container_name: headscale
     restart: unless-stopped
+    depends_on:
+      headscale-init:
+        condition: service_completed_successfully
     volumes:
       - ./headscale:/etc/headscale
       - headscale_data:/var/lib/headscale
@@ -235,6 +245,25 @@ services:
       - "traefik.http.routers.headscale.entrypoints=websecure"
       - "traefik.http.routers.headscale.tls.certresolver=letsencrypt"
       - "traefik.http.services.headscale.loadbalancer.server.port=8080"
+
+  # Initializes headscale config with correct domain
+  headscale-init:
+    image: alpine:latest
+    container_name: headscale-init
+    volumes:
+      - ./headscale:/etc/headscale
+    environment:
+      - DOMAIN=${DOMAIN}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        # Replace domain placeholder in config if needed
+        if grep -q "DOMAIN_PLACEHOLDER" /etc/headscale/config.yaml 2>/dev/null; then
+          sed -i "s/DOMAIN_PLACEHOLDER/$${DOMAIN}/g" /etc/headscale/config.yaml
+          echo "Headscale config: domain set to $${DOMAIN}"
+        else
+          echo "Headscale config: already configured"
+        fi
 
 networks:
   sheldon-net:

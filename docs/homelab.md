@@ -108,7 +108,7 @@ docker exec headscale headscale preauthkeys create --user 1 --expiration 1h
 
 ```bash
 HEADSCALE_URL=https://hs.yourdomain.com AUTHKEY=abc123 \
-  curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/invite.sh | sudo bash
+  curl -fsSL https://raw.githubusercontent.com/bowerhall/sheldon/main/core/scripts/invite.sh | sudo bash
 ```
 
 This will:
@@ -121,7 +121,7 @@ This will:
 **Agent only** (no private networking, just container management):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/agent.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/bowerhall/sheldon/main/core/scripts/agent.sh | sudo bash
 ```
 
 ### Switching Ollama Host
@@ -408,10 +408,10 @@ The homelab-agent runs on each machine and exposes a simple HTTP API:
 All images are published to GitHub Container Registry:
 
 ```
-ghcr.io/{owner}/sheldon:latest
-ghcr.io/{owner}/sheldon-coder-sandbox:latest
-ghcr.io/{owner}/sheldon-browser-sandbox:latest
-ghcr.io/{owner}/sheldon-homelab-agent:latest
+ghcr.io/bowerhall/sheldon:latest
+ghcr.io/bowerhall/sheldon-coder-sandbox:latest
+ghcr.io/bowerhall/sheldon-browser-sandbox:latest
+ghcr.io/bowerhall/sheldon-homelab-agent:latest
 ```
 
 ---
