@@ -107,10 +107,10 @@ docker exec headscale headscale preauthkeys create --user 1 --expiration 1h
 
 # 2. On the new machine, run with that key
 HEADSCALE_URL=https://hs.yourdomain.com AUTHKEY=your-key \
-  curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/invite.sh | sudo bash
+  curl -fsSL https://raw.githubusercontent.com/{owner}/sheldon/main/core/scripts/invite.sh | sudo bash
 
 # Or agent only (no private networking, just container management)
-curl -fsSL https://raw.githubusercontent.com/{owner}/kora/main/core/scripts/agent.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/{owner}/sheldon/main/core/scripts/agent.sh | sudo bash
 ```
 
 **Point Ollama to your GPU server:**
