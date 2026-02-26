@@ -37,7 +37,9 @@ func (s *Store) migrate() error {
 	}
 
 	// Add tier column to existing notes tables (migration for existing DBs)
+	// Ignore error if column already exists
 	s.db.Exec("ALTER TABLE notes ADD COLUMN tier TEXT DEFAULT 'working'")
+	// Create index after ensuring column exists
 	s.db.Exec("CREATE INDEX IF NOT EXISTS idx_notes_tier ON notes(tier)")
 
 	if err := s.seedDomains(); err != nil {

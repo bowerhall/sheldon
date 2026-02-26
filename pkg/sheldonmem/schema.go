@@ -62,8 +62,6 @@ CREATE TABLE IF NOT EXISTS notes (
     tier TEXT DEFAULT 'working',
     updated_at DATETIME DEFAULT (datetime('now'))
 );
-
-CREATE INDEX IF NOT EXISTS idx_notes_tier ON notes(tier);
 `
 
 const vecSchema = `
