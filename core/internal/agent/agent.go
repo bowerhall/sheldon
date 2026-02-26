@@ -145,7 +145,7 @@ func (a *Agent) buildDynamicPrompt() string {
 	// Add active notes to context
 	noteKeys, err := a.memory.ListNotes()
 	if err == nil && len(noteKeys) > 0 {
-		prompt += fmt.Sprintf("\n\n## Active Notes\nYou have working notes that may be relevant: %s\nUse get_note to retrieve content when relevant to the conversation.", strings.Join(noteKeys, ", "))
+		prompt += fmt.Sprintf("\n\n## Active Notes\n%s", strings.Join(noteKeys, ", "))
 	}
 
 	return prompt
