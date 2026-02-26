@@ -514,8 +514,12 @@ var disabledDuringIsolation = map[string]bool{
 	"recall_memory": true,
 
 	// data poisoning
-	"save_memory":     true,
-	"mark_sensitive":  true,
+	"save_memory":    true,
+	"mark_sensitive": true,
+	"save_note":      true,
+	"delete_note":    true,
+	"archive_note":   true,
+	"restore_note":   true,
 
 	// config changes
 	"set_config":    true,

@@ -246,20 +246,26 @@ Standard 5-field cron format: `minute hour day-of-month month day-of-week`
 | `0 */2 * * *` | every 2 hours       |
 | `0 8 1 * *`   | 8am on 1st of month |
 
-## Notes (Working Memory)
+## Notes (Two-Tier System)
 
-Notes provide mutable state for things that change frequently and don't fit the long-term fact model. While facts are auto-extracted and versioned, notes are explicitly managed by Sheldon for tracking current state.
+Notes provide mutable state for things that change frequently and need exact key-based retrieval. Unlike facts (semantic search, may return similar results), notes guarantee exact retrieval by key.
+
+### Two Tiers
+
+| Tier | Purpose | Visibility | Example Keys |
+|------|---------|------------|--------------|
+| **Working** | Active, frequently changing state | Shown in system prompt | `current_budget`, `meal_plan`, `shopping_list` |
+| **Archive** | Historical data, preserved for reference | Retrieved on-demand | `budget_2025_01`, `meal_plan_week_08` |
 
 ### When to Use Notes vs Facts
 
 | Use Case | Storage | Why |
 |----------|---------|-----|
-| "I'm allergic to peanuts" | Fact | Permanent, auto-extracted |
-| "This week's meal plan" | Note | Mutable, changes as meals are cooked |
-| "My wife's name is Sarah" | Fact | Long-term relationship knowledge |
-| "Shopping list for Saturday" | Note | Temporary, items get crossed off |
-| "I prefer TypeScript" | Fact | Stable preference |
-| "Current project: API refactor" | Note | Active state, will change |
+| "I'm allergic to peanuts" | Fact | Permanent, searchable across contexts |
+| "This week's meal plan" | Working Note | Mutable, exact retrieval by key |
+| "January 2025 budget summary" | Archived Note | Historical record, exact retrieval |
+| "I prefer TypeScript" | Fact | Stable preference, semantic recall |
+| "Current month's expenses" | Working Note | Active tracking, structured JSON |
 
 ### Schema
 
@@ -267,20 +273,22 @@ Notes provide mutable state for things that change frequently and don't fit the 
 CREATE TABLE notes (
     key TEXT PRIMARY KEY,
     content TEXT NOT NULL,
+    tier TEXT DEFAULT 'working',  -- 'working' or 'archive'
     updated_at DATETIME DEFAULT (datetime('now'))
 );
+CREATE INDEX idx_notes_tier ON notes(tier);
 ```
 
 ### How It Works
 
-Note keys are injected into the system prompt so Sheldon knows what's available:
+Working note keys (with age) are injected into the system prompt:
 
 ```
 ## Active Notes
-meal_plan, shopping_list
+current_budget (2 days ago), meal_plan (5 hours ago)
 ```
 
-Content is only loaded when Sheldon calls `get_note(key)`, keeping context minimal.
+Archived notes are invisible until explicitly retrieved. Content loads only via `get_note(key)`, keeping context minimal.
 
 ### Example: Meal Planning
 
@@ -327,9 +335,37 @@ User: "What should I cook tonight?"
 
 | Tool | Purpose |
 |------|---------|
-| `save_note(key, content)` | Create or update a note |
-| `get_note(key)` | Retrieve note content |
-| `delete_note(key)` | Remove a note when done |
+| `save_note(key, content)` | Create or update a working note |
+| `get_note(key)` | Retrieve note (searches both tiers) |
+| `delete_note(key)` | Remove a note permanently |
+| `archive_note(old_key, new_key)` | Move working note to archive tier |
+| `list_archived_notes(pattern)` | Search archived notes by pattern |
+| `restore_note(key)` | Bring archived note back to working tier |
+
+### Lifecycle Example
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ January 2025                                            │
+│                                                         │
+│ save_note("current_budget", {...})  → Working tier      │
+│ [Update throughout month]                               │
+│                                                         │
+│ End of month:                                           │
+│ archive_note("current_budget", "budget_2025_01")        │
+│ save_note("current_budget", {fresh template})           │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│ March 2025                                              │
+│                                                         │
+│ User: "How did I spend in January?"                     │
+│ Sheldon: list_archived_notes("budget")                  │
+│         → budget_2025_01, budget_2025_02                │
+│ Sheldon: get_note("budget_2025_01")                     │
+│         → Exact January data, no semantic matching      │
+└─────────────────────────────────────────────────────────┘
+```
 
 ### Integration with Crons
 

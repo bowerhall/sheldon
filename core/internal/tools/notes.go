@@ -22,6 +22,19 @@ type DeleteNoteArgs struct {
 	Key string `json:"key"`
 }
 
+type ArchiveNoteArgs struct {
+	OldKey string `json:"old_key"`
+	NewKey string `json:"new_key"`
+}
+
+type ListArchivedNotesArgs struct {
+	Pattern string `json:"pattern"`
+}
+
+type RestoreNoteArgs struct {
+	Key string `json:"key"`
+}
+
 func RegisterNoteTools(registry *Registry, memory *sheldonmem.Store) {
 	saveNoteTool := llm.Tool{
 		Name: "save_note",
@@ -66,7 +79,7 @@ Notes are key-value: the key identifies the note, content can be text, markdown,
 
 	getNoteTool := llm.Tool{
 		Name:        "get_note",
-		Description: "Retrieve a working note by its key. Use this to check current state of meal plans, shopping lists, goals, etc.",
+		Description: "Retrieve a note by its key. Searches both working notes and archived notes. Use this to check current state or retrieve historical data.",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -123,6 +136,110 @@ Notes are key-value: the key identifies the note, content can be text, markdown,
 		}
 
 		return fmt.Sprintf("Deleted note: %s", params.Key), nil
+	})
+
+	archiveNoteTool := llm.Tool{
+		Name: "archive_note",
+		Description: `Archive a working note for long-term storage. Use this at natural endpoints like end of week/month.
+
+The archived note is removed from Active Notes (system prompt) but remains retrievable via get_note.
+Provide a descriptive new_key that includes context (e.g., 'budget_2025_01' for January budget).`,
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"old_key": map[string]any{
+					"type":        "string",
+					"description": "The current working note key to archive",
+				},
+				"new_key": map[string]any{
+					"type":        "string",
+					"description": "The archive key (e.g., 'budget_2025_01', 'meal_plan_week_08')",
+				},
+			},
+			"required": []string{"old_key", "new_key"},
+		},
+	}
+
+	registry.Register(archiveNoteTool, func(ctx context.Context, args string) (string, error) {
+		var params ArchiveNoteArgs
+		if err := json.Unmarshal([]byte(args), &params); err != nil {
+			return "", fmt.Errorf("invalid arguments: %w", err)
+		}
+
+		if err := memory.ArchiveNote(params.OldKey, params.NewKey); err != nil {
+			return "", fmt.Errorf("failed to archive note: %w", err)
+		}
+
+		return fmt.Sprintf("Archived '%s' as '%s'", params.OldKey, params.NewKey), nil
+	})
+
+	listArchivedNotesTool := llm.Tool{
+		Name:        "list_archived_notes",
+		Description: "List archived notes, optionally filtered by a search pattern. Use this to find historical data like past budgets or old meal plans.",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"pattern": map[string]any{
+					"type":        "string",
+					"description": "Optional search pattern (e.g., 'budget' to find all budget archives, '2025_01' for January 2025)",
+				},
+			},
+		},
+	}
+
+	registry.Register(listArchivedNotesTool, func(ctx context.Context, args string) (string, error) {
+		var params ListArchivedNotesArgs
+		if args != "" && args != "{}" {
+			if err := json.Unmarshal([]byte(args), &params); err != nil {
+				return "", fmt.Errorf("invalid arguments: %w", err)
+			}
+		}
+
+		notes, err := memory.ListArchivedNotes(params.Pattern)
+		if err != nil {
+			return "", fmt.Errorf("failed to list archived notes: %w", err)
+		}
+
+		if len(notes) == 0 {
+			if params.Pattern != "" {
+				return fmt.Sprintf("No archived notes matching '%s'", params.Pattern), nil
+			}
+			return "No archived notes", nil
+		}
+
+		result := "Archived notes:\n"
+		for _, n := range notes {
+			result += fmt.Sprintf("- %s (archived %s)\n", n.Key, n.UpdatedAt.Format("2006-01-02"))
+		}
+		return result, nil
+	})
+
+	restoreNoteTool := llm.Tool{
+		Name:        "restore_note",
+		Description: "Restore an archived note back to working notes. Use this to bring back historical data for active use.",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"key": map[string]any{
+					"type":        "string",
+					"description": "The archived note key to restore",
+				},
+			},
+			"required": []string{"key"},
+		},
+	}
+
+	registry.Register(restoreNoteTool, func(ctx context.Context, args string) (string, error) {
+		var params RestoreNoteArgs
+		if err := json.Unmarshal([]byte(args), &params); err != nil {
+			return "", fmt.Errorf("invalid arguments: %w", err)
+		}
+
+		if err := memory.RestoreNote(params.Key); err != nil {
+			return "", fmt.Errorf("failed to restore note: %w", err)
+		}
+
+		return fmt.Sprintf("Restored '%s' to working notes", params.Key), nil
 	})
 }
 

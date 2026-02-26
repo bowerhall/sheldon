@@ -85,5 +85,6 @@ type FactResult struct {
 type Note struct {
 	Key       string
 	Content   string
+	Tier      string // "working" or "archive"
 	UpdatedAt time.Time
 }

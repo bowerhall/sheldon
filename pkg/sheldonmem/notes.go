@@ -5,25 +5,32 @@ import (
 	"time"
 )
 
-// SaveNote creates or updates a note
+// Note tiers
+const (
+	TierWorking = "working"
+	TierArchive = "archive"
+)
+
+// SaveNote creates or updates a working note
 func (s *Store) SaveNote(key, content string) error {
 	_, err := s.db.Exec(`
-		INSERT INTO notes (key, content, updated_at)
-		VALUES (?, ?, datetime('now'))
+		INSERT INTO notes (key, content, tier, updated_at)
+		VALUES (?, ?, 'working', datetime('now'))
 		ON CONFLICT(key) DO UPDATE SET
 			content = excluded.content,
+			tier = 'working',
 			updated_at = datetime('now')
 	`, key, content)
 	return err
 }
 
-// GetNote retrieves a note by key
+// GetNote retrieves a note by key (searches both tiers)
 func (s *Store) GetNote(key string) (*Note, error) {
 	var note Note
 	err := s.db.QueryRow(`
-		SELECT key, content, updated_at
+		SELECT key, content, tier, updated_at
 		FROM notes WHERE key = ?
-	`, key).Scan(&note.Key, &note.Content, &note.UpdatedAt)
+	`, key).Scan(&note.Key, &note.Content, &note.Tier, &note.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -33,15 +40,15 @@ func (s *Store) GetNote(key string) (*Note, error) {
 	return &note, nil
 }
 
-// DeleteNote removes a note by key
+// DeleteNote removes a note by key (any tier)
 func (s *Store) DeleteNote(key string) error {
 	_, err := s.db.Exec(`DELETE FROM notes WHERE key = ?`, key)
 	return err
 }
 
-// ListNotes returns all note keys
+// ListNotes returns working note keys only
 func (s *Store) ListNotes() ([]string, error) {
-	rows, err := s.db.Query(`SELECT key FROM notes ORDER BY updated_at DESC`)
+	rows, err := s.db.Query(`SELECT key FROM notes WHERE tier = 'working' ORDER BY updated_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -58,9 +65,80 @@ func (s *Store) ListNotes() ([]string, error) {
 	return keys, rows.Err()
 }
 
-// ListNotesWithAge returns note keys with their age for context display
+// ListNotesWithAge returns working note keys with age for system prompt
 func (s *Store) ListNotesWithAge() ([]NoteInfo, error) {
-	rows, err := s.db.Query(`SELECT key, updated_at FROM notes ORDER BY updated_at DESC`)
+	rows, err := s.db.Query(`SELECT key, updated_at FROM notes WHERE tier = 'working' ORDER BY updated_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var notes []NoteInfo
+	for rows.Next() {
+		var info NoteInfo
+		if err := rows.Scan(&info.Key, &info.UpdatedAt); err != nil {
+			return nil, err
+		}
+		notes = append(notes, info)
+	}
+	return notes, rows.Err()
+}
+
+// ArchiveNote moves a working note to archive tier with a new key
+func (s *Store) ArchiveNote(oldKey, newKey string) error {
+	// Get the current note
+	note, err := s.GetNote(oldKey)
+	if err != nil {
+		return err
+	}
+	if note == nil {
+		return sql.ErrNoRows
+	}
+
+	// Insert/update with new key in archive tier
+	_, err = s.db.Exec(`
+		INSERT INTO notes (key, content, tier, updated_at)
+		VALUES (?, ?, 'archive', datetime('now'))
+		ON CONFLICT(key) DO UPDATE SET
+			content = excluded.content,
+			tier = 'archive',
+			updated_at = datetime('now')
+	`, newKey, note.Content)
+	if err != nil {
+		return err
+	}
+
+	// Delete the old working note
+	return s.DeleteNote(oldKey)
+}
+
+// RestoreNote moves an archived note back to working tier
+func (s *Store) RestoreNote(key string) error {
+	_, err := s.db.Exec(`
+		UPDATE notes SET tier = 'working', updated_at = datetime('now')
+		WHERE key = ? AND tier = 'archive'
+	`, key)
+	return err
+}
+
+// ListArchivedNotes returns archived note keys matching an optional pattern
+func (s *Store) ListArchivedNotes(pattern string) ([]NoteInfo, error) {
+	var rows *sql.Rows
+	var err error
+
+	if pattern == "" {
+		rows, err = s.db.Query(`
+			SELECT key, updated_at FROM notes
+			WHERE tier = 'archive'
+			ORDER BY updated_at DESC
+		`)
+	} else {
+		rows, err = s.db.Query(`
+			SELECT key, updated_at FROM notes
+			WHERE tier = 'archive' AND key LIKE ?
+			ORDER BY updated_at DESC
+		`, "%"+pattern+"%")
+	}
 	if err != nil {
 		return nil, err
 	}
