@@ -280,6 +280,127 @@ Sheldon has a `current_time` tool so it always knows today's date, and `recall_m
 
 ---
 
+## Stateful Workflows
+
+### Other Assistants
+
+```
+You: "Help me plan meals for the week"
+Assistant: "Here's a meal plan:
+  Mon: Pasta
+  Tue: Stir fry
+  ..."
+*saves to MEMORY.md as flat text*
+
+Next day...
+You: "I made the pasta, update the plan"
+Assistant: *searches MEMORY.md, rewrites entire section*
+
+A week later...
+You: "What's my meal plan?"
+Assistant: *old plan still there, mixed with new info*
+```
+
+Memory is append-only or flat text. Tracking mutable state requires manual management. No way to automatically check in or remind.
+
+### Sheldon
+
+```
+You: "Help me plan meals for the week"
+Sheldon: [saves note: "meal_plan" with structured JSON]
+{
+  "week_of": "2025-02-24",
+  "meals": [
+    {"day": "Mon", "meal": "Pasta", "done": false},
+    {"day": "Tue", "meal": "Stir fry", "done": false}
+  ]
+}
+
+You: "I made the pasta"
+Sheldon: [get_note → update done:true → save_note]
+"Updated! Pasta marked as done."
+
+You: "Remind me about dinner at 5pm each day"
+Sheldon: [creates cron with keyword "meal_plan"]
+
+5pm...
+Cron fires → recalls meal_plan note → sees today's meal
+Sheldon: "Tonight's dinner: Stir fry. Need any recipe help?"
+
+End of week...
+Sheldon: [deletes old note, optionally saves summary to long-term memory]
+```
+
+### The Three-Part System
+
+| Component | Purpose | Example |
+|-----------|---------|---------|
+| **Notes** | Mutable state | Current meal plan, shopping list, weekly goals |
+| **Crons** | Time-based triggers | "Remind me at 5pm daily" |
+| **Memory** | Long-term facts | "User is vegetarian", "User dislikes cilantro" |
+
+When combined:
+1. **Notes** track what changes frequently (this week's plan)
+2. **Memory** informs decisions (dietary preferences)
+3. **Crons** drive proactive behavior (daily reminders)
+
+### Comparison
+
+| Feature | Other Assistants | Sheldon |
+|---------|------------------|---------|
+| Mutable state | Flat text rewrite | Key-value notes |
+| Structured data | No | JSON in notes |
+| Proactive reminders | No crons | Cron + memory query |
+| State + schedule | Separate systems | Integrated |
+| Delete when done | Manual cleanup | `delete_note` |
+| Context efficiency | Full history loaded | Keys only, content on-demand |
+
+### Real Workflows This Enables
+
+**Meal Planning:**
+- Track weekly meals with done/not-done status
+- Daily dinner reminders that know today's meal
+- Grocery list that items get crossed off
+- Remembers dietary restrictions from long-term memory
+
+**Habit Tracking:**
+- Note tracks streak count and last completion
+- Daily cron asks "Did you exercise today?"
+- Updates streak on response
+- Remembers your exercise preferences
+
+**Project Management:**
+- Note tracks current sprint tasks
+- Cron checks in every few hours
+- Recalls recent facts about blockers
+- Cleans up completed items
+
+**Shopping Lists:**
+- Note stores current list as array
+- "Add milk" → appends to list
+- "Got the milk" → removes from list
+- "What do I need?" → reads current list
+
+### Why Context Efficiency Matters
+
+**System prompt sees only:**
+```
+## Active Notes
+meal_plan, shopping_list, weekly_goals
+```
+
+**Not:**
+```
+## Active Notes
+meal_plan: {"week_of": "2025-02-24", "meals": [{"day": "Mon"... (500 tokens)
+shopping_list: ["milk", "eggs", "bread"... (200 tokens)
+weekly_goals: {"goal_1": "Finish API"... (300 tokens)
+```
+
+Content loads only when Sheldon calls `get_note`. This keeps the base context small while allowing unlimited structured state.
+
+---
+
 ## Code to Deploy
 
 ### Other Assistants
