@@ -258,55 +258,28 @@ All devices get a `.sheldon.local` hostname:
 
 ## Access Control Lists (ACLs)
 
-ACLs restrict which devices can access which services. By default, Sheldon deploys with an ACL that protects the homelab-agent API.
+ACLs restrict which devices can access which services. By default, Sheldon deploys with an open ACL that allows all traffic between devices on your network.
 
 ### Default ACL
 
 ```json
 {
   "acls": [
-    {"action": "accept", "src": ["tag:sheldon"], "dst": ["*:8080"]},
     {"action": "accept", "src": ["*"], "dst": ["*:*"]}
   ]
 }
 ```
 
-**Rule 1:** Only devices tagged `tag:sheldon` can reach port 8080 (homelab-agent)
-**Rule 2:** All other traffic flows normally (full Tailscale functionality)
-
-### Why This Matters
-
-Without the ACL, any device on your Headscale network could manage containers on any machine. With it:
-- Your laptop can access everything **except** homelab-agent APIs
-- Only Sheldon VPS can manage containers remotely
-- Normal networking (SSH, file sharing, etc.) is unaffected
-
-### Tagging Nodes
-
-The CI automatically tags the VPS on deploy. To manually tag:
-
-```bash
-# List nodes
-docker exec headscale headscale nodes list
-
-# Tag a node
-docker exec headscale headscale nodes tag -i <node-id> -t tag:sheldon
-```
+This allows full connectivity between all devices on your Headscale network. Security is handled at the service level (e.g., Traefik IP whitelist for the dashboard).
 
 ### Custom ACLs
 
-Edit `deploy/headscale/acl.json` to customize:
+Edit `deploy/headscale/acl.json` to restrict access. For example, to block a device from SSH:
 
 ```json
 {
   "acls": [
-    // Only VPS can access homelab-agent
-    {"action": "accept", "src": ["tag:sheldon"], "dst": ["*:8080"]},
-
-    // Block phone from SSH
     {"action": "deny", "src": ["phone"], "dst": ["*:22"]},
-
-    // Allow everything else
     {"action": "accept", "src": ["*"], "dst": ["*:*"]}
   ]
 }
@@ -323,7 +296,7 @@ Push to main and the CI will deploy the new ACL.
 - All traffic between machines is encrypted (WireGuard)
 - No ports exposed to the internet except VPS services
 - Machines authenticate with pre-auth keys (single-use)
-- ACLs restrict homelab-agent access to Sheldon VPS only
+- Traefik dashboard protected by Tailscale IP whitelist
 
 ### Permission Boundaries
 
