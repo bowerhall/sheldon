@@ -246,6 +246,107 @@ Standard 5-field cron format: `minute hour day-of-month month day-of-week`
 | `0 */2 * * *` | every 2 hours       |
 | `0 8 1 * *`   | 8am on 1st of month |
 
+## Notes (Working Memory)
+
+Notes provide mutable state for things that change frequently and don't fit the long-term fact model. While facts are auto-extracted and versioned, notes are explicitly managed by Sheldon for tracking current state.
+
+### When to Use Notes vs Facts
+
+| Use Case | Storage | Why |
+|----------|---------|-----|
+| "I'm allergic to peanuts" | Fact | Permanent, auto-extracted |
+| "This week's meal plan" | Note | Mutable, changes as meals are cooked |
+| "My wife's name is Sarah" | Fact | Long-term relationship knowledge |
+| "Shopping list for Saturday" | Note | Temporary, items get crossed off |
+| "I prefer TypeScript" | Fact | Stable preference |
+| "Current project: API refactor" | Note | Active state, will change |
+
+### Schema
+
+```sql
+CREATE TABLE notes (
+    key TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    updated_at DATETIME DEFAULT (datetime('now'))
+);
+```
+
+### How It Works
+
+Note keys are injected into the system prompt so Sheldon knows what's available:
+
+```
+## Active Notes
+meal_plan, shopping_list
+```
+
+Content is only loaded when Sheldon calls `get_note(key)`, keeping context minimal.
+
+### Example: Meal Planning
+
+```
+User: "Let's plan meals for the week"
+                    │
+                    ▼
+┌─────────────────────────────────────────────┐
+│ Sheldon: save_note("meal_plan", {           │
+│   "week": "2026-02-24",                     │
+│   "meals": {                                │
+│     "monday": {"dish": "pasta", "done": false},
+│     "tuesday": {"dish": "stir-fry", "done": false}
+│   }                                         │
+│ })                                          │
+└─────────────────────────────────────────────┘
+
+[Next day]
+
+User: "I made the pasta"
+                    │
+                    ▼
+┌─────────────────────────────────────────────┐
+│ 1. Sheldon sees: "Active Notes: meal_plan"  │
+│ 2. Calls: get_note("meal_plan")             │
+│ 3. Updates monday.done = true               │
+│ 4. Calls: save_note("meal_plan", updated)   │
+└─────────────────────────────────────────────┘
+
+[Later]
+
+User: "What should I cook tonight?"
+                    │
+                    ▼
+┌─────────────────────────────────────────────┐
+│ 1. Sheldon sees: "Active Notes: meal_plan"  │
+│ 2. Calls: get_note("meal_plan")             │
+│ 3. Sees: monday done, tuesday pending       │
+│ 4. Suggests: "You have stir-fry planned"    │
+└─────────────────────────────────────────────┘
+```
+
+### Tools
+
+| Tool | Purpose |
+|------|---------|
+| `save_note(key, content)` | Create or update a note |
+| `get_note(key)` | Retrieve note content |
+| `delete_note(key)` | Remove a note when done |
+
+### Integration with Crons
+
+Notes and crons work together for time-aware state tracking:
+
+```
+User: "Give me a grocery list every Saturday morning"
+                    │
+                    ▼
+1. Cron created: keyword="grocery", schedule="0 9 * * 6"
+2. When cron fires:
+   - Sheldon sees "Active Notes: meal_plan, shopping_list"
+   - Recalls grocery preferences from facts
+   - Checks current meal_plan note
+   - Generates list based on planned meals
+```
+
 ## Retrieval Algorithm (Recall)
 
 ```
