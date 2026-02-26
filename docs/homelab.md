@@ -107,8 +107,8 @@ docker exec headscale headscale preauthkeys create --user 1 --expiration 1h
 **Step 2: Run the invite script** (on the new machine):
 
 ```bash
-HEADSCALE_URL=https://hs.yourdomain.com AUTHKEY=abc123 \
-  curl -fsSL https://raw.githubusercontent.com/bowerhall/sheldon/main/core/scripts/invite.sh | sudo bash
+export HEADSCALE_URL=https://hs.yourdomain.com AUTHKEY=abc123
+curl -fsSL https://raw.githubusercontent.com/bowerhall/sheldon/main/core/scripts/invite.sh | sudo bash
 ```
 
 This will:

@@ -2,7 +2,7 @@
 set -e
 
 # Sheldon Network Connect
-# Usage: HEADSCALE_URL=https://hs.example.com AUTHKEY=your-key curl -fsSL ... | bash
+# Usage: export HEADSCALE_URL=https://hs.example.com AUTHKEY=your-key && curl -fsSL ... | bash
 # Works on: macOS, Linux
 
 RED='\033[0;31m'
@@ -29,7 +29,7 @@ if [ -z "$HEADSCALE_URL" ] || [ -z "$AUTHKEY" ]; then
     echo -e "${RED}Error: HEADSCALE_URL and AUTHKEY required${NC}"
     echo ""
     echo "Usage:"
-    echo "  HEADSCALE_URL=https://hs.example.com AUTHKEY=your-key \\"
+    echo "  export HEADSCALE_URL=https://hs.example.com AUTHKEY=your-key"
     echo "  curl -fsSL https://raw.githubusercontent.com/bowerhall/sheldon/main/core/scripts/connect.sh | bash"
     exit 1
 fi
