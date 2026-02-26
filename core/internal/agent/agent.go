@@ -50,6 +50,7 @@ func New(model, extractor llm.LLM, memory *sheldonmem.Store, essencePath, timezo
 
 	registry := tools.NewRegistry()
 	tools.RegisterMemoryTools(registry, memory)
+	tools.RegisterNoteTools(registry, memory)
 	tools.RegisterTimeTools(registry, loc)
 
 	return &Agent{
@@ -135,6 +136,19 @@ func loadSystemPrompt(essencePath string) string {
 	}
 
 	return string(soul)
+}
+
+// buildDynamicPrompt adds dynamic context (like active notes) to the system prompt
+func (a *Agent) buildDynamicPrompt() string {
+	prompt := a.systemPrompt
+
+	// Add active notes to context
+	noteKeys, err := a.memory.ListNotes()
+	if err == nil && len(noteKeys) > 0 {
+		prompt += fmt.Sprintf("\n\n## Active Notes\nYou have working notes that may be relevant: %s\nUse get_note to retrieve content when relevant to the conversation.", strings.Join(noteKeys, ", "))
+	}
+
+	return prompt
 }
 
 func (a *Agent) Process(ctx context.Context, sessionID string, userMessage string) (string, error) {
@@ -368,7 +382,7 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 
 		logger.Debug("agent loop iteration", "iteration", i, "messages", len(sess.Messages()), "isolatedMode", isolatedMode)
 
-		resp, err := a.llm.ChatWithTools(ctx, a.systemPrompt, sess.Messages(), loopTools)
+		resp, err := a.llm.ChatWithTools(ctx, a.buildDynamicPrompt(), sess.Messages(), loopTools)
 		if err != nil {
 			// try fallback provider if quota exhausted
 			if shouldFallback(err) {

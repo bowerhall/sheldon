@@ -55,6 +55,12 @@ CREATE TABLE IF NOT EXISTS edges (
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_id);
 CREATE INDEX IF NOT EXISTS idx_edges_relation ON edges(relation);
+
+CREATE TABLE IF NOT EXISTS notes (
+    key TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    updated_at DATETIME DEFAULT (datetime('now'))
+);
 `
 
 const vecSchema = `

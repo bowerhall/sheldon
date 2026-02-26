@@ -80,3 +80,10 @@ type FactResult struct {
 	Fact       *Fact
 	Superseded *Fact // non-nil if this fact replaced an older one
 }
+
+// Note is a key-value store for dynamic/working memory
+type Note struct {
+	Key       string
+	Content   string
+	UpdatedAt time.Time
+}
