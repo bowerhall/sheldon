@@ -54,6 +54,7 @@ ollama pull qwen2.5:3b
 echo ""
 echo -e "${GREEN}[4/6]${NC} Setting up Sheldon..."
 mkdir -p /opt/sheldon /data
+chown -R 1000:1000 /data
 
 cat > /opt/sheldon/docker-compose.yml << 'COMPOSE'
 services:
