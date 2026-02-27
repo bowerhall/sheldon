@@ -196,7 +196,29 @@ chmod 600 /opt/sheldon/.env
 
 echo ""
 echo -e "${GREEN}[6/6]${NC} Starting Sheldon..."
-systemctl start sheldon
+cd /opt/sheldon
+set -a
+source .env
+set +a
+docker compose pull
+docker compose up -d
+
+echo ""
+echo "Waiting for Sheldon to start..."
+for i in {1..30}; do
+    if docker ps --filter "name=sheldon" --filter "status=running" | grep -q sheldon; then
+        echo -e "${GREEN}Sheldon is running!${NC}"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        echo -e "${RED}Sheldon failed to start. Check logs:${NC}"
+        docker logs sheldon --tail 20
+        exit 1
+    fi
+    sleep 2
+done
+
+systemctl enable sheldon
 
 PUBLIC_IP=$(curl -s ifconfig.me 2>/dev/null || echo "your-server-ip")
 
