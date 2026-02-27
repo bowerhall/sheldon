@@ -126,6 +126,7 @@ services:
 
 networks:
   sheldon-net:
+    name: sheldon-net
     driver: bridge
 COMPOSE
 

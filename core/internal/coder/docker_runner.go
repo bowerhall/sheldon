@@ -108,10 +108,11 @@ func (r *DockerRunner) RunJob(ctx context.Context, cfg JobConfig) (*Result, erro
 	// build docker run command
 	args := []string{
 		"run", "--rm",
-		"--network", "sheldon-net", // connect to same network as ollama
+		"--network", "sheldon-net",
+		"--add-host", "host.docker.internal:host-gateway", // for host ollama access
 		"-v", fmt.Sprintf("%s:/workspace", hostWorkDir),
 		"-w", "/workspace",
-		"-e", "OLLAMA_HOST=http://ollama:11434", // point to ollama server
+		"-e", "OLLAMA_HOST="+os.Getenv("OLLAMA_HOST"), // inherit from parent
 	}
 
 	// pass API key for the configured provider
@@ -250,10 +251,11 @@ func (r *DockerRunner) RunJobWithProgress(ctx context.Context, cfg JobConfig, on
 	// build docker run command with stream-json output
 	args := []string{
 		"run", "--rm",
-		"--network", "sheldon-net", // connect to same network as ollama
+		"--network", "sheldon-net",
+		"--add-host", "host.docker.internal:host-gateway", // for host ollama access
 		"-v", fmt.Sprintf("%s:/workspace", hostWorkDir),
 		"-w", "/workspace",
-		"-e", "OLLAMA_HOST=http://ollama:11434", // point to ollama server
+		"-e", "OLLAMA_HOST="+os.Getenv("OLLAMA_HOST"), // inherit from parent
 	}
 
 	// pass API key for the configured provider
