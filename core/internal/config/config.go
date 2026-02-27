@@ -286,7 +286,7 @@ func loadBotConfig() (BotConfig, error) {
 func loadLLMConfig() (LLMConfig, error) {
 	provider := os.Getenv("LLM_PROVIDER")
 	if provider == "" {
-		provider = "kimi"
+		provider = detectProvider()
 	}
 
 	apiKey, err := getAPIKey(provider, "LLM")
@@ -304,7 +304,7 @@ func loadLLMConfig() (LLMConfig, error) {
 func loadExtractorConfig() (LLMConfig, error) {
 	provider := os.Getenv("EXTRACTOR_PROVIDER")
 	if provider == "" {
-		provider = "kimi"
+		provider = detectProvider()
 	}
 
 	apiKey, err := getAPIKey(provider, "EXTRACTOR")
@@ -321,6 +321,19 @@ func loadExtractorConfig() (LLMConfig, error) {
 		Model:    os.Getenv("EXTRACTOR_MODEL"),
 		BaseURL:  baseURL,
 	}, nil
+}
+
+func detectProvider() string {
+	if os.Getenv("KIMI_API_KEY") != "" {
+		return "kimi"
+	}
+	if os.Getenv("ANTHROPIC_API_KEY") != "" {
+		return "claude"
+	}
+	if os.Getenv("OPENAI_API_KEY") != "" {
+		return "openai"
+	}
+	return "ollama"
 }
 
 func getAPIKey(provider, prefix string) (string, error) {
