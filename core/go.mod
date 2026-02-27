@@ -2,7 +2,7 @@ module github.com/bowerhall/sheldon
 
 go 1.24.0
 
-toolchain go1.24.5
+toolchain go1.24.13
 
 require (
 	github.com/anthropics/anthropic-sdk-go v0.2.0-beta.3

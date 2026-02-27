@@ -2,7 +2,7 @@ module github.com/bowerhall/sheldonmem
 
 go 1.22.5
 
-toolchain go1.24.5
+toolchain go1.24.13
 
 require (
 	github.com/asg017/sqlite-vec-go-bindings v0.0.1-alpha.37
