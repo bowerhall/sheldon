@@ -28,12 +28,6 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-# Check Ubuntu/Debian
-if ! command -v apt-get &> /dev/null; then
-    echo -e "${RED}This script requires Ubuntu or Debian${NC}"
-    exit 1
-fi
-
 echo -e "${GREEN}[1/6]${NC} Installing Docker..."
 if ! command -v docker &> /dev/null; then
     curl -fsSL https://get.docker.com | sh
