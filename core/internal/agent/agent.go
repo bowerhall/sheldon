@@ -277,9 +277,14 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 	// prevent concurrent processing of same session
 	if !sess.TryAcquire() {
 		logger.Debug("session busy, queueing message", "session", sessionID)
-		return "I'm still working on your previous request. I'll get to this once I'm done!", nil
+		sess.Queue(userMessage, media, opts.Trusted)
+		return "", nil // no response - typing indicator shows we're busy
 	}
-	defer sess.Release()
+	defer func() {
+		sess.Release()
+		// process any queued messages
+		a.processQueue(ctx, sessionID, sess, chatID)
+	}()
 
 	// load recent conversation history for continuity
 	if len(sess.Messages()) == 0 && a.convo != nil {
@@ -353,6 +358,31 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 	go a.rememberExchange(ctx, sessionID, userMessage, response)
 
 	return response, nil
+}
+
+// processQueue handles any messages that were queued while we were busy
+func (a *Agent) processQueue(ctx context.Context, sessionID string, sess *session.Session, chatID int64) {
+	msg := sess.Dequeue()
+	if msg == nil {
+		return
+	}
+
+	logger.Info("processing queued message", "session", sessionID, "remaining", sess.QueueLen())
+
+	// process in background so we don't block
+	go func() {
+		response, err := a.ProcessWithOptions(ctx, sessionID, msg.Content, ProcessOptions{
+			Media:   msg.Media,
+			Trusted: msg.Trusted,
+		})
+		if err != nil {
+			logger.Error("failed to process queued message", "error", err)
+			return
+		}
+		if response != "" && a.notify != nil {
+			a.notify(chatID, response)
+		}
+	}()
 }
 
 func (a *Agent) parseChatID(sessionID string) int64 {

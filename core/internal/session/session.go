@@ -39,6 +39,36 @@ func (s *Session) Release() {
 	s.processing.Unlock()
 }
 
+// Queue adds a message to the pending queue
+func (s *Session) Queue(content string, media []llm.MediaContent, trusted bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.queue = append(s.queue, QueuedMessage{
+		Content: content,
+		Media:   media,
+		Trusted: trusted,
+	})
+}
+
+// Dequeue removes and returns the next queued message, or nil if empty
+func (s *Session) Dequeue() *QueuedMessage {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.queue) == 0 {
+		return nil
+	}
+	msg := s.queue[0]
+	s.queue = s.queue[1:]
+	return &msg
+}
+
+// QueueLen returns the number of queued messages
+func (s *Session) QueueLen() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.queue)
+}
+
 func NewStore() *Store {
 	return &Store{sessions: make(map[string]*Session)}
 }
