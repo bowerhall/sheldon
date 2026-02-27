@@ -291,11 +291,29 @@ func loadLLMConfig() (LLMConfig, error) {
 		return LLMConfig{}, err
 	}
 
+	model := os.Getenv("LLM_MODEL")
+	if model == "" {
+		model = defaultLLMModel(provider)
+	}
+
 	return LLMConfig{
 		Provider: provider,
 		APIKey:   apiKey,
-		Model:    os.Getenv("LLM_MODEL"),
+		Model:    model,
 	}, nil
+}
+
+func defaultLLMModel(provider string) string {
+	switch provider {
+	case "kimi":
+		return "kimi-k2-0711-preview"
+	case "claude":
+		return "claude-sonnet-4-20250514"
+	case "openai":
+		return "gpt-4o"
+	default:
+		return "qwen2.5:3b"
+	}
 }
 
 func loadExtractorConfig() (LLMConfig, error) {
