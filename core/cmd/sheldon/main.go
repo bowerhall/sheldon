@@ -257,6 +257,13 @@ func main() {
 	if err != nil {
 		logger.Error("failed to create runtime config", "error", err)
 	} else {
+		// initialize with detected values if not already set
+		if runtimeCfg.Get("llm_provider") == "" {
+			runtimeCfg.Set("llm_provider", cfg.LLM.Provider)
+		}
+		if runtimeCfg.Get("llm_model") == "" {
+			runtimeCfg.Set("llm_model", cfg.LLM.Model)
+		}
 		tools.RegisterConfigTools(sheldon.Registry(), runtimeCfg)
 		logger.Info("runtime config enabled")
 	}
