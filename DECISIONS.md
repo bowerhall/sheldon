@@ -4,6 +4,96 @@
 
 ---
 
+## 2026-02-27: Security Audit & Hardening
+
+### Go Toolchain Upgrade to 1.24.13
+**Decision**: Upgraded from go1.24.5 to go1.24.13 in both `core/go.mod` and `pkg/sheldonmem/go.mod`.
+
+**Why**: govulncheck found 14 stdlib vulnerabilities in go1.24.5 affecting crypto/tls, net/url, net/http, crypto/x509, encoding/asn1, and os/exec. All fixed in go1.24.13.
+
+**Notable CVEs patched**:
+- GO-2026-4341: Memory exhaustion in query parameter parsing
+- GO-2026-4340: TLS handshake at wrong encryption level
+- GO-2025-4012: Cookie parsing memory exhaustion
+
+---
+
+### Docker Socket Proxy in Install Script
+**Decision**: Added `tecnativa/docker-socket-proxy` to the simplified install script (`scripts/install.sh`).
+
+**Why**: Production docker-compose.yml already used the proxy, but the quick install mounted the raw socket. Compromised Sheldon container = root on host.
+
+**Proxy permissions**:
+```yaml
+CONTAINERS=1, IMAGES=1, BUILD=1, NETWORKS=1, POST=1
+VOLUMES=0, SERVICES=0, TASKS=0, SECRETS=0, CONFIGS=0
+```
+
+Sheldon can manage containers but can't access volume management or swarm features.
+
+---
+
+### MinIO Bound to Localhost Only
+**Decision**: Changed MinIO ports in install script from `9000:9000` to `127.0.0.1:9000:9000`.
+
+**Why**: On a public VPS, binding to all interfaces exposes the S3 API and console to the internet. Password auth alone is insufficient — MinIO has had CVEs.
+
+**Access method**: SSH tunnel (`ssh -L 9001:localhost:9001`) or via Headscale mesh.
+
+---
+
+### Input Validation: App Names for Traefik
+**Decision**: Added `validAppName` regex (`^[a-z0-9][a-z0-9-]{0,62}$`) in `deployer/compose.go`.
+
+**Why**: App names are inserted into Traefik labels. Without validation, malformed names could inject routing rules.
+
+```go
+fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", name, name, domain)
+```
+
+Now rejects names with special characters before they reach Traefik.
+
+---
+
+### Input Validation: Container Names in Homelab Agent
+**Decision**: Added `validContainerName` regex and validation to all homelab-agent endpoints.
+
+**Why**: Container names come from URL path params and are passed to `docker` CLI. While `exec.Command` prevents shell injection, flags like `--help` could be passed.
+
+**Also added**: Lines parameter validation (1-10000) for log requests.
+
+---
+
+### Browser Runner: Block Newlines
+**Decision**: Added `\n` and `\r` to the blocked characters list in browser command validation.
+
+**Why**: Commands are concatenated into a shell script. A command like `open http://x\nrm -rf /` would pass the existing validation (no shell metacharacters) but inject a second line.
+
+```go
+dangerous := []string{";", "&", "|", "`", "$", "(", ")", "{", "}", "<", ">", "\\", "\n", "\r"}
+```
+
+---
+
+### Security Model: Headscale as Perimeter
+**Decision**: Accepted that Headscale mesh provides network-level security for homelab-agent.
+
+**Why**: The agent has no application-level auth, but it's only reachable via the private Tailscale-compatible mesh. Adding API keys would provide defense-in-depth but isn't critical while only trusted devices are on the mesh.
+
+**Future**: Add API key auth if untrusted devices join the mesh.
+
+---
+
+### Accepted Tradeoffs
+
+**Coder container gets LLM API keys**: Necessary for code generation. Mitigated by ephemeral containers and output sanitization.
+
+**curl | bash install pattern**: Industry standard for Docker and Ollama. No practical alternative.
+
+**Telegram chat ID auth**: Relies on Telegram's API security. Standard practice for bots.
+
+---
+
 ## 2026-02-21: Security Improvements
 
 ### Git Token Isolation from Coder
