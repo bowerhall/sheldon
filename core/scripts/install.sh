@@ -157,25 +157,25 @@ echo ""
 echo "======================================"
 echo ""
 
-read -p "Telegram bot token (from @BotFather): " telegram_token
-read -p "Your Telegram chat ID (from @userinfobot): " owner_chat_id
+read -p "Telegram bot token (from @BotFather): " telegram_token < /dev/tty
+read -p "Your Telegram chat ID (from @userinfobot): " owner_chat_id < /dev/tty
 
 echo ""
 echo "Enter at least one LLM API key:"
-read -p "KIMI_API_KEY (Enter to skip): " kimi_key
-read -p "ANTHROPIC_API_KEY (Enter to skip): " anthropic_key
-read -p "OPENAI_API_KEY (Enter to skip): " openai_key
+read -p "KIMI_API_KEY (Enter to skip): " kimi_key < /dev/tty
+read -p "ANTHROPIC_API_KEY (Enter to skip): " anthropic_key < /dev/tty
+read -p "OPENAI_API_KEY (Enter to skip): " openai_key < /dev/tty
 
 echo ""
 detected_tz=$(timedatectl show --property=Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || echo "")
 if [[ -n "$detected_tz" ]]; then
-    read -p "Timezone [$detected_tz]: " timezone
+    read -p "Timezone [$detected_tz]: " timezone < /dev/tty
     timezone=${timezone:-$detected_tz}
 else
-    read -p "Timezone (e.g., Europe/London): " timezone
+    read -p "Timezone (e.g., Europe/London): " timezone < /dev/tty
     while [[ -z "$timezone" ]]; do
         echo -e "${RED}Timezone is required${NC}"
-        read -p "Timezone: " timezone
+        read -p "Timezone: " timezone < /dev/tty
     done
 fi
 

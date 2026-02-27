@@ -87,25 +87,25 @@ while true; do
     echo "  s) Show logs"
     echo "  q) Quit"
     echo ""
-    read -p "Select option to edit (1-7) or action (r/s/q): " choice
+    read -p "Select option to edit (1-7) or action (r/s/q): " choice < /dev/tty
 
     case $choice in
         1)
-            read -p "New Telegram Token: " new_val
+            read -p "New Telegram Token: " new_val < /dev/tty
             [[ -n "$new_val" ]] && TELEGRAM_TOKEN="$new_val" && save_config
             ;;
         2)
-            read -p "New Owner Chat ID: " new_val
+            read -p "New Owner Chat ID: " new_val < /dev/tty
             [[ -n "$new_val" ]] && OWNER_CHAT_ID="$new_val" && save_config
             ;;
         3)
             detected_tz=$(timedatectl show --property=Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || echo "")
-            read -p "New Timezone [$detected_tz]: " new_val
+            read -p "New Timezone [$detected_tz]: " new_val < /dev/tty
             new_val=${new_val:-$detected_tz}
             [[ -n "$new_val" ]] && TZ="$new_val" && save_config
             ;;
         4)
-            read -p "New KIMI API Key (or 'clear' to remove): " new_val
+            read -p "New KIMI API Key (or 'clear' to remove): " new_val < /dev/tty
             if [[ "$new_val" == "clear" ]]; then
                 KIMI_API_KEY="" && save_config
             elif [[ -n "$new_val" ]]; then
@@ -113,7 +113,7 @@ while true; do
             fi
             ;;
         5)
-            read -p "New Anthropic API Key (or 'clear' to remove): " new_val
+            read -p "New Anthropic API Key (or 'clear' to remove): " new_val < /dev/tty
             if [[ "$new_val" == "clear" ]]; then
                 ANTHROPIC_API_KEY="" && save_config
             elif [[ -n "$new_val" ]]; then
@@ -121,7 +121,7 @@ while true; do
             fi
             ;;
         6)
-            read -p "New OpenAI API Key (or 'clear' to remove): " new_val
+            read -p "New OpenAI API Key (or 'clear' to remove): " new_val < /dev/tty
             if [[ "$new_val" == "clear" ]]; then
                 OPENAI_API_KEY="" && save_config
             elif [[ -n "$new_val" ]]; then
@@ -129,7 +129,7 @@ while true; do
             fi
             ;;
         7)
-            read -p "New MinIO Password: " new_val
+            read -p "New MinIO Password: " new_val < /dev/tty
             if [[ -n "$new_val" ]]; then
                 STORAGE_ADMIN_PASSWORD="$new_val"
                 STORAGE_SHELDON_PASSWORD="$new_val"
