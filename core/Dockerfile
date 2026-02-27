@@ -30,6 +30,7 @@ RUN adduser -D -u 1000 sheldon && \
     chown -R sheldon:sheldon /data /tmp/sheldon-sandbox
 
 COPY --from=builder /sheldon /usr/local/bin/sheldon
+COPY --from=builder /build/core/essence /home/sheldon/essence
 
 USER sheldon
 WORKDIR /home/sheldon
