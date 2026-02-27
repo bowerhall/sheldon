@@ -167,17 +167,12 @@ read -p "ANTHROPIC_API_KEY (Enter to skip): " anthropic_key < /dev/tty
 read -p "OPENAI_API_KEY (Enter to skip): " openai_key < /dev/tty
 
 echo ""
-detected_tz=$(timedatectl show --property=Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || echo "")
-if [[ -n "$detected_tz" ]]; then
-    read -p "Timezone [$detected_tz]: " timezone < /dev/tty
-    timezone=${timezone:-$detected_tz}
-else
-    read -p "Timezone (e.g., Europe/London): " timezone < /dev/tty
-    while [[ -z "$timezone" ]]; do
-        echo -e "${RED}Timezone is required${NC}"
-        read -p "Timezone: " timezone < /dev/tty
-    done
-fi
+echo "Your timezone (for reminders/crons), e.g., Europe/London, America/New_York"
+read -p "Timezone: " timezone < /dev/tty
+while [[ -z "$timezone" ]]; do
+    echo -e "${RED}Timezone is required${NC}"
+    read -p "Timezone: " timezone < /dev/tty
+done
 
 echo ""
 storage_password=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)
