@@ -2,7 +2,7 @@
 set -e
 
 # Sheldon Homelab Agent (standalone)
-# Usage: curl -fsSL https://raw.githubusercontent.com/bowerhall/sheldon/main/core/scripts/agent.sh | sudo bash
+# Usage: curl bowerhall.ai/sheldon/agent | sudo bash
 
 IMAGE="${AGENT_IMAGE:-ghcr.io/bowerhall/sheldon-homelab-agent:latest}"
 

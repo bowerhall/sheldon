@@ -2,7 +2,7 @@
 set -e
 
 # Sheldon Homelab Invite Script
-# Usage: HEADSCALE_URL=https://hs.example.com AUTHKEY=your-key curl -fsSL ... | sudo bash
+# Usage: HEADSCALE_URL=https://hs.example.com AUTHKEY=key curl bowerhall.ai/sheldon/invite | sudo bash
 
 # Colors
 RED='\033[0;31m'
