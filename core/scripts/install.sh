@@ -46,7 +46,8 @@ fi
 echo ""
 echo -e "${GREEN}[3/6]${NC} Pulling AI models (this takes a few minutes)..."
 systemctl start ollama || true
-sleep 3
+sleep 5
+export PATH="/usr/local/bin:$PATH"
 ollama pull nomic-embed-text
 ollama pull qwen2.5:3b
 
