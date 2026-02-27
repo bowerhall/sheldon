@@ -10,7 +10,9 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -19,6 +21,8 @@ import (
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/mem"
 )
+
+var validContainerName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`)
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -160,10 +164,20 @@ func (a *Agent) handleListContainers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(containers)
 }
 
+func validateContainerName(name string) error {
+	if name == "" {
+		return fmt.Errorf("container name required")
+	}
+	if !validContainerName.MatchString(name) {
+		return fmt.Errorf("invalid container name")
+	}
+	return nil
+}
+
 func (a *Agent) handleContainerStatus(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	if name == "" {
-		http.Error(w, "container name required", http.StatusBadRequest)
+	if err := validateContainerName(name); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -198,8 +212,8 @@ func (a *Agent) handleContainerStatus(w http.ResponseWriter, r *http.Request) {
 
 func (a *Agent) handleContainerRestart(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	if name == "" {
-		http.Error(w, "container name required", http.StatusBadRequest)
+	if err := validateContainerName(name); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -225,8 +239,8 @@ func (a *Agent) handleContainerRestart(w http.ResponseWriter, r *http.Request) {
 
 func (a *Agent) handleContainerStop(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	if name == "" {
-		http.Error(w, "container name required", http.StatusBadRequest)
+	if err := validateContainerName(name); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -252,8 +266,8 @@ func (a *Agent) handleContainerStop(w http.ResponseWriter, r *http.Request) {
 
 func (a *Agent) handleContainerStart(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	if name == "" {
-		http.Error(w, "container name required", http.StatusBadRequest)
+	if err := validateContainerName(name); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -279,13 +293,16 @@ func (a *Agent) handleContainerStart(w http.ResponseWriter, r *http.Request) {
 
 func (a *Agent) handleContainerLogs(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	if name == "" {
-		http.Error(w, "container name required", http.StatusBadRequest)
+	if err := validateContainerName(name); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	lines := r.URL.Query().Get("lines")
 	if lines == "" {
+		lines = "100"
+	}
+	if n, err := strconv.Atoi(lines); err != nil || n < 1 || n > 10000 {
 		lines = "100"
 	}
 

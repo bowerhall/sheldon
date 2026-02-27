@@ -6,11 +6,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/bowerhall/sheldon/internal/logger"
 	"gopkg.in/yaml.v3"
 )
+
+var validAppName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
 
 // ComposeDeployer deploys apps using docker compose
 type ComposeDeployer struct {
@@ -114,6 +117,18 @@ func (d *ComposeDeployer) findDockerfile(appDir string) string {
 
 // Deploy adds a service to apps.yml and runs docker compose up
 func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string, domain string) (*DeployResult, error) {
+	// validate app name (alphanumeric + hyphens, max 63 chars, must start with alphanumeric)
+	if !validAppName.MatchString(name) {
+		return nil, fmt.Errorf("invalid app name %q: must be lowercase alphanumeric with hyphens, 1-63 chars, start with letter/number", name)
+	}
+
+	// validate domain if provided
+	if domain != "" && domain != "localhost" {
+		if !validAppName.MatchString(strings.Split(domain, ".")[0]) {
+			return nil, fmt.Errorf("invalid domain %q: contains invalid characters", domain)
+		}
+	}
+
 	// validate app directory exists
 	if _, err := os.Stat(appDir); os.IsNotExist(err) {
 		return nil, fmt.Errorf("app directory does not exist: %s (expected path from write_code workspace)", appDir)

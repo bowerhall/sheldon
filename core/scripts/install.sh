@@ -68,9 +68,9 @@ services:
     restart: unless-stopped
     volumes:
       - /data:/data
-      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - DATA_DIR=/data
+      - DOCKER_HOST=tcp://docker-proxy:2375
       - OLLAMA_HOST=http://host.docker.internal:11434
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
       - OWNER_CHAT_ID=${OWNER_CHAT_ID}
@@ -89,6 +89,27 @@ services:
       - sheldon-net
     depends_on:
       - minio
+      - docker-proxy
+
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: docker-proxy
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1
+      - IMAGES=1
+      - BUILD=1
+      - NETWORKS=1
+      - POST=1
+      - VOLUMES=0
+      - SERVICES=0
+      - TASKS=0
+      - SECRETS=0
+      - CONFIGS=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - sheldon-net
 
   minio:
     image: minio/minio:latest
@@ -101,8 +122,8 @@ services:
       - MINIO_ROOT_USER=admin
       - MINIO_ROOT_PASSWORD=${STORAGE_ADMIN_PASSWORD}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     networks:
       - sheldon-net
 
@@ -194,7 +215,9 @@ echo "======================================"
 echo ""
 echo "Open Telegram and message your bot."
 echo ""
-echo "MinIO console: http://${PUBLIC_IP}:9001"
+echo "MinIO console (localhost only):"
+echo "  ssh -L 9001:localhost:9001 root@${PUBLIC_IP}"
+echo "  then open http://localhost:9001"
 echo "  Username: admin"
 echo "  Password: ${storage_password}"
 echo ""

@@ -168,8 +168,8 @@ func (r *Runner) validateCommand(cmd string) error {
 		return fmt.Errorf("command not allowed: %s", baseCmd)
 	}
 
-	// additional safety: reject shell metacharacters
-	dangerous := []string{";", "&", "|", "`", "$", "(", ")", "{", "}", "<", ">", "\\"}
+	// additional safety: reject shell metacharacters and newlines
+	dangerous := []string{";", "&", "|", "`", "$", "(", ")", "{", "}", "<", ">", "\\", "\n", "\r"}
 	for _, d := range dangerous {
 		if strings.Contains(cmd, d) {
 			return fmt.Errorf("invalid characters in command")
