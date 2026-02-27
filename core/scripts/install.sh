@@ -86,7 +86,7 @@ services:
       - STORAGE_ENABLED=true
       - STORAGE_ENDPOINT=minio:9000
       - STORAGE_ACCESS_KEY=admin
-      - STORAGE_SECRET_KEY=${STORAGE_ADMIN_PASSWORD}
+      - STORAGE_SHELDON_PASSWORD=${STORAGE_ADMIN_PASSWORD}
       - STORAGE_USE_SSL=false
     extra_hosts:
       - "host.docker.internal:host-gateway"
