@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"sync"
 	"time"
 
 	"github.com/bowerhall/sheldon/internal/alerts"
@@ -28,6 +29,7 @@ type TriggerFunc func(chatID int64, sessionID string, prompt string) (string, er
 type LLMFactory func() (llm.LLM, error)
 
 type Agent struct {
+	mu           sync.RWMutex
 	llm          llm.LLM
 	extractor    llm.LLM
 	memory       *sheldonmem.Store

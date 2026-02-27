@@ -113,11 +113,23 @@ func (a *Agent) refreshLLMIfNeeded() error {
 		return err
 	}
 
-	a.llm = newLLM
+	a.setLLM(newLLM)
 	a.lastLLMHash = currentHash
 	logger.Info("LLM instance refreshed", "config", currentHash)
 
 	return nil
+}
+
+func (a *Agent) getLLM() llm.LLM {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.llm
+}
+
+func (a *Agent) setLLM(model llm.LLM) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.llm = model
 }
 
 func (a *Agent) Registry() *tools.Registry {
@@ -205,7 +217,7 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 	}
 
 	// Check model capabilities for media
-	caps := a.llm.Capabilities()
+	caps := a.getLLM().Capabilities()
 	hasImage := false
 	hasVideo := false
 	hasPDF := false
@@ -428,13 +440,16 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 			loopTools = filterIsolatedTools(availableTools)
 		}
 
+		// get current LLM (may change during fallback)
+		currentLLM := a.getLLM()
+
 		logger.Debug("agent loop iteration", "iteration", i, "messages", len(sess.Messages()), "isolatedMode", isolatedMode)
 
-		resp, err := a.llm.ChatWithTools(ctx, a.buildDynamicPrompt(), sess.Messages(), loopTools)
+		resp, err := currentLLM.ChatWithTools(ctx, a.buildDynamicPrompt(), sess.Messages(), loopTools)
 		if err != nil {
 			// try fallback provider if quota exhausted
 			if shouldFallback(err) {
-				currentProvider := a.llm.Provider()
+				currentProvider := currentLLM.Provider()
 				failedProviders[currentProvider] = true
 				logger.Warn("provider unavailable, trying fallback", "provider", currentProvider, "error", err, "failedProviders", failedProviders)
 
@@ -447,7 +462,7 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 				}
 
 				// switch to fallback and retry
-				a.llm = newLLM
+				a.setLLM(newLLM)
 				logger.Info("switched to fallback provider", "from", currentProvider, "to", newProvider)
 				continue // retry with new provider
 			}
@@ -459,8 +474,8 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 		}
 
 		if resp.Usage != nil && a.budget != nil {
-			logger.Info("recording usage", "provider", a.llm.Provider(), "model", a.llm.Model(), "input", resp.Usage.PromptTokens, "output", resp.Usage.CompletionTokens)
-			if !a.budget.Record(a.llm.Provider(), a.llm.Model(), resp.Usage.PromptTokens, resp.Usage.CompletionTokens) {
+			logger.Info("recording usage", "provider", currentLLM.Provider(), "model", currentLLM.Model(), "input", resp.Usage.PromptTokens, "output", resp.Usage.CompletionTokens)
+			if !a.budget.Record(currentLLM.Provider(), currentLLM.Model(), resp.Usage.PromptTokens, resp.Usage.CompletionTokens) {
 				return "I've reached my daily API limit. Please try again tomorrow!", nil
 			}
 		} else {
