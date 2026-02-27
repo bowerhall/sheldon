@@ -84,6 +84,22 @@ dangerous := []string{";", "&", "|", "`", "$", "(", ")", "{", "}", "<", ">", "\\
 
 ---
 
+### No Arbitrary Filesystem Access
+**Decision**: Sheldon has no tool to write arbitrary files to the host filesystem.
+
+**File capabilities by design**:
+| Tool | Where it writes |
+|------|-----------------|
+| `save_skill` | `/data/skills/*.md` only |
+| `save_note` | SQLite database |
+| `save_media` | MinIO bucket |
+| `upload_file` | MinIO bucket |
+| `write_code` | Ephemeral sandbox only |
+
+**Why**: Limits attack surface. Even if prompt injection tricks Sheldon into malicious action, he can't write to `/etc/passwd`, drop malware, or modify system files. All persistent storage is either structured (SQLite), scoped (skills directory), or isolated (MinIO/sandbox).
+
+---
+
 ### Accepted Tradeoffs
 
 **Coder container gets LLM API keys**: Necessary for code generation. Mitigated by ephemeral containers and output sanitization.
