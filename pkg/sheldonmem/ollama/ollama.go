@@ -1,4 +1,4 @@
-package embedder
+package ollama
 
 import (
 	"bytes"
@@ -9,30 +9,36 @@ import (
 	"net/http"
 )
 
-type ollama struct {
+type Embedder struct {
 	baseURL string
 	model   string
 }
 
-type ollamaRequest struct {
+type request struct {
 	Model  string `json:"model"`
 	Prompt string `json:"prompt"`
 }
 
-type ollamaResponse struct {
+type response struct {
 	Embedding []float32 `json:"embedding"`
 }
 
-func newOllama(baseURL, model string) *ollama {
-	return &ollama{
+func NewEmbedder(baseURL, model string) *Embedder {
+	if baseURL == "" {
+		baseURL = "http://localhost:11434"
+	}
+	if model == "" {
+		model = "nomic-embed-text"
+	}
+	return &Embedder{
 		baseURL: baseURL,
 		model:   model,
 	}
 }
 
-func (o *ollama) Embed(ctx context.Context, text string) ([]float32, error) {
-	reqBody := ollamaRequest{
-		Model:  o.model,
+func (e *Embedder) Embed(ctx context.Context, text string) ([]float32, error) {
+	reqBody := request{
+		Model:  e.model,
 		Prompt: text,
 	}
 
@@ -41,7 +47,7 @@ func (o *ollama) Embed(ctx context.Context, text string) ([]float32, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", o.baseURL+"/api/embeddings", bytes.NewReader(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", e.baseURL+"/api/embeddings", bytes.NewReader(jsonBody))
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +69,7 @@ func (o *ollama) Embed(ctx context.Context, text string) ([]float32, error) {
 		return nil, fmt.Errorf("ollama error (status %d): %s", resp.StatusCode, string(body))
 	}
 
-	var ollamaResp ollamaResponse
+	var ollamaResp response
 	if err := json.Unmarshal(body, &ollamaResp); err != nil {
 		return nil, err
 	}

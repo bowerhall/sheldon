@@ -4,22 +4,13 @@ import (
 	"fmt"
 
 	"github.com/bowerhall/sheldonmem"
+	"github.com/bowerhall/sheldonmem/ollama"
 )
 
 func New(cfg Config) (sheldonmem.Embedder, error) {
 	switch cfg.Provider {
 	case "ollama":
-		baseURL := cfg.BaseURL
-		if baseURL == "" {
-			baseURL = "http://localhost:11434"
-		}
-
-		model := cfg.Model
-		if model == "" {
-			model = "nomic-embed-text"
-		}
-
-		return newOllama(baseURL, model), nil
+		return ollama.NewEmbedder(cfg.BaseURL, cfg.Model), nil
 	case "":
 		return nil, nil
 	default:
