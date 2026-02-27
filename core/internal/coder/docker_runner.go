@@ -450,7 +450,10 @@ func (r *DockerRunner) writeContext(workDir string, ctx *MemoryContext) error {
 	buf.WriteString("- Do not hardcode secrets or API keys\n")
 	buf.WriteString("- Handle errors gracefully\n")
 	buf.WriteString("- Keep code minimal and focused\n")
-	buf.WriteString("- For web apps: include a Dockerfile (use nginx:alpine for static sites)\n")
+	buf.WriteString("- CRITICAL: Always create a Dockerfile for any web app, site, or deployable project\n")
+	buf.WriteString("- For static HTML/CSS/JS sites: use nginx:alpine with COPY to /usr/share/nginx/html\n")
+	buf.WriteString("- For Node.js apps: use node:alpine with npm install && npm start\n")
+	buf.WriteString("- For Python apps: use python:3-slim with pip install && python app.py\n")
 
 	return os.WriteFile(filepath.Join(workDir, "CONTEXT.md"), []byte(buf.String()), 0644)
 }

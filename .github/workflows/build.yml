@@ -40,6 +40,7 @@ jobs:
           context: .
           file: core/Dockerfile
           push: true
+          provenance: false
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/sheldon:latest
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/sheldon:${{ github.sha }}
@@ -70,6 +71,7 @@ jobs:
         with:
           context: core/deploy/browser-sandbox
           push: true
+          provenance: false
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/sheldon-browser-sandbox:latest
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/sheldon-browser-sandbox:${{ github.sha }}
@@ -100,6 +102,7 @@ jobs:
         with:
           context: core/deploy/coder-sandbox
           push: true
+          provenance: false
           tags: |
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/sheldon-coder-sandbox:latest
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/sheldon-coder-sandbox:${{ github.sha }}

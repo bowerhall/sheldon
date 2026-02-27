@@ -72,14 +72,10 @@ func RegisterCoderTool(registry *Registry, bridge *coder.Bridge, memory *sheldon
 			GitRepo:    params.GitRepo,
 		}
 
-		// use streaming for real-time progress
+		// simplified progress - typing indicator handles "in progress" state
+		// only log tool usage for debugging, don't spam chat
 		onProgress := func(event coder.StreamEvent) {
-			switch event.Type {
-			case "thinking":
-				registry.Notify(ctx, "💭 Thinking...")
-			case "tool_use":
-				registry.Notify(ctx, fmt.Sprintf("🔧 Using: %s", event.Tool))
-			}
+			// silently track progress - typing indicator shows activity
 		}
 
 		result, err := bridge.ExecuteWithProgress(ctx, task, onProgress)
@@ -216,7 +212,8 @@ func formatResult(result *coder.Result) string {
 
 	if result.WorkspacePath != "" {
 		fmt.Fprintf(&sb, "Workspace: %s\n", result.WorkspacePath)
-		fmt.Fprintf(&sb, "For deploy_app, use app_dir: %s\n\n", result.WorkspacePath)
+		fmt.Fprintf(&sb, "\n⚠️ IMPORTANT: To deploy this app, use exactly this path:\n")
+		fmt.Fprintf(&sb, "   deploy_app(app_dir=\"%s\", name=\"app-name\")\n\n", result.WorkspacePath)
 	}
 
 	if len(result.Files) > 0 {

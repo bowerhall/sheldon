@@ -43,9 +43,17 @@ else
     echo "Ollama already installed"
 fi
 
+# Configure Ollama to listen on all interfaces (required for Docker containers)
+mkdir -p /etc/systemd/system/ollama.service.d
+cat > /etc/systemd/system/ollama.service.d/override.conf << 'OLLAMA_OVERRIDE'
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0"
+OLLAMA_OVERRIDE
+systemctl daemon-reload
+
 echo ""
 echo -e "${GREEN}[3/6]${NC} Pulling AI models (this takes a few minutes)..."
-systemctl start ollama || true
+systemctl restart ollama || systemctl start ollama || true
 sleep 5
 export PATH="/usr/local/bin:$PATH"
 ollama pull nomic-embed-text
@@ -202,6 +210,12 @@ set -a
 source .env
 set +a
 docker compose pull
+
+echo ""
+echo "Pulling sandbox images..."
+docker pull ghcr.io/bowerhall/sheldon-browser-sandbox:latest || true
+docker pull ghcr.io/bowerhall/sheldon-coder-sandbox:latest || true
+
 docker compose up -d
 
 echo ""

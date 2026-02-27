@@ -25,7 +25,7 @@ type BrowserConfig struct {
 // DefaultBrowserConfig returns sensible defaults
 func DefaultBrowserConfig() BrowserConfig {
 	return BrowserConfig{
-		UserAgent: "Sheldon/1.0 (AI Assistant; +https://github.com/bowerhall/sheldon)",
+		UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 		Timeout:   30 * time.Second,
 	}
 }
@@ -191,7 +191,8 @@ func RegisterUnifiedBrowserTools(registry *Registry, runner *browser.Runner, htt
 
 		logger.Debug("search_web", "query", params.Query)
 
-		searchURL := fmt.Sprintf("https://lite.duckduckgo.com/lite/?q=%s", url.QueryEscape(params.Query))
+		// use HTML endpoint instead of lite (lite now requires CAPTCHA)
+		searchURL := fmt.Sprintf("https://html.duckduckgo.com/html/?q=%s", url.QueryEscape(params.Query))
 
 		req, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)
 		if err != nil {
@@ -305,15 +306,19 @@ func extractText(html string) string {
 	return text
 }
 
-// extractSearchResults parses DuckDuckGo lite search results
+// extractSearchResults parses DuckDuckGo HTML search results
 func extractSearchResults(html string) string {
 	var results []string
 
-	linkRe := regexp.MustCompile(`(?is)<a[^>]+class="[^"]*result-link[^"]*"[^>]*href="([^"]+)"[^>]*>([^<]+)</a>`)
-	snippetRe := regexp.MustCompile(`(?is)<td[^>]*class="[^"]*result-snippet[^"]*"[^>]*>([^<]+)</td>`)
+	// DDG HTML endpoint uses result__a class for links and result__snippet for snippets
+	linkRe := regexp.MustCompile(`(?is)<a[^>]+class="result__a"[^>]*href="([^"]+)"[^>]*>([^<]+)</a>`)
+	snippetRe := regexp.MustCompile(`(?is)<a[^>]+class="result__snippet"[^>]*>(.*?)</a>`)
 
 	linkMatches := linkRe.FindAllStringSubmatch(html, -1)
 	snippetMatches := snippetRe.FindAllStringSubmatch(html, -1)
+
+	// helper to strip HTML tags from snippet
+	stripTags := regexp.MustCompile(`<[^>]+>`)
 
 	for i, m := range linkMatches {
 		if len(m) < 3 {
@@ -323,10 +328,20 @@ func extractSearchResults(html string) string {
 		href := decodeHTMLEntities(strings.TrimSpace(m[1]))
 		title := decodeHTMLEntities(strings.TrimSpace(m[2]))
 
+		// extract actual URL from DDG redirect link
+		if strings.Contains(href, "uddg=") {
+			if u, err := url.Parse(href); err == nil {
+				if actual := u.Query().Get("uddg"); actual != "" {
+					href = actual
+				}
+			}
+		}
+
 		result := fmt.Sprintf("**%s**\n%s", title, href)
 
 		if i < len(snippetMatches) && len(snippetMatches[i]) > 1 {
-			snippet := decodeHTMLEntities(strings.TrimSpace(snippetMatches[i][1]))
+			snippet := stripTags.ReplaceAllString(snippetMatches[i][1], "")
+			snippet = decodeHTMLEntities(strings.TrimSpace(snippet))
 			result += fmt.Sprintf("\n%s", snippet)
 		}
 

@@ -79,10 +79,18 @@ func (s *Store) Create(keyword, schedule string, chatID int64, expiresAt *time.T
 	// this ensures "8pm" means 8pm in the user's timezone, not UTC
 	nextRun := sched.Next(time.Now().In(s.timezone)).UTC()
 
+	// format times for SQLite compatibility (YYYY-MM-DD HH:MM:SS)
+	nextRunStr := nextRun.Format("2006-01-02 15:04:05")
+	var expiresAtStr *string
+	if expiresAt != nil {
+		s := expiresAt.UTC().Format("2006-01-02 15:04:05")
+		expiresAtStr = &s
+	}
+
 	result, err := s.db.Exec(`
 		INSERT INTO crons (keyword, schedule, chat_id, expires_at, next_run)
 		VALUES (?, ?, ?, ?, ?)`,
-		keyword, schedule, chatID, expiresAt, nextRun)
+		keyword, schedule, chatID, expiresAtStr, nextRunStr)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +144,9 @@ func (s *Store) GetByChat(chatID int64) ([]Cron, error) {
 
 // UpdateNextRun updates the next run time for a cron
 func (s *Store) UpdateNextRun(id int64, nextRun time.Time) error {
-	_, err := s.db.Exec(`UPDATE crons SET next_run = ? WHERE id = ?`, nextRun, id)
+	// format for SQLite compatibility (YYYY-MM-DD HH:MM:SS in UTC)
+	nextRunStr := nextRun.UTC().Format("2006-01-02 15:04:05")
+	_, err := s.db.Exec(`UPDATE crons SET next_run = ? WHERE id = ?`, nextRunStr, id)
 	return err
 }
 
@@ -218,7 +228,12 @@ func (s *Store) scanCrons(rows *sql.Rows) ([]Cron, error) {
 
 // SetPausedUntil pauses a cron until the specified time
 func (s *Store) SetPausedUntil(keyword string, chatID int64, until *time.Time) error {
-	_, err := s.db.Exec(`UPDATE crons SET paused_until = ? WHERE keyword = ? AND chat_id = ?`, until, keyword, chatID)
+	var untilStr *string
+	if until != nil {
+		s := until.UTC().Format("2006-01-02 15:04:05")
+		untilStr = &s
+	}
+	_, err := s.db.Exec(`UPDATE crons SET paused_until = ? WHERE keyword = ? AND chat_id = ?`, untilStr, keyword, chatID)
 	return err
 }
 
