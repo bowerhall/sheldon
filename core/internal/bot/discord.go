@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -65,6 +66,11 @@ func (d *discord) Send(chatID int64, message string) error {
 		logger.Info("discord message sent", "channelID", channelID, "chars", len(message))
 	}
 	return err
+}
+
+func (d *discord) SendTyping(chatID int64) error {
+	channelID := fmt.Sprintf("%d", chatID)
+	return d.session.ChannelTyping(channelID)
 }
 
 func (d *discord) SendPhoto(chatID int64, data []byte, caption string) error {
@@ -229,10 +235,30 @@ func (d *discord) processMessage(s *discordgo.Session, m *discordgo.MessageCreat
 		logger.Info("message received", "session", sessionID, "from", m.Author.Username, "text", truncate(text, 50), "trusted", trusted)
 	}
 
+	// send typing indicator while processing
+	typingChatID, _ := strconv.ParseInt(m.ChannelID, 10, 64)
+	d.SendTyping(typingChatID)
+	typingDone := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(8 * time.Second) // Discord typing lasts ~10s
+		defer ticker.Stop()
+		for {
+			select {
+			case <-typingDone:
+				return
+			case <-opCtx.Done():
+				return
+			case <-ticker.C:
+				d.SendTyping(typingChatID)
+			}
+		}
+	}()
+
 	response, err := d.agent.ProcessWithOptions(opCtx, sessionID, text, agent.ProcessOptions{
 		Media:   media,
 		Trusted: trusted,
 	})
+	close(typingDone)
 	if err != nil {
 		if opCtx.Err() == context.Canceled {
 			logger.Info("operation was cancelled", "session", sessionID)

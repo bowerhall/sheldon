@@ -427,23 +427,39 @@ var browserTools = map[string]bool{
 	"search_web":   true,
 }
 
+// degradedModeTools are safe, read-only tools allowed when running on local fallback model
+var degradedModeTools = map[string]bool{
+	"recall_memory":   true,
+	"current_time":    true,
+	"usage_summary":   true,
+	"usage_breakdown": true,
+	"current_model":   true,
+	"list_providers":  true,
+	"list_crons":      true,
+	"read_note":       true,
+	"list_notes":      true,
+}
+
 func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string, error) {
 	availableTools := a.tools.Tools()
 	toolFailures := make(map[string]int)    // track consecutive failures per tool
 	failedProviders := make(map[string]bool) // track providers that failed this request
 	isolatedMode := false                    // restrict tools after browse/code to prevent prompt injection
+	degradedMode := false                    // restrict to safe tools when on local fallback
 
 	for i := range maxToolIterations {
-		// filter out sensitive tools if we've entered isolated mode
+		// filter tools based on mode
 		loopTools := availableTools
-		if isolatedMode {
+		if degradedMode {
+			loopTools = filterDegradedTools(availableTools)
+		} else if isolatedMode {
 			loopTools = filterIsolatedTools(availableTools)
 		}
 
 		// get current LLM (may change during fallback)
 		currentLLM := a.getLLM()
 
-		logger.Debug("agent loop iteration", "iteration", i, "messages", len(sess.Messages()), "isolatedMode", isolatedMode)
+		logger.Debug("agent loop iteration", "iteration", i, "messages", len(sess.Messages()), "isolatedMode", isolatedMode, "degradedMode", degradedMode)
 
 		resp, err := currentLLM.ChatWithTools(ctx, a.buildDynamicPrompt(), sess.Messages(), loopTools)
 		if err != nil {
@@ -461,8 +477,12 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 					return fmt.Sprintf("%s is unavailable and no fallback providers are configured. Please try again later or add another provider (KIMI_API_KEY, OPENAI_API_KEY).", currentProvider), nil
 				}
 
-				// switch to fallback and retry
+				// switch to fallback - enter degraded mode if using local model
 				a.setLLM(newLLM)
+				if newProvider == "ollama" {
+					degradedMode = true
+					logger.Info("entered degraded mode", "provider", newProvider)
+				}
 				logger.Info("switched to fallback provider", "from", currentProvider, "to", newProvider)
 				continue // retry with new provider
 			}
@@ -588,6 +608,16 @@ func filterIsolatedTools(tools []llm.Tool) []llm.Tool {
 	filtered := make([]llm.Tool, 0, len(tools))
 	for _, t := range tools {
 		if !disabledDuringIsolation[t.Name] {
+			filtered = append(filtered, t)
+		}
+	}
+	return filtered
+}
+
+func filterDegradedTools(tools []llm.Tool) []llm.Tool {
+	filtered := make([]llm.Tool, 0, len(tools))
+	for _, t := range tools {
+		if degradedModeTools[t.Name] {
 			filtered = append(filtered, t)
 		}
 	}

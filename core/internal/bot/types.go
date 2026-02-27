@@ -10,6 +10,7 @@ import (
 type Bot interface {
 	Start(ctx context.Context) error
 	Send(chatID int64, message string) error
+	SendTyping(chatID int64) error
 	SendPhoto(chatID int64, data []byte, caption string) error
 	SendVideo(chatID int64, data []byte, caption string) error
 	SendDocument(chatID int64, data []byte, filename, caption string) error

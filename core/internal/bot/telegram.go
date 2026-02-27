@@ -159,7 +159,26 @@ func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 		logger.Info("message received", "session", sessionID, "from", msg.From.UserName, "text", truncate(text, 50))
 	}
 
+	// send typing indicator while processing
+	t.SendTyping(chatID)
+	typingDone := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(4 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-typingDone:
+				return
+			case <-opCtx.Done():
+				return
+			case <-ticker.C:
+				t.SendTyping(chatID)
+			}
+		}
+	}()
+
 	response, err := t.agent.ProcessWithMedia(opCtx, sessionID, text, media)
+	close(typingDone)
 	if err != nil {
 		if opCtx.Err() == context.Canceled {
 			logger.Info("operation was cancelled", "session", sessionID)
@@ -187,6 +206,12 @@ func (t *telegram) Send(chatID int64, message string) error {
 	} else {
 		logger.Info("proactive message sent", "chatID", chatID, "chars", len(message))
 	}
+	return err
+}
+
+func (t *telegram) SendTyping(chatID int64) error {
+	action := tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping)
+	_, err := t.api.Request(action)
 	return err
 }
 
