@@ -83,11 +83,11 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - TZ=${TZ:-UTC}
-      - STORAGE_ENDPOINT=${STORAGE_ENDPOINT:-http://minio:9000}
-      - STORAGE_ADMIN_USER=${STORAGE_ADMIN_USER:-admin}
-      - STORAGE_ADMIN_PASSWORD=${STORAGE_ADMIN_PASSWORD:-}
-      - STORAGE_SHELDON_USER=${STORAGE_SHELDON_USER:-sheldon}
-      - STORAGE_SHELDON_PASSWORD=${STORAGE_SHELDON_PASSWORD:-}
+      - STORAGE_ENABLED=true
+      - STORAGE_ENDPOINT=minio:9000
+      - STORAGE_ACCESS_KEY=admin
+      - STORAGE_SECRET_KEY=${STORAGE_ADMIN_PASSWORD}
+      - STORAGE_USE_SSL=false
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
