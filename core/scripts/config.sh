@@ -13,10 +13,17 @@ NC='\033[0m'
 ENV_FILE="/opt/sheldon/.env"
 
 echo ""
-echo "======================================"
-echo "   Sheldon Config Manager"
-echo "======================================"
-echo ""
+echo -e "${GREEN}"
+cat << "EOF"
+   _____ __         __    __
+  / ___// /_  ___  / /___/ /___  ____
+  \__ \/ __ \/ _ \/ / __  / __ \/ __ \
+ ___/ / / / /  __/ / /_/ / /_/ / / / /
+/____/_/ /_/\___/_/\__,_/\____/_/ /_/
+
+      C O N F I G   M A N A G E R
+EOF
+echo -e "${NC}"
 
 # Check root
 if [[ $EUID -ne 0 ]]; then
