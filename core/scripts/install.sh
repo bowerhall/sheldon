@@ -65,6 +65,7 @@ services:
       - /data:/data
     environment:
       - DATA_DIR=/data
+      - SHELDON_MEMORY=/data/sheldon.db
       - DOCKER_HOST=tcp://docker-proxy:2375
       - OLLAMA_HOST=http://host.docker.internal:11434
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
