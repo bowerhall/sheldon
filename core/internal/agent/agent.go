@@ -417,8 +417,9 @@ var browserTools = map[string]bool{
 
 func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string, error) {
 	availableTools := a.tools.Tools()
-	toolFailures := make(map[string]int) // track consecutive failures per tool
-	isolatedMode := false                // restrict tools after browse/code to prevent prompt injection
+	toolFailures := make(map[string]int)    // track consecutive failures per tool
+	failedProviders := make(map[string]bool) // track providers that failed this request
+	isolatedMode := false                    // restrict tools after browse/code to prevent prompt injection
 
 	for i := range maxToolIterations {
 		// filter out sensitive tools if we've entered isolated mode
@@ -434,9 +435,10 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 			// try fallback provider if quota exhausted
 			if shouldFallback(err) {
 				currentProvider := a.llm.Provider()
-				logger.Warn("provider unavailable, trying fallback", "provider", currentProvider, "error", err)
+				failedProviders[currentProvider] = true
+				logger.Warn("provider unavailable, trying fallback", "provider", currentProvider, "error", err, "failedProviders", failedProviders)
 
-				newLLM, newProvider, fallbackErr := a.tryFallbackProvider(ctx, currentProvider)
+				newLLM, newProvider, fallbackErr := a.tryFallbackProvider(ctx, failedProviders)
 				if fallbackErr != nil {
 					if a.alerts != nil {
 						a.alerts.Critical("llm", "All providers exhausted", err)
@@ -446,12 +448,7 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 
 				// switch to fallback and retry
 				a.llm = newLLM
-				if a.notify != nil {
-					chatID := ctx.Value(tools.ChatIDKey)
-					if id, ok := chatID.(int64); ok && id != 0 {
-						a.notify(id, fmt.Sprintf("Switched from %s to %s (provider unavailable)", currentProvider, newProvider))
-					}
-				}
+				logger.Info("switched to fallback provider", "from", currentProvider, "to", newProvider)
 				continue // retry with new provider
 			}
 
@@ -638,13 +635,13 @@ func shouldFallback(err error) bool {
 
 // tryFallbackProvider attempts to switch to another configured provider
 // For ollama: only uses already-installed models, never pulls new ones
-func (a *Agent) tryFallbackProvider(ctx context.Context, currentProvider string) (llm.LLM, string, error) {
+func (a *Agent) tryFallbackProvider(ctx context.Context, failedProviders map[string]bool) (llm.LLM, string, error) {
 	if a.runtimeConfig == nil {
 		return nil, "", fmt.Errorf("no runtime config available")
 	}
 
 	for _, provider := range fallbackProviders {
-		if provider == currentProvider {
+		if failedProviders[provider] {
 			continue
 		}
 
