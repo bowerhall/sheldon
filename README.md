@@ -107,10 +107,10 @@ docker exec headscale headscale preauthkeys create --user 1 --expiration 1h
 
 # 2. On the new machine, run with that key
 HEADSCALE_URL=https://hs.yourdomain.com AUTHKEY=your-key \
-  curl -fsSL https://raw.githubusercontent.com/{owner}/sheldon/main/core/scripts/invite.sh | sudo bash
+  curl bowerhall.ai/sheldon/invite | sudo bash
 
 # Or agent only (no private networking, just container management)
-curl -fsSL https://raw.githubusercontent.com/{owner}/sheldon/main/core/scripts/agent.sh | sudo bash
+curl bowerhall.ai/sheldon/agent | sudo bash
 ```
 
 **Point Ollama to your GPU server:**
@@ -247,6 +247,30 @@ If neither `DISCORD_OWNER_ID` nor `DISCORD_TRUSTED_CHANNEL` is set, all conversa
 
 All containers on sheldon-net. Single VPS. ~€8/month.
 ```
+
+## Quick Install
+
+One command on any Ubuntu VPS (DigitalOcean, Hetzner, etc.):
+
+```bash
+curl -fsSL bowerhall.ai/sheldon/install | sudo bash
+```
+
+**What it does:**
+1. Installs Docker + Ollama
+2. Pulls AI models for memory
+3. Sets up MinIO for file storage
+4. Prompts for your Telegram token and API keys
+5. Starts Sheldon
+
+**Requirements:**
+- Ubuntu 22.04+ VPS (4GB+ RAM recommended)
+- Telegram bot token (free from [@BotFather](https://t.me/BotFather))
+- One LLM API key (Kimi, Claude, or OpenAI)
+
+**Recommended VPS:** Hetzner CX22 (~$5/mo) or DigitalOcean s-2vcpu-4gb ($24/mo)
+
+---
 
 ## Deploy to VPS (5 minutes)
 
