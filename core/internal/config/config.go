@@ -118,14 +118,11 @@ func loadCoderConfig() CoderConfig {
 	// Provider for coder - Claude Code CLI supports multiple backends
 	provider := os.Getenv("CODER_PROVIDER")
 	model := os.Getenv("CODER_MODEL")
-	if model == "" {
-		model = "kimi-k2.5" // default: Kimi via Moonshot API
-	}
 	if provider == "" {
-		provider = InferProviderFromModel(model)
-		if provider == "" {
-			provider = "kimi"
-		}
+		provider = detectProvider()
+	}
+	if model == "" {
+		model = defaultCoderModel(provider)
 	}
 
 	sandboxDir := os.Getenv("CODER_SANDBOX")
@@ -334,6 +331,19 @@ func detectProvider() string {
 		return "openai"
 	}
 	return "ollama"
+}
+
+func defaultCoderModel(provider string) string {
+	switch provider {
+	case "kimi":
+		return "kimi-k2.5"
+	case "claude":
+		return "claude-sonnet-4-20250514"
+	case "openai":
+		return "gpt-4o"
+	default:
+		return "qwen2.5-coder:7b"
+	}
 }
 
 func getAPIKey(provider, prefix string) (string, error) {
