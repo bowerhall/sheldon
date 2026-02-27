@@ -138,7 +138,7 @@ func loadCoderConfig() CoderConfig {
 
 	image := os.Getenv("CODER_IMAGE")
 	if image == "" {
-		image = "sheldon-coder-sandbox:latest"
+		image = "ghcr.io/bowerhall/sheldon-coder-sandbox:latest"
 	}
 
 	skillsDir := os.Getenv("CODER_SKILLS_DIR")
@@ -224,7 +224,7 @@ func loadBrowserConfig() BrowserConfig {
 
 	image := os.Getenv("BROWSER_SANDBOX_IMAGE")
 	if image == "" {
-		image = "sheldon-browser-sandbox:latest"
+		image = "ghcr.io/bowerhall/sheldon-browser-sandbox:latest"
 	}
 
 	return BrowserConfig{

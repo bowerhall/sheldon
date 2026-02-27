@@ -1,0 +1,91 @@
+name: Build and Push Images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'core/**'
+      - 'pkg/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: bowerhall
+
+jobs:
+  build-sheldon:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push sheldon
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: core/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/sheldon:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/sheldon:${{ github.sha }}
+
+  build-browser-sandbox:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push browser-sandbox
+        uses: docker/build-push-action@v5
+        with:
+          context: core/deploy/browser-sandbox
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/sheldon-browser-sandbox:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/sheldon-browser-sandbox:${{ github.sha }}
+
+  build-coder-sandbox:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push coder-sandbox
+        uses: docker/build-push-action@v5
+        with:
+          context: core/deploy/coder-sandbox
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/sheldon-coder-sandbox:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/sheldon-coder-sandbox:${{ github.sha }}
