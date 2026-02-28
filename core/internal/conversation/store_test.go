@@ -22,12 +22,12 @@ func TestStoreAddAndGetRecent(t *testing.T) {
 
 	sessionID := "telegram:123"
 
-	err = store.Add(sessionID, "user", "hello")
+	_, err = store.Add(sessionID, "user", "hello")
 	if err != nil {
 		t.Fatalf("failed to add message: %v", err)
 	}
 
-	err = store.Add(sessionID, "assistant", "hi there")
+	_, err = store.Add(sessionID, "assistant", "hi there")
 	if err != nil {
 		t.Fatalf("failed to add message: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestStoreMaxMessages(t *testing.T) {
 
 	// add more than max
 	for i := 0; i < 10; i++ {
-		err = store.Add(sessionID, "user", "message")
+		_, err = store.Add(sessionID, "user", "message")
 		if err != nil {
 			t.Fatalf("failed to add message: %v", err)
 		}
