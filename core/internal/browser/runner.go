@@ -84,7 +84,7 @@ func (r *Runner) Run(ctx context.Context, commands []string) (string, error) {
 		"--network=host", // needed for browser to access the internet
 		"--shm-size=2g",  // needed for Chrome
 		r.image,
-		"sh", "-c", script.String(),
+		"-c", script.String(), // ENTRYPOINT is /bin/sh, so just pass -c and script
 	}
 
 	logger.Debug("browser runner executing", "commands", len(commands))
