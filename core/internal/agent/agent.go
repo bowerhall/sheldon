@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -21,9 +20,9 @@ import (
 	"github.com/bowerhall/sheldonmem"
 )
 
-// fallbackProviders is the priority order for automatic failover
-// ollama is last resort - only used if a local model is already installed
-var fallbackProviders = []string{"kimi", "claude", "openai", "ollama"}
+// fallbackProviders is the priority order for automatic failover (cloud only)
+// ollama is NOT included - local models are too slow for chat
+var fallbackProviders = []string{"kimi", "claude", "openai"}
 
 const defaultMaxToolIterations = 20
 const maxToolFailures = 3
@@ -466,40 +465,23 @@ var browserTools = map[string]bool{
 	"search_web":   true,
 }
 
-// degradedModeTools are safe, read-only tools allowed when running on local fallback model
-var degradedModeTools = map[string]bool{
-	"recall_memory":    true,
-	"current_time":     true,
-	"usage_summary":    true,
-	"usage_breakdown":  true,
-	"current_model":    true,
-	"list_providers":   true,
-	"restore_provider": true,
-	"list_crons":       true,
-	"read_note":        true,
-	"list_notes":       true,
-}
-
 func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string, error) {
 	availableTools := a.tools.Tools()
-	toolFailures := make(map[string]int)    // track consecutive failures per tool
+	toolFailures := make(map[string]int)     // track consecutive failures per tool
 	failedProviders := make(map[string]bool) // track providers that failed this request
 	isolatedMode := false                    // restrict tools after browse/code to prevent prompt injection
-	degradedMode := false                    // restrict to safe tools when on local fallback
 
 	for i := range maxToolIterations {
 		// filter tools based on mode
 		loopTools := availableTools
-		if degradedMode {
-			loopTools = filterDegradedTools(availableTools)
-		} else if isolatedMode {
+		if isolatedMode {
 			loopTools = filterIsolatedTools(availableTools)
 		}
 
 		// get current LLM (may change during fallback)
 		currentLLM := a.getLLM()
 
-		logger.Debug("agent loop iteration", "iteration", i, "messages", len(sess.Messages()), "isolatedMode", isolatedMode, "degradedMode", degradedMode)
+		logger.Debug("agent loop iteration", "iteration", i, "messages", len(sess.Messages()), "isolatedMode", isolatedMode)
 
 		resp, err := currentLLM.ChatWithTools(ctx, a.buildDynamicPrompt(), sess.Messages(), loopTools)
 		if err != nil {
@@ -514,19 +496,13 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 					if a.alerts != nil {
 						a.alerts.Critical("llm", "All providers exhausted", err)
 					}
-					return fmt.Sprintf("%s is unavailable and no fallback providers are configured. Please try again later or add another provider (KIMI_API_KEY, OPENAI_API_KEY).", currentProvider), nil
+					// All cloud providers failed - return friendly error, don't persist state
+					// Next message will try again fresh
+					return "[I'm temporarily unavailable - all API providers are down or out of credits. Send another message to retry.]", nil
 				}
 
-				// switch to fallback - enter degraded mode if using local model
+				// switch to fallback cloud provider
 				a.setLLM(newLLM)
-				if newProvider == "ollama" {
-					degradedMode = true
-					logger.Info("entered degraded mode", "provider", newProvider)
-					// Notify user immediately about degraded mode
-					degradedNotice := "[Running on local fallback model - responses will be slower and capabilities limited. Say \"restore\" to switch back to a cloud provider once you've added API credits.]"
-					sess.AddMessage("assistant", degradedNotice, nil, "")
-					return degradedNotice, nil
-				}
 				logger.Info("switched to fallback provider", "from", currentProvider, "to", newProvider)
 				continue // retry with new provider
 			}
@@ -687,16 +663,6 @@ func filterIsolatedTools(tools []llm.Tool) []llm.Tool {
 	return filtered
 }
 
-func filterDegradedTools(tools []llm.Tool) []llm.Tool {
-	filtered := make([]llm.Tool, 0, len(tools))
-	for _, t := range tools {
-		if degradedModeTools[t.Name] {
-			filtered = append(filtered, t)
-		}
-	}
-	return filtered
-}
-
 // ProcessSystemTrigger handles a scheduled trigger (cron-based). Unlike user messages,
 // system triggers don't wait for session locks - they run in their own context.
 // This allows crons to fire even when a conversation is in progress.
@@ -763,126 +729,32 @@ func (a *Agent) tryFallbackProvider(ctx context.Context, failedProviders map[str
 			continue
 		}
 
-		var apiKey, model, baseURL string
-
-		if provider == "ollama" {
-			// check for installed local model (don't pull new ones)
-			model = a.findInstalledOllamaModel(ctx)
-			if model == "" {
-				logger.Debug("no installed ollama models for fallback")
-				continue
-			}
-			baseURL = os.Getenv("OLLAMA_HOST")
-			if baseURL == "" {
-				baseURL = a.runtimeConfig.Get("ollama_host")
-			}
-			if baseURL == "" {
-				baseURL = "http://localhost:11434"
-			}
-			apiKey = "ollama"
-		} else {
-			// cloud provider - check if API key is configured
-			envKey := config.EnvKeyForProvider(provider)
-			if envKey == "" || os.Getenv(envKey) == "" {
-				continue
-			}
-			apiKey = os.Getenv(envKey)
-			model = defaultModelForProvider(provider)
+		// cloud provider - check if API key is configured
+		envKey := config.EnvKeyForProvider(provider)
+		if envKey == "" || os.Getenv(envKey) == "" {
+			continue
 		}
+		apiKey := os.Getenv(envKey)
+		model := defaultModelForProvider(provider)
 
 		// try to create LLM for this provider
 		newLLM, err := llm.New(llm.Config{
 			Provider: provider,
 			APIKey:   apiKey,
 			Model:    model,
-			BaseURL:  baseURL,
 		})
 		if err != nil {
 			logger.Warn("failed to create fallback LLM", "provider", provider, "error", err)
 			continue
 		}
 
-		// update runtime config
-		a.runtimeConfig.Set("llm_provider", provider)
-		a.runtimeConfig.Set("llm_model", model)
-		a.lastLLMHash = provider + ":" + model
-
+		// Don't persist fallback to runtime config - each message should try
+		// the configured provider first, then fall back if needed
 		logger.Info("switched to fallback provider", "provider", provider, "model", model)
 		return newLLM, provider, nil
 	}
 
 	return nil, "", fmt.Errorf("no fallback providers available")
-}
-
-// default ollama models to try for fallback (in preference order)
-var defaultOllamaFallbackModels = []string{
-	"llama3.2", "llama3.1", "llama3",
-	"qwen2.5:7b", "qwen2.5:3b", "qwen2.5",
-	"mistral", "gemma2",
-}
-
-// findInstalledOllamaModel checks for a suitable chat model already installed in ollama
-func (a *Agent) findInstalledOllamaModel(ctx context.Context) string {
-	ollamaHost := a.runtimeConfig.Get("ollama_host")
-	if ollamaHost == "" {
-		ollamaHost = "http://localhost:11434"
-	}
-
-	// check for custom preference via env
-	preferred := defaultOllamaFallbackModels
-	if custom := os.Getenv("OLLAMA_FALLBACK_MODELS"); custom != "" {
-		preferred = strings.Split(custom, ",")
-		for i := range preferred {
-			preferred[i] = strings.TrimSpace(preferred[i])
-		}
-	}
-
-	// get installed models via ollama API
-	resp, err := http.Get(ollamaHost + "/api/tags")
-	if err != nil {
-		logger.Debug("ollama not reachable", "error", err)
-		return ""
-	}
-	defer resp.Body.Close()
-
-	var result struct {
-		Models []struct {
-			Name string `json:"name"`
-		} `json:"models"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return ""
-	}
-
-	installed := make(map[string]bool)
-	for _, m := range result.Models {
-		installed[m.Name] = true
-		// also index without tag for partial matching
-		if idx := strings.Index(m.Name, ":"); idx > 0 {
-			installed[m.Name[:idx]] = true
-		}
-	}
-
-	// return first preferred model that's installed
-	for _, pref := range preferred {
-		if installed[pref] {
-			// find exact name with tag
-			for _, m := range result.Models {
-				if m.Name == pref || strings.HasPrefix(m.Name, pref+":") {
-					return m.Name
-				}
-			}
-		}
-	}
-
-	// fallback: return any installed model (skip embeddings)
-	for _, m := range result.Models {
-		if !strings.Contains(m.Name, "embed") {
-			return m.Name
-		}
-	}
-
-	return ""
 }
 
 func defaultModelForProvider(provider string) string {
