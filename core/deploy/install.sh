@@ -35,7 +35,11 @@ curl -fsSL "$REPO_URL/deploy/apps.yml" -o apps.yml
 curl -fsSL "$REPO_URL/.env.example" -o .env.example
 
 # Create directories
-mkdir -p data skills letsencrypt
+mkdir -p data skills letsencrypt essence
+
+# Download essence files (personality)
+curl -fsSL "$REPO_URL/essence/SOUL.md" -o essence/SOUL.md
+curl -fsSL "$REPO_URL/essence/IDENTITY.md" -o essence/IDENTITY.md
 
 # Copy env example if .env doesn't exist
 if [ ! -f .env ]; then
