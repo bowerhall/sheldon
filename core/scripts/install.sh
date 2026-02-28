@@ -2,12 +2,15 @@
 set -e
 
 # Sheldon Installer
-# Usage: curl -fsSL bowerhall.ai/sheldon/install | sudo bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/bowerhall/sheldon/main/core/scripts/install.sh | sudo bash
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
+
+REPO_URL="https://raw.githubusercontent.com/bowerhall/sheldon/main"
+INSTALL_DIR="/opt/sheldon"
 
 echo ""
 echo -e "${GREEN}"
@@ -28,7 +31,7 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-echo -e "${GREEN}[1/6]${NC} Installing Docker..."
+echo -e "${GREEN}[1/5]${NC} Installing Docker..."
 if ! command -v docker &> /dev/null; then
     curl -fsSL https://get.docker.com | sh
 else
@@ -36,146 +39,39 @@ else
 fi
 
 echo ""
-echo -e "${GREEN}[2/6]${NC} Installing Ollama..."
-if ! command -v ollama &> /dev/null; then
-    curl -fsSL https://ollama.com/install.sh | sh
-else
-    echo "Ollama already installed"
-fi
+echo -e "${GREEN}[2/5]${NC} Downloading Sheldon..."
+mkdir -p "$INSTALL_DIR"
+cd "$INSTALL_DIR"
 
-# Configure Ollama to listen on all interfaces (required for Docker containers)
-mkdir -p /etc/systemd/system/ollama.service.d
-cat > /etc/systemd/system/ollama.service.d/override.conf << 'OLLAMA_OVERRIDE'
-[Service]
-Environment="OLLAMA_HOST=0.0.0.0"
-OLLAMA_OVERRIDE
-systemctl daemon-reload
+# Download compose file from repo (single source of truth)
+curl -fsSL "$REPO_URL/core/deploy/docker-compose.simple.yml" -o docker-compose.yml
+echo "Downloaded docker-compose.yml"
 
 echo ""
-echo -e "${GREEN}[3/6]${NC} Pulling AI models (this takes a few minutes)..."
-systemctl restart ollama || systemctl start ollama || true
-sleep 5
-export PATH="/usr/local/bin:$PATH"
-ollama pull nomic-embed-text
-ollama pull qwen2.5:3b
-
-echo ""
-echo -e "${GREEN}[4/6]${NC} Setting up Sheldon..."
-mkdir -p /opt/sheldon /data
-chown -R 1000:1000 /data
-
-cat > /opt/sheldon/docker-compose.yml << 'COMPOSE'
-services:
-  sheldon:
-    image: ghcr.io/bowerhall/sheldon:latest
-    container_name: sheldon
-    restart: unless-stopped
-    volumes:
-      - /data:/data
-    environment:
-      - DATA_DIR=/data
-      - SHELDON_MEMORY=/data/sheldon.db
-      - DOCKER_HOST=tcp://docker-proxy:2375
-      - OLLAMA_HOST=http://host.docker.internal:11434
-      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
-      - OWNER_CHAT_ID=${OWNER_CHAT_ID}
-      - KIMI_API_KEY=${KIMI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - TZ=${TZ:-UTC}
-      - STORAGE_ENABLED=true
-      - STORAGE_ENDPOINT=minio:9000
-      - STORAGE_ACCESS_KEY=admin
-      - STORAGE_SHELDON_PASSWORD=${STORAGE_ADMIN_PASSWORD}
-      - STORAGE_USE_SSL=false
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks:
-      - sheldon-net
-    depends_on:
-      - minio
-      - docker-proxy
-
-  docker-proxy:
-    image: tecnativa/docker-socket-proxy
-    container_name: docker-proxy
-    restart: unless-stopped
-    environment:
-      - CONTAINERS=1
-      - IMAGES=1
-      - BUILD=1
-      - NETWORKS=1
-      - POST=1
-      - VOLUMES=0
-      - SERVICES=0
-      - TASKS=0
-      - SECRETS=0
-      - CONFIGS=0
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - sheldon-net
-
-  minio:
-    image: minio/minio:latest
-    container_name: minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    volumes:
-      - /data/minio:/data
-    environment:
-      - MINIO_ROOT_USER=admin
-      - MINIO_ROOT_PASSWORD=${STORAGE_ADMIN_PASSWORD}
-    ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
-    networks:
-      - sheldon-net
-
-networks:
-  sheldon-net:
-    name: sheldon-net
-    driver: bridge
-COMPOSE
-
-cat > /etc/systemd/system/sheldon.service << 'SERVICE'
-[Unit]
-Description=Sheldon AI Assistant
-After=docker.service ollama.service
-Requires=docker.service
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-WorkingDirectory=/opt/sheldon
-EnvironmentFile=/opt/sheldon/.env
-ExecStartPre=/usr/bin/docker compose pull
-ExecStart=/usr/bin/docker compose up -d
-ExecStop=/usr/bin/docker compose down
-TimeoutStartSec=300
-
-[Install]
-WantedBy=multi-user.target
-SERVICE
-
-systemctl daemon-reload
-systemctl enable ollama
-systemctl enable sheldon
-
-echo ""
-echo -e "${GREEN}[5/6]${NC} Configuration"
+echo -e "${GREEN}[3/5]${NC} Configuration"
 echo ""
 echo "======================================"
 echo ""
 
 read -p "Telegram bot token (from @BotFather): " telegram_token < /dev/tty
+while [[ -z "$telegram_token" ]]; do
+    echo -e "${RED}Telegram token is required${NC}"
+    read -p "Telegram bot token: " telegram_token < /dev/tty
+done
+
 read -p "Your Telegram chat ID (from @userinfobot): " owner_chat_id < /dev/tty
 
 echo ""
 echo "Enter at least one LLM API key:"
-read -p "KIMI_API_KEY (Enter to skip): " kimi_key < /dev/tty
+read -p "KIMI_API_KEY (recommended, Enter to skip): " kimi_key < /dev/tty
 read -p "ANTHROPIC_API_KEY (Enter to skip): " anthropic_key < /dev/tty
 read -p "OPENAI_API_KEY (Enter to skip): " openai_key < /dev/tty
+
+# Validate at least one key
+if [[ -z "$kimi_key" && -z "$anthropic_key" && -z "$openai_key" ]]; then
+    echo -e "${RED}At least one API key is required${NC}"
+    exit 1
+fi
 
 echo ""
 echo "Your timezone (for reminders/crons), e.g., Europe/London, America/New_York"
@@ -185,41 +81,66 @@ while [[ -z "$timezone" ]]; do
     read -p "Timezone: " timezone < /dev/tty
 done
 
-echo ""
-storage_password=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)
-echo -e "MinIO password (auto-generated): ${YELLOW}${storage_password}${NC}"
-echo "Save this - you'll need it for the MinIO console."
+# Generate passwords
+storage_admin_password=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)
+storage_sheldon_password=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)
 
-cat > /opt/sheldon/.env << EOF
+echo ""
+echo -e "MinIO admin password (auto-generated): ${YELLOW}${storage_admin_password}${NC}"
+echo "Save this for MinIO console access."
+
+# Write .env file
+cat > "$INSTALL_DIR/.env" << EOF
+# Sheldon Configuration
+# Generated by installer on $(date)
+
+# Telegram
 TELEGRAM_TOKEN=${telegram_token}
 OWNER_CHAT_ID=${owner_chat_id}
+
+# LLM API Keys (at least one required)
 KIMI_API_KEY=${kimi_key}
 ANTHROPIC_API_KEY=${anthropic_key}
 OPENAI_API_KEY=${openai_key}
+
+# Timezone
 TZ=${timezone}
-STORAGE_ADMIN_PASSWORD=${storage_password}
-STORAGE_SHELDON_PASSWORD=${storage_password}
+
+# Storage (MinIO)
+STORAGE_ADMIN_PASSWORD=${storage_admin_password}
+STORAGE_SHELDON_PASSWORD=${storage_sheldon_password}
+
+# Host paths (for Docker volume mounts)
+HOST_DATA_DIR=/opt/sheldon/data
 EOF
 
-chmod 600 /opt/sheldon/.env
+chmod 600 "$INSTALL_DIR/.env"
 
 echo ""
-echo -e "${GREEN}[6/6]${NC} Starting Sheldon..."
-cd /opt/sheldon
-set -a
-source .env
-set +a
-docker compose pull
+echo -e "${GREEN}[4/5]${NC} Pulling images..."
+
+# Pull all required images
+docker pull ghcr.io/bowerhall/sheldon:latest
+docker pull ghcr.io/bowerhall/sheldon-coder-sandbox:latest
+docker pull ghcr.io/bowerhall/sheldon-browser-sandbox:latest
+docker pull ollama/ollama
+docker pull minio/minio:latest
+docker pull minio/mc:latest
+docker pull tecnativa/docker-socket-proxy
 
 echo ""
-echo "Pulling sandbox images..."
-docker pull ghcr.io/bowerhall/sheldon-browser-sandbox:latest || true
-docker pull ghcr.io/bowerhall/sheldon-coder-sandbox:latest || true
+echo -e "${GREEN}[5/5]${NC} Starting Sheldon..."
 
+# Create data directory
+mkdir -p "$INSTALL_DIR/data"
+chown -R 1000:1000 "$INSTALL_DIR/data"
+
+# Start services
+cd "$INSTALL_DIR"
 docker compose up -d
 
 echo ""
-echo "Waiting for Sheldon to start..."
+echo "Waiting for services to start..."
 for i in {1..30}; do
     if docker ps --filter "name=sheldon" --filter "status=running" | grep -q sheldon; then
         echo -e "${GREEN}Sheldon is running!${NC}"
@@ -233,6 +154,26 @@ for i in {1..30}; do
     sleep 2
 done
 
+# Create systemd service for auto-start
+cat > /etc/systemd/system/sheldon.service << 'SERVICE'
+[Unit]
+Description=Sheldon AI Assistant
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/sheldon
+ExecStart=/usr/bin/docker compose up -d
+ExecStop=/usr/bin/docker compose down
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+systemctl daemon-reload
 systemctl enable sheldon
 
 PUBLIC_IP=$(curl -s ifconfig.me 2>/dev/null || echo "your-server-ip")
@@ -248,10 +189,13 @@ echo "MinIO console (localhost only):"
 echo "  ssh -L 9001:localhost:9001 root@${PUBLIC_IP}"
 echo "  then open http://localhost:9001"
 echo "  Username: admin"
-echo "  Password: ${storage_password}"
+echo "  Password: ${storage_admin_password}"
 echo ""
 echo "Commands:"
-echo "  systemctl status sheldon  - Check status"
 echo "  docker logs -f sheldon    - View logs"
-echo "  systemctl restart sheldon - Restart"
+echo "  docker compose restart    - Restart"
+echo "  docker compose down       - Stop"
+echo ""
+echo "Config: $INSTALL_DIR/.env"
+echo "Data:   $INSTALL_DIR/data"
 echo ""

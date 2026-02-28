@@ -1,0 +1,174 @@
+# Sheldon Simple Setup (No Domain Required)
+#
+# For quick deployment without HTTPS/domain configuration.
+# Use docker-compose.yml for production with custom domain.
+#
+# Usage:
+#   1. Copy .env.example to .env and fill in values
+#   2. docker compose -f docker-compose.simple.yml up -d
+#   3. Message your Telegram bot
+
+services:
+  # Docker socket proxy - limits what Sheldon can do with docker
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: docker-proxy
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1
+      - IMAGES=1
+      - BUILD=1
+      - NETWORKS=1
+      - POST=1
+      - VOLUMES=0
+      - SERVICES=0
+      - TASKS=0
+      - SECRETS=0
+      - CONFIGS=0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - sheldon-net
+
+  sheldon:
+    image: ${SHELDON_IMAGE:-ghcr.io/bowerhall/sheldon:latest}
+    container_name: sheldon
+    restart: unless-stopped
+    depends_on:
+      - ollama
+      - minio-init
+      - docker-proxy
+    volumes:
+      - sheldon_data:/data
+    environment:
+      # Docker via proxy (limited access)
+      - DOCKER_HOST=tcp://docker-proxy:2375
+      - DOCKER_API_VERSION=1.44
+      - DOCKER_BUILDKIT=0
+
+      # Required - Telegram
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - OWNER_CHAT_ID=${OWNER_CHAT_ID:-}
+
+      # LLM API Keys (at least one required)
+      - KIMI_API_KEY=${KIMI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+
+      # Paths (fixed for container)
+      - SHELDON_MEMORY=/data/sheldon.db
+      - CODER_SANDBOX=/data/sandbox
+      - CODER_HOST_SANDBOX=${HOST_DATA_DIR:-/opt/sheldon/data}/sandbox
+      - DEPLOYER_APPS_FILE=/data/apps.yml
+      - DEPLOYER_HOST_APPS_FILE=${HOST_DATA_DIR:-/opt/sheldon/data}/apps.yml
+      - DEPLOYER_PATH_PREFIX=/data
+      - DEPLOYER_HOST_PREFIX=${HOST_DATA_DIR:-/opt/sheldon/data}
+
+      # Embeddings (Ollama container)
+      - OLLAMA_HOST=http://ollama:11434
+      - EMBEDDER_PROVIDER=ollama
+      - EMBEDDER_URL=http://ollama:11434
+      - EMBEDDER_MODEL=nomic-embed-text
+
+      # Extractor (local model via Ollama - no API cost)
+      - EXTRACTOR_PROVIDER=ollama
+      - EXTRACTOR_BASE_URL=http://ollama:11434
+      - EXTRACTOR_MODEL=qwen2.5:3b
+
+      # Storage (MinIO)
+      - STORAGE_ENABLED=true
+      - STORAGE_ENDPOINT=minio:9000
+      - STORAGE_ACCESS_KEY=sheldon
+      - STORAGE_SHELDON_PASSWORD=${STORAGE_SHELDON_PASSWORD}
+      - STORAGE_USE_SSL=false
+
+      # Timezone
+      - TZ=${TZ:-UTC}
+    networks:
+      - sheldon-net
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - sheldon-net
+    # Pull models on first start
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && ollama pull qwen2.5:3b && wait"]
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=${STORAGE_ADMIN_PASSWORD}
+    ports:
+      # MinIO console accessible on localhost only
+      - "127.0.0.1:9001:9001"
+    networks:
+      - sheldon-net
+
+  # Creates 'sheldon' user with limited bucket access
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      - minio
+    environment:
+      - STORAGE_ADMIN_PASSWORD=${STORAGE_ADMIN_PASSWORD}
+      - STORAGE_SHELDON_PASSWORD=${STORAGE_SHELDON_PASSWORD}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sleep 5
+        mc alias set minio http://minio:9000 admin $${STORAGE_ADMIN_PASSWORD}
+
+        # Create buckets
+        mc mb --ignore-existing minio/sheldon-user
+        mc mb --ignore-existing minio/sheldon-agent
+        mc mb --ignore-existing minio/sheldon-backups
+
+        # Create policy for sheldon user (only sheldon-* buckets)
+        cat > /tmp/sheldon-policy.json << 'EOF'
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": ["s3:*"],
+              "Resource": [
+                "arn:aws:s3:::sheldon-user",
+                "arn:aws:s3:::sheldon-user/*",
+                "arn:aws:s3:::sheldon-agent",
+                "arn:aws:s3:::sheldon-agent/*",
+                "arn:aws:s3:::sheldon-backups",
+                "arn:aws:s3:::sheldon-backups/*"
+              ]
+            }
+          ]
+        }
+        EOF
+
+        mc admin policy create minio sheldon-policy /tmp/sheldon-policy.json 2>/dev/null || mc admin policy info minio sheldon-policy
+        mc admin user add minio sheldon $${STORAGE_SHELDON_PASSWORD} 2>/dev/null || true
+        mc admin policy attach minio sheldon-policy --user sheldon
+
+        echo "MinIO init complete"
+    networks:
+      - sheldon-net
+
+networks:
+  sheldon-net:
+    name: sheldon-net
+    driver: bridge
+
+volumes:
+  sheldon_data:
+  ollama_data:
+  minio_data:
