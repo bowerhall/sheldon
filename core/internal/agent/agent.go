@@ -468,17 +468,18 @@ var browserTools = map[string]bool{
 
 // degradedModeTools are safe, read-only tools allowed when running on local fallback model
 var degradedModeTools = map[string]bool{
-	"recall_memory":   true,
-	"current_time":    true,
-	"usage_summary":   true,
-	"usage_breakdown": true,
-	"current_model":   true,
-	"list_providers":  true,
-	"list_models":     true,
-	"switch_model":    true,
-	"list_crons":      true,
-	"read_note":       true,
-	"list_notes":      true,
+	"recall_memory":    true,
+	"current_time":     true,
+	"usage_summary":    true,
+	"usage_breakdown":  true,
+	"current_model":    true,
+	"list_providers":   true,
+	"list_models":      true,
+	"switch_model":     true,
+	"restore_provider": true,
+	"list_crons":       true,
+	"read_note":        true,
+	"list_notes":       true,
 }
 
 func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string, error) {

@@ -16,6 +16,7 @@ func RegisterModelTools(registry *Registry, rc *config.RuntimeConfig, mr *config
 	registerListProviders(registry, mr)
 	registerListModels(registry, mr)
 	registerSwitchModel(registry, rc, mr)
+	registerRestoreProvider(registry, rc, mr)
 	registerPullModel(registry, mr)
 	registerRemoveModel(registry, mr)
 }
@@ -250,6 +251,47 @@ these, explain why it's not supported and suggest they modify the server config 
 		}
 
 		return fmt.Sprintf("Switched to %s/%s", provider, params.Model), nil
+	})
+}
+
+func registerRestoreProvider(registry *Registry, rc *config.RuntimeConfig, mr *config.ModelRegistry) {
+	tool := llm.Tool{
+		Name: "restore_provider",
+		Description: `Simple recovery tool for degraded mode. No parameters needed.
+Attempts to switch back to a cloud provider (kimi, claude, or openai) in order.
+Use this when you're running on a limited local model and want to restore full capabilities.`,
+		Parameters: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+	}
+
+	registry.Register(tool, func(ctx context.Context, args string) (string, error) {
+		providers := []struct {
+			name  string
+			model string
+		}{
+			{"kimi", "kimi-k2-0711-preview"},
+			{"claude", "claude-sonnet-4-20250514"},
+			{"openai", "gpt-4o"},
+		}
+
+		for _, p := range providers {
+			if !providerConfigured(p.name) {
+				continue
+			}
+
+			if err := rc.Set("llm_provider", p.name); err != nil {
+				continue
+			}
+			if err := rc.Set("llm_model", p.model); err != nil {
+				continue
+			}
+
+			return fmt.Sprintf("Restored to %s/%s. If this fails (no credits), you'll need to add credits to your API key.", p.name, p.model), nil
+		}
+
+		return "No cloud providers configured. Please add an API key (KIMI_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY) and restart.", nil
 	})
 }
 
