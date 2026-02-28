@@ -80,13 +80,56 @@ func (s *Store) migrate() error {
 	return err
 }
 
-func (s *Store) Add(sessionID string, role, content string) error {
-	_, err := s.db.Exec(
+// AddResult contains info about the add operation
+type AddResult struct {
+	Overflow []Message // Messages that were evicted from the buffer
+}
+
+func (s *Store) Add(sessionID string, role, content string) (*AddResult, error) {
+	result := &AddResult{}
+
+	// First, check if we'll overflow and capture those messages
+	rows, err := s.db.Query(`
+		SELECT role, content, created_at
+		FROM recent_messages
+		WHERE session_id = ?
+		ORDER BY created_at ASC
+		LIMIT ?`,
+		sessionID, s.maxMessages)
+	if err != nil {
+		return nil, err
+	}
+
+	var existing []Message
+	for rows.Next() {
+		var m Message
+		var createdAt string
+		if err := rows.Scan(&m.Role, &m.Content, &createdAt); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		m.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		existing = append(existing, m)
+	}
+	rows.Close()
+
+	// If buffer is full, the oldest messages will be evicted
+	// After adding 2 new messages (user + assistant), we need to evict 2
+	if len(existing) >= s.maxMessages {
+		// Return the messages that will be evicted (oldest ones)
+		evictCount := len(existing) - s.maxMessages + 2 // +2 for incoming user+assistant
+		if evictCount > 0 && evictCount <= len(existing) {
+			result.Overflow = existing[:evictCount]
+		}
+	}
+
+	// Insert new message
+	_, err = s.db.Exec(
 		`INSERT INTO recent_messages (session_id, role, content) VALUES (?, ?, ?)`,
 		sessionID, role, content,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// trim to max messages (FIFO)
@@ -99,7 +142,7 @@ func (s *Store) Add(sessionID string, role, content string) error {
 			LIMIT ?
 		)`, sessionID, sessionID, s.maxMessages)
 
-	return err
+	return result, err
 }
 
 func (s *Store) GetRecent(sessionID string) ([]Message, error) {

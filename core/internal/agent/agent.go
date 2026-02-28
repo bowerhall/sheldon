@@ -346,16 +346,22 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 
 	// save to recent conversation buffer
 	if a.convo != nil {
-		if err := a.convo.Add(sessionID, "user", userMessage); err != nil {
+		if _, err := a.convo.Add(sessionID, "user", userMessage); err != nil {
 			logger.Warn("failed to save user message to conversation buffer", "error", err)
 		}
-		if err := a.convo.Add(sessionID, "assistant", response); err != nil {
+		if result, err := a.convo.Add(sessionID, "assistant", response); err != nil {
 			logger.Warn("failed to save assistant response to conversation buffer", "error", err)
+		} else if result != nil && len(result.Overflow) > 0 {
+			// Buffer overflowed - save evicted messages as a chunk for daily summaries
+			go a.saveOverflowAsChunk(sessionID, result.Overflow)
 		}
 	}
 
 	// extract facts only from the new exchange (not the buffer)
 	go a.rememberExchange(ctx, sessionID, userMessage, response)
+
+	// check if we need to generate summaries for previous days (async)
+	go a.generatePendingSummaries(ctx, sessionID)
 
 	return response, nil
 }

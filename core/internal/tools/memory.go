@@ -236,12 +236,47 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			}
 		}
 
-		result, err := memory.RecallWithOptions(ctx, params.Query, domains, 10, opts)
-		if err != nil {
-			return "", err
+		// Search facts and summaries in parallel
+		type factsResult struct {
+			result *sheldonmem.RecallResult
+			err    error
+		}
+		type summariesResult struct {
+			summaries []sheldonmem.DailySummary
+			err       error
 		}
 
-		if len(result.Facts) == 0 && len(result.Entities) == 0 {
+		factsCh := make(chan factsResult, 1)
+		summariesCh := make(chan summariesResult, 1)
+
+		// Search facts
+		go func() {
+			r, err := memory.RecallWithOptions(ctx, params.Query, domains, 10, opts)
+			factsCh <- factsResult{r, err}
+		}()
+
+		// Search summaries (using session ID from context)
+		go func() {
+			sessionID := SessionIDFromContext(ctx)
+			if sessionID == "" {
+				summariesCh <- summariesResult{nil, nil}
+				return
+			}
+			s, err := memory.SearchSummaries(ctx, sessionID, params.Query, 3)
+			summariesCh <- summariesResult{s, err}
+		}()
+
+		// Collect results
+		factsRes := <-factsCh
+		summariesRes := <-summariesCh
+
+		if factsRes.err != nil {
+			return "", factsRes.err
+		}
+		result := factsRes.result
+		summaries := summariesRes.summaries
+
+		if len(result.Facts) == 0 && len(result.Entities) == 0 && len(summaries) == 0 {
 			return "No relevant memories found.", nil
 		}
 
@@ -277,6 +312,13 @@ The user must signal intent to save with words like "remember", "save", "don't f
 				for _, f := range t.Facts {
 					fmt.Fprintf(&sb, "    • %s: %s\n", f.Field, f.Value)
 				}
+			}
+		}
+
+		if len(summaries) > 0 {
+			sb.WriteString("\nConversation context:\n")
+			for _, s := range summaries {
+				fmt.Fprintf(&sb, "- %s: %s\n", s.SummaryDate.Format("Jan 2"), s.Summary)
 			}
 		}
 

@@ -62,11 +62,38 @@ CREATE TABLE IF NOT EXISTS notes (
     tier TEXT DEFAULT 'working',
     updated_at DATETIME DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS conversation_chunks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_chunks_session ON conversation_chunks(session_id);
+CREATE INDEX IF NOT EXISTS idx_chunks_date ON conversation_chunks(date(created_at));
+
+CREATE TABLE IF NOT EXISTS daily_summaries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    summary_date DATE NOT NULL,
+    summary TEXT NOT NULL,
+    created_at DATETIME DEFAULT (datetime('now')),
+    UNIQUE(session_id, summary_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_summaries_session ON daily_summaries(session_id);
+CREATE INDEX IF NOT EXISTS idx_summaries_date ON daily_summaries(summary_date);
 `
 
 const vecSchema = `
 CREATE VIRTUAL TABLE IF NOT EXISTS vec_facts USING vec0(
     fact_id INTEGER PRIMARY KEY,
+    embedding FLOAT[768]
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS vec_summaries USING vec0(
+    summary_id INTEGER PRIMARY KEY,
     embedding FLOAT[768]
 );
 `
