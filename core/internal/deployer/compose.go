@@ -320,11 +320,11 @@ func (d *ComposeDeployer) composeUp(ctx context.Context, service string) error {
 	// but the build paths INSIDE the file are host paths (for docker daemon)
 	composeFile := d.appsFile
 
-	// build if needed
+	// build if needed - use legacy builder (not buildx) for docker-proxy compatibility
 	buildCmd := exec.CommandContext(ctx, "docker", "compose", "-f", composeFile, "build", service)
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
-	// ignore build errors - might not have a Dockerfile
+	buildCmd.Env = append(os.Environ(), "DOCKER_BUILDKIT=0", "COMPOSE_DOCKER_CLI_BUILD=0")
 
 	buildCmd.Run()
 
