@@ -262,6 +262,21 @@ services:
           echo "Headscale config: already configured"
         fi
 
+  # Auto-updater - pulls new sheldon images and restarts
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_INCLUDE_STOPPED=false
+    command: sheldon  # only update sheldon container
+    networks:
+      - sheldon-net
+
 networks:
   sheldon-net:
     name: sheldon-net
