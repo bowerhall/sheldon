@@ -39,7 +39,6 @@ mkdir -p data skills letsencrypt essence
 
 # Download essence files (personality)
 curl -fsSL "$REPO_URL/essence/SOUL.md" -o essence/SOUL.md
-curl -fsSL "$REPO_URL/essence/IDENTITY.md" -o essence/IDENTITY.md
 
 # Copy env example if .env doesn't exist
 if [ ! -f .env ]; then
