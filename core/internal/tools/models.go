@@ -252,10 +252,7 @@ these, explain why it's not supported and suggest they modify the server config 
 			return "", fmt.Errorf("failed to set model: %w", err)
 		}
 
-		registry.Notify(ctx, fmt.Sprintf("model switched: %s -> %s/%s", params.Purpose, provider, params.Model))
-
-		return fmt.Sprintf("switched %s:\n  provider: %s -> %s\n  model: %s -> %s\n\nchange takes effect on next message",
-			params.Purpose, oldProvider, provider, oldModel, params.Model), nil
+		return fmt.Sprintf("Switched to %s/%s", provider, params.Model), nil
 	})
 }
 
