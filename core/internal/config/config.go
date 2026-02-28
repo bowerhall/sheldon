@@ -176,7 +176,7 @@ func loadBudgetConfig() BudgetConfig {
 	// enabled by default, set BUDGET_ENABLED=false to disable
 	enabled := os.Getenv("BUDGET_ENABLED") != "false"
 
-	dailyLimit := 2000000 // default 2M tokens
+	dailyLimit := 10000000 // default 10M tokens
 	if limit, err := strconv.Atoi(os.Getenv("BUDGET_DAILY_LIMIT")); err == nil && limit > 0 {
 		dailyLimit = limit
 	}

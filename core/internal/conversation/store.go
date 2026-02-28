@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const defaultMaxMessages = 24
+const defaultMaxMessages = 12
 
 type Message struct {
 	Role      string
