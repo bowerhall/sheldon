@@ -216,6 +216,7 @@ func (a *Agent) getOrCreateNamedEntity(name, entityType string) int64 {
 }
 
 var unquotedKeyRe = regexp.MustCompile(`(\s|,)([a-z_]+):\s*`)
+var invalidEscapeRe = regexp.MustCompile(`\\([^"\\\/bfnrtu])`)
 
 func parseExtraction(response string) (*extractionResult, error) {
 	response = strings.TrimSpace(response)
@@ -231,6 +232,9 @@ func parseExtraction(response string) (*extractionResult, error) {
 
 	// Fix unquoted keys (e.g., target: -> "target":)
 	jsonStr = unquotedKeyRe.ReplaceAllString(jsonStr, `$1"$2": `)
+
+	// Fix invalid escape sequences (e.g., \_ -> _)
+	jsonStr = invalidEscapeRe.ReplaceAllString(jsonStr, `$1`)
 
 	var result extractionResult
 
