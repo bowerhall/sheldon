@@ -12,42 +12,52 @@ import (
 	"github.com/bowerhall/sheldonmem"
 )
 
-const extractPrompt = `You are a fact extractor. Analyze the conversation and extract facts worth remembering.
+const extractPrompt = `You are a fact and relationship extractor. Analyze the conversation and extract:
+1. FACTS worth remembering
+2. RELATIONSHIPS between people, places, or organizations
 
 Extract facts about:
-1. The USER - preferences, life details, plans, events, changes, cancellations
-2. SHELDON (the assistant) - instructions about behavior, communication style, things to remember
+- The USER - preferences, life details, plans, events, changes
+- SHELDON (the assistant) - instructions about behavior, communication style
 
-IMPORTANT: Extract both static facts AND dynamic events:
-- Static: "lives in Berlin", "allergic to peanuts", "works at Google"
-- Events/Changes: "cancelled Saturday date", "moved grocery day to Sunday", "finished project X"
+Extract relationships when people mention:
+- People they know (friends, family, colleagues)
+- Places they work, live, or frequent
+- Organizations they belong to
 
-For updates/cancellations, use the SAME field key as the original fact would have:
-- If "saturday_plans" was "date with Sarah", and now cancelled → {"field": "saturday_plans", "value": "cancelled"}
-- If routine changed → use the same field, new value
+Return JSON with two arrays: "facts" and "relationships".
 
-Return a JSON array of facts. Each fact should have:
-- "subject": either "user" or "sheldon"
-- "field": short consistent key (e.g., "saturday_plans", "grocery_day", "current_project")
-- "value": the actual information (can be "cancelled", "completed", "changed to X")
-- "domain": one of: identity, health, mind, beliefs, knowledge, relationships, career, finances, place, goals, preferences, routines, events, patterns
+Facts format:
+- "subject": "user" or "sheldon"
+- "field": short key (e.g., "saturday_plans", "favorite_food")
+- "value": the information
+- "domain": identity, health, mind, beliefs, knowledge, relationships, career, finances, place, goals, preferences, routines, events, patterns
 - "confidence": 0.0-1.0
 
-Only extract facts that are explicitly stated or strongly implied. Do not invent facts.
-If no facts are worth remembering, return an empty array: []
+Relationships format:
+- "source": who/what the relationship is from (e.g., "user", "Sarah")
+- "target": who/what the relationship is to (e.g., "Sarah", "Google")
+- "target_type": "person", "place", or "organization"
+- "relation": the relationship type (e.g., "knows", "works_at", "lives_in", "married_to", "friends_with", "sibling_of")
+- "strength": 0.0-1.0
 
-Examples:
-[
-  {"subject": "user", "field": "name", "value": "John", "domain": "identity", "confidence": 0.95},
-  {"subject": "user", "field": "saturday_plans", "value": "cancelled", "domain": "events", "confidence": 0.9},
-  {"subject": "user", "field": "grocery_day", "value": "moved to Sunday", "domain": "routines", "confidence": 0.85},
-  {"subject": "sheldon", "field": "humor_style", "value": "use dad jokes", "domain": "preferences", "confidence": 0.9}
-]
+Only extract what is explicitly stated. If nothing to extract, use empty arrays.
+
+Example:
+{
+  "facts": [
+    {"subject": "user", "field": "name", "value": "John", "domain": "identity", "confidence": 0.95}
+  ],
+  "relationships": [
+    {"source": "user", "target": "Sarah", "target_type": "person", "relation": "friends_with", "strength": 0.9},
+    {"source": "user", "target": "Google", "target_type": "organization", "relation": "works_at", "strength": 0.95}
+  ]
+}
 
 Conversation:
 %s
 
-Extract facts (JSON only, no explanation):`
+Extract (JSON only):`
 
 type extractedFact struct {
 	Subject    string  `json:"subject"`
@@ -57,8 +67,19 @@ type extractedFact struct {
 	Confidence float64 `json:"confidence"`
 }
 
-// rememberExchange extracts facts only from the latest user message and response
-// This avoids re-extracting from the conversation buffer
+type extractedRelationship struct {
+	Source     string  `json:"source"`
+	Target     string  `json:"target"`
+	TargetType string  `json:"target_type"`
+	Relation   string  `json:"relation"`
+	Strength   float64 `json:"strength"`
+}
+
+type extractionResult struct {
+	Facts         []extractedFact         `json:"facts"`
+	Relationships []extractedRelationship `json:"relationships"`
+}
+
 func (a *Agent) rememberExchange(ctx context.Context, sessionID string, userMessage, assistantResponse string) {
 	conversation := fmt.Sprintf("user: %s\nassistant: %s\n", userMessage, assistantResponse)
 	prompt := fmt.Sprintf(extractPrompt, conversation)
@@ -69,27 +90,21 @@ func (a *Agent) rememberExchange(ctx context.Context, sessionID string, userMess
 		return
 	}
 
-	facts, err := parseExtractedFacts(response)
+	result, err := parseExtraction(response)
 	if err != nil {
-		logger.Error("fact parsing failed", "error", err, "response", response)
-		return
-	}
-
-	if len(facts) == 0 {
-		logger.Debug("no facts extracted")
+		logger.Error("extraction parsing failed", "error", err, "response", response)
 		return
 	}
 
 	userEntityID := a.getOrCreateUserEntity(sessionID)
 	sheldonEntityID := a.getSheldonEntityID()
 
-	for _, fact := range facts {
+	for _, fact := range result.Facts {
 		domainID, ok := sheldonmem.DomainSlugToID[fact.Domain]
 		if !ok {
 			domainID = 1
 		}
 
-		// determine which entity to save to
 		var entityID int64
 		subject := strings.ToLower(fact.Subject)
 		if subject == "sheldon" || subject == "assistant" {
@@ -103,17 +118,35 @@ func (a *Agent) rememberExchange(ctx context.Context, sessionID string, userMess
 			continue
 		}
 
-		result, err := a.memory.AddFactWithContext(ctx, &entityID, domainID, fact.Field, fact.Value, fact.Confidence, false)
+		res, err := a.memory.AddFactWithContext(ctx, &entityID, domainID, fact.Field, fact.Value, fact.Confidence, false)
 		if err != nil {
 			logger.Error("failed to store fact", "error", err, "field", fact.Field)
 			continue
 		}
 
-		if result.Superseded != nil {
-			logger.Info("fact superseded", "subject", subject, "field", fact.Field, "old", result.Superseded.Value, "new", fact.Value)
+		if res.Superseded != nil {
+			logger.Info("fact superseded", "subject", subject, "field", fact.Field, "old", res.Superseded.Value, "new", fact.Value)
 		} else {
 			logger.Info("fact remembered", "subject", subject, "field", fact.Field, "value", fact.Value, "domain", fact.Domain)
 		}
+	}
+
+	for _, rel := range result.Relationships {
+		sourceID := a.resolveEntityID(rel.Source, sessionID, userEntityID, sheldonEntityID)
+		targetID := a.getOrCreateNamedEntity(rel.Target, rel.TargetType)
+
+		if sourceID == 0 || targetID == 0 {
+			logger.Warn("skipping relationship, missing entity", "source", rel.Source, "target", rel.Target)
+			continue
+		}
+
+		_, err := a.memory.AddEdge(sourceID, targetID, rel.Relation, rel.Strength, "")
+		if err != nil {
+			logger.Error("failed to store relationship", "error", err, "relation", rel.Relation)
+			continue
+		}
+
+		logger.Info("relationship remembered", "source", rel.Source, "relation", rel.Relation, "target", rel.Target)
 	}
 }
 
@@ -148,24 +181,58 @@ func (a *Agent) getOrCreateUserEntity(sessionID string) int64 {
 	return entity.ID
 }
 
-func parseExtractedFacts(response string) ([]extractedFact, error) {
+func (a *Agent) resolveEntityID(name, sessionID string, userID, sheldonID int64) int64 {
+	lower := strings.ToLower(name)
+	if lower == "user" || lower == "me" {
+		return userID
+	}
+	if lower == "sheldon" || lower == "assistant" {
+		return sheldonID
+	}
+	return a.getOrCreateNamedEntity(name, "person")
+}
+
+func (a *Agent) getOrCreateNamedEntity(name, entityType string) int64 {
+	entity, err := a.memory.FindEntityByName(name)
+	if err == nil {
+		return entity.ID
+	}
+
+	domainID := 6 // relationships domain
+	if entityType == "place" {
+		domainID = 9 // place domain
+	} else if entityType == "organization" {
+		domainID = 7 // career domain
+	}
+
+	entity, err = a.memory.CreateEntity(name, entityType, domainID, "")
+	if err != nil {
+		logger.Error("failed to create entity", "error", err, "name", name)
+		return 0
+	}
+
+	logger.Info("entity created", "name", name, "type", entityType, "id", entity.ID)
+	return entity.ID
+}
+
+func parseExtraction(response string) (*extractionResult, error) {
 	response = strings.TrimSpace(response)
 
-	start := strings.Index(response, "[")
-	end := strings.LastIndex(response, "]")
+	start := strings.Index(response, "{")
+	end := strings.LastIndex(response, "}")
 
 	if start == -1 || end == -1 || end < start {
-		return nil, fmt.Errorf("no JSON array found")
+		return nil, fmt.Errorf("no JSON object found")
 	}
 
 	jsonStr := response[start : end+1]
-	var facts []extractedFact
+	var result extractionResult
 
-	if err := json.Unmarshal([]byte(jsonStr), &facts); err != nil {
+	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
 		return nil, err
 	}
 
-	return facts, nil
+	return &result, nil
 }
 
 // saveOverflowAsChunk stores evicted buffer messages for daily summaries
