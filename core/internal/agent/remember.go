@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/bowerhall/sheldon/internal/conversation"
@@ -214,6 +215,8 @@ func (a *Agent) getOrCreateNamedEntity(name, entityType string) int64 {
 	return entity.ID
 }
 
+var unquotedKeyRe = regexp.MustCompile(`(\s|,)([a-z_]+):\s*`)
+
 func parseExtraction(response string) (*extractionResult, error) {
 	response = strings.TrimSpace(response)
 
@@ -225,6 +228,10 @@ func parseExtraction(response string) (*extractionResult, error) {
 	}
 
 	jsonStr := response[start : end+1]
+
+	// Fix unquoted keys (e.g., target: -> "target":)
+	jsonStr = unquotedKeyRe.ReplaceAllString(jsonStr, `$1"$2": `)
+
 	var result extractionResult
 
 	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {

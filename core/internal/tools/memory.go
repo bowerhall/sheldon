@@ -20,13 +20,28 @@ type RecallArgs struct {
 	Until     string `json:"until,omitempty"`      // specific date: "2025-02-25" or datetime: "2025-02-25T23:59:59"
 }
 
+type FlexBool bool
+
+func (b *FlexBool) UnmarshalJSON(data []byte) error {
+	s := string(data)
+	if s == "true" || s == `"true"` {
+		*b = true
+		return nil
+	}
+	if s == "false" || s == `"false"` || s == "null" {
+		*b = false
+		return nil
+	}
+	return fmt.Errorf("invalid boolean: %s", s)
+}
+
 type SaveMemoryArgs struct {
-	Subject    string  `json:"subject,omitempty"`
-	Field      string  `json:"field"`
-	Value      string  `json:"value"`
-	Domain     string  `json:"domain,omitempty"`
-	Confidence float64 `json:"confidence,omitempty"`
-	Sensitive  bool    `json:"sensitive,omitempty"`
+	Subject    string   `json:"subject,omitempty"`
+	Field      string   `json:"field"`
+	Value      string   `json:"value"`
+	Domain     string   `json:"domain,omitempty"`
+	Confidence float64  `json:"confidence,omitempty"`
+	Sensitive  FlexBool `json:"sensitive,omitempty"`
 }
 
 type MarkSensitiveArgs struct {
@@ -127,7 +142,7 @@ The user must signal intent to save with words like "remember", "save", "don't f
 		}
 
 		var result *sheldonmem.FactResult
-		result, err = memory.AddFactWithContext(ctx, &entity.ID, domainID, params.Field, params.Value, confidence, params.Sensitive)
+		result, err = memory.AddFactWithContext(ctx, &entity.ID, domainID, params.Field, params.Value, confidence, bool(params.Sensitive))
 		if err != nil {
 			return "", fmt.Errorf("failed to save: %w", err)
 		}
