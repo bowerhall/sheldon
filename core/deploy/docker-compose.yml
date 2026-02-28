@@ -59,9 +59,12 @@ services:
     container_name: sheldon
     restart: unless-stopped
     depends_on:
-      - ollama
-      - minio-init
-      - docker-proxy
+      ollama:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+      docker-proxy:
+        condition: service_started
     volumes:
       - ./data:/data
       - ./skills:/data/skills
