@@ -522,6 +522,10 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 				if newProvider == "ollama" {
 					degradedMode = true
 					logger.Info("entered degraded mode", "provider", newProvider)
+					// Notify user immediately about degraded mode
+					degradedNotice := "[Running on local fallback model - responses will be slower and capabilities limited. Say \"restore\" to switch back to a cloud provider once you've added API credits.]"
+					sess.AddMessage("assistant", degradedNotice, nil, "")
+					return degradedNotice, nil
 				}
 				logger.Info("switched to fallback provider", "from", currentProvider, "to", newProvider)
 				continue // retry with new provider
