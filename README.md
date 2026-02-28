@@ -322,7 +322,7 @@ Add these secrets directly in GitHub (repo → Settings → Secrets → Actions)
 | `GIT_TOKEN` | GitHub PAT for code push *(optional, enables coder git)* |
 | `GIT_ORG_URL` | e.g., `https://github.com/you` *(optional, with GIT_TOKEN)* |
 
-#### Option B: Doppler (Recommended for teams/multiple environments)
+#### Option B: Doppler (easier to manage)
 
 1. Sign up at [doppler.com](https://doppler.com) (free tier)
 2. Create project: `sheldon`
