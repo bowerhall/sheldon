@@ -35,13 +35,31 @@ func (b *FlexBool) UnmarshalJSON(data []byte) error {
 	return fmt.Errorf("invalid boolean: %s", s)
 }
 
+type FlexFloat float64
+
+func (f *FlexFloat) UnmarshalJSON(data []byte) error {
+	s := string(data)
+	if s == "null" {
+		*f = 0
+		return nil
+	}
+	// Remove quotes if present
+	s = strings.Trim(s, `"`)
+	var v float64
+	if _, err := fmt.Sscanf(s, "%f", &v); err != nil {
+		return fmt.Errorf("invalid float: %s", s)
+	}
+	*f = FlexFloat(v)
+	return nil
+}
+
 type SaveMemoryArgs struct {
-	Subject    string   `json:"subject,omitempty"`
-	Field      string   `json:"field"`
-	Value      string   `json:"value"`
-	Domain     string   `json:"domain,omitempty"`
-	Confidence float64  `json:"confidence,omitempty"`
-	Sensitive  FlexBool `json:"sensitive,omitempty"`
+	Subject    string    `json:"subject,omitempty"`
+	Field      string    `json:"field"`
+	Value      string    `json:"value"`
+	Domain     string    `json:"domain,omitempty"`
+	Confidence FlexFloat `json:"confidence,omitempty"`
+	Sensitive  FlexBool  `json:"sensitive,omitempty"`
 }
 
 type MarkSensitiveArgs struct {
@@ -117,7 +135,7 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			domainID = 5 // default to knowledge
 		}
 
-		confidence := params.Confidence
+		confidence := float64(params.Confidence)
 		if confidence <= 0 {
 			confidence = 1.0 // explicit saves are high confidence
 		}
