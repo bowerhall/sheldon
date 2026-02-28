@@ -241,7 +241,6 @@ func main() {
 				storageClient = nil
 			} else {
 				tools.RegisterStorageTools(sheldon.Registry(), storageClient)
-				tools.RegisterBackupTool(sheldon.Registry(), storageClient, cfg.MemoryPath)
 				if coderBridge != nil {
 					tools.RegisterCoderStorageTools(sheldon.Registry(), coderBridge, storageClient)
 					logger.Info("coder storage tools enabled")
@@ -342,9 +341,10 @@ func main() {
 		}
 	})
 
-	// image tools for sending images to users
+	// media tools for sending images/videos/documents to users
 	if storageClient != nil {
 		tools.RegisterMediaTools(sheldon.Registry(), notifyBot, storageClient)
+		tools.RegisterBackupTool(sheldon.Registry(), storageClient, cfg.MemoryPath, notifyBot)
 		logger.Info("media tools enabled")
 	}
 

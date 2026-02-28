@@ -14,6 +14,7 @@ import (
 type MediaSender interface {
 	SendPhoto(chatID int64, data []byte, caption string) error
 	SendVideo(chatID int64, data []byte, caption string) error
+	SendDocument(chatID int64, data []byte, filename, caption string) error
 }
 
 func RegisterMediaTools(registry *Registry, sender MediaSender, client *storage.Client) {

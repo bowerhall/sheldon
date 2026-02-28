@@ -1,6 +1,8 @@
 package tools
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -371,11 +373,20 @@ func RegisterStorageTools(registry *Registry, client *storage.Client) {
 	})
 }
 
+// DocumentSender can send documents to users
+type DocumentSender interface {
+	SendDocument(chatID int64, data []byte, filename, caption string) error
+}
+
 // RegisterBackupTool registers the memory backup tool (requires memory path)
-func RegisterBackupTool(registry *Registry, client *storage.Client, memoryPath string) {
+func RegisterBackupTool(registry *Registry, client *storage.Client, memoryPath string, sender DocumentSender) {
 	tool := llm.Tool{
-		Name:        "backup_memory",
-		Description: "Create a backup of Sheldon's memory database. Stores a timestamped copy in the backups bucket.",
+		Name: "backup_memory",
+		Description: `Create a backup of Sheldon's memory database and send it directly to you.
+
+The backup is a zip file containing the SQLite database. It's also stored in the backups bucket for redundancy.
+
+IMPORTANT: Only use this when the user explicitly asks for a backup with words like "backup", "export memory", "download my data". Do NOT use proactively.`,
 		Parameters: map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},
@@ -388,7 +399,7 @@ func RegisterBackupTool(registry *Registry, client *storage.Client, memoryPath s
 		}
 
 		// read the database file
-		data, err := os.ReadFile(memoryPath)
+		dbData, err := os.ReadFile(memoryPath)
 		if err != nil {
 			return "", fmt.Errorf("read memory db: %w", err)
 		}
@@ -397,28 +408,65 @@ func RegisterBackupTool(registry *Registry, client *storage.Client, memoryPath s
 		walPath := memoryPath + "-wal"
 		walData, _ := os.ReadFile(walPath)
 
-		// create timestamped backup name
+		// create zip file containing db and wal
 		timestamp := time.Now().Format("2006-01-02_15-04-05")
-		backupName := fmt.Sprintf("memory_%s.db", timestamp)
-
-		if err := client.Upload(ctx, client.BackupBucket(), backupName, data, "application/x-sqlite3"); err != nil {
-			return "", err
+		zipData, err := createBackupZip(dbData, walData, timestamp)
+		if err != nil {
+			return "", fmt.Errorf("create zip: %w", err)
 		}
 
-		result := fmt.Sprintf("backup created: %s (%d bytes)", backupName, len(data))
+		zipName := fmt.Sprintf("sheldon_backup_%s.zip", timestamp)
 
-		// backup WAL if present (non-fatal if it fails)
-		if len(walData) > 0 {
-			walBackupName := fmt.Sprintf("memory_%s.db-wal", timestamp)
-			if err := client.Upload(ctx, client.BackupBucket(), walBackupName, walData, "application/octet-stream"); err != nil {
-				result += fmt.Sprintf("\nWAL backup failed (non-fatal): %s", err.Error())
-			} else {
-				result += fmt.Sprintf("\nWAL backed up: %s (%d bytes)", walBackupName, len(walData))
-			}
+		// store in backup bucket for redundancy
+		if err := client.Upload(ctx, client.BackupBucket(), zipName, zipData, "application/zip"); err != nil {
+			// non-fatal, continue to send to user
+			fmt.Printf("backup storage failed (non-fatal): %s\n", err.Error())
 		}
 
-		return result, nil
+		// send directly to user - no URL exposed
+		chatID := ChatIDFromContext(ctx)
+		if chatID == 0 {
+			return "", fmt.Errorf("no chat ID in context")
+		}
+
+		if err := sender.SendDocument(chatID, zipData, zipName, "Memory backup"); err != nil {
+			return "", fmt.Errorf("send backup: %w", err)
+		}
+
+		return fmt.Sprintf("Backup sent: %s (%d bytes)", zipName, len(zipData)), nil
 	})
+}
+
+// createBackupZip creates a zip file containing the database and WAL files
+func createBackupZip(dbData, walData []byte, timestamp string) ([]byte, error) {
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+
+	// add main database file
+	dbFile, err := w.Create(fmt.Sprintf("memory_%s.db", timestamp))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := dbFile.Write(dbData); err != nil {
+		return nil, err
+	}
+
+	// add WAL file if present
+	if len(walData) > 0 {
+		walFile, err := w.Create(fmt.Sprintf("memory_%s.db-wal", timestamp))
+		if err != nil {
+			return nil, err
+		}
+		if _, err := walFile.Write(walData); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 func guessContentType(path string) string {
