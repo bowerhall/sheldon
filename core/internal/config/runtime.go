@@ -61,6 +61,17 @@ func NewRuntimeConfig(dataDir string) (*RuntimeConfig, error) {
 func (rc *RuntimeConfig) validateAndFix() {
 	changed := false
 
+	// If LLM_PROVIDER env var is explicitly set, clear any stored runtime override.
+	// This prevents fallback state (e.g., ollama) from persisting across restarts
+	// when the user has configured a specific provider via env vars.
+	if envProvider := os.Getenv("LLM_PROVIDER"); envProvider != "" {
+		if rc.data.LLMProvider != "" && rc.data.LLMProvider != envProvider {
+			rc.data.LLMProvider = ""
+			rc.data.LLMModel = ""
+			changed = true
+		}
+	}
+
 	// check if llm_model is a coder-only model (doesn't have chat capability)
 	if rc.data.LLMModel != "" {
 		if !modelHasCapability(rc.data.LLMModel, "chat") {
