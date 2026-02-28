@@ -474,6 +474,8 @@ var degradedModeTools = map[string]bool{
 	"usage_breakdown": true,
 	"current_model":   true,
 	"list_providers":  true,
+	"list_models":     true,
+	"switch_model":    true,
 	"list_crons":      true,
 	"read_note":       true,
 	"list_notes":      true,
