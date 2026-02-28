@@ -39,12 +39,16 @@ services:
       - minio-init
       - docker-proxy
     volumes:
-      - sheldon_data:/data
+      - /opt/sheldon/data:/data
     environment:
       # Docker via proxy (limited access)
       - DOCKER_HOST=tcp://docker-proxy:2375
       - DOCKER_API_VERSION=1.44
       - DOCKER_BUILDKIT=0
+
+      # Coder paths (must match bind mount for container-in-container)
+      - CODER_SANDBOX=/data/sandbox
+      - CODER_HOST_SANDBOX=/opt/sheldon/data/sandbox
 
       # Required - Telegram
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
@@ -169,6 +173,5 @@ networks:
     driver: bridge
 
 volumes:
-  sheldon_data:
   ollama_data:
   minio_data:
