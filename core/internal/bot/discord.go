@@ -17,13 +17,14 @@ import (
 )
 
 type discord struct {
-	session        *discordgo.Session
-	agent          *agent.Agent
-	guildID        string
-	ownerID        string
-	trustedChannel string
-	ctx            context.Context
-	activeSessions map[string]context.CancelFunc
+	session          *discordgo.Session
+	agent            *agent.Agent
+	guildID          string
+	ownerID          string
+	trustedChannel   string
+	ctx              context.Context
+	activeSessions   map[string]context.CancelFunc
+	approvalCallback ApprovalCallback
 }
 
 func newDiscord(token string, agent *agent.Agent, guildID, ownerID, trustedChannel string) (Bot, error) {
@@ -42,6 +43,7 @@ func newDiscord(token string, agent *agent.Agent, guildID, ownerID, trustedChann
 	}
 
 	session.AddHandler(d.handleMessage)
+	session.AddHandler(d.handleInteraction)
 
 	return d, nil
 }
@@ -254,9 +256,11 @@ func (d *discord) processMessage(s *discordgo.Session, m *discordgo.MessageCreat
 		}
 	}()
 
+	userID, _ := strconv.ParseInt(m.Author.ID, 10, 64)
 	response, err := d.agent.ProcessWithOptions(opCtx, sessionID, text, agent.ProcessOptions{
 		Media:   media,
 		Trusted: trusted,
+		UserID:  userID,
 	})
 	close(typingDone)
 	if err != nil {
@@ -314,4 +318,94 @@ func (d *discord) downloadAttachment(url string) ([]byte, string, error) {
 
 	mimeType := http.DetectContentType(data)
 	return data, mimeType, nil
+}
+
+func (d *discord) SendWithButtons(chatID int64, message string, buttons []Button) (int64, error) {
+	channelID := fmt.Sprintf("%d", chatID)
+
+	var components []discordgo.MessageComponent
+	var actionRowButtons []discordgo.MessageComponent
+
+	for _, b := range buttons {
+		style := discordgo.SuccessButton
+		if strings.HasSuffix(b.CallbackID, ":deny") {
+			style = discordgo.DangerButton
+		}
+		actionRowButtons = append(actionRowButtons, discordgo.Button{
+			Label:    b.Label,
+			Style:    style,
+			CustomID: b.CallbackID,
+		})
+	}
+
+	components = append(components, discordgo.ActionsRow{
+		Components: actionRowButtons,
+	})
+
+	msg, err := d.session.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
+		Content:    message,
+		Components: components,
+	})
+	if err != nil {
+		logger.Error("discord send with buttons failed", "error", err, "channelID", channelID)
+		return 0, err
+	}
+
+	msgID, _ := strconv.ParseInt(msg.ID, 10, 64)
+	logger.Info("discord message with buttons sent", "channelID", channelID, "messageID", msg.ID)
+	return msgID, nil
+}
+
+func (d *discord) SetApprovalCallback(fn ApprovalCallback) {
+	d.approvalCallback = fn
+}
+
+func (d *discord) handleInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if i.Type != discordgo.InteractionMessageComponent {
+		return
+	}
+
+	if d.approvalCallback == nil {
+		logger.Warn("received interaction but no handler set", "customID", i.MessageComponentData().CustomID)
+		return
+	}
+
+	data := i.MessageComponentData().CustomID
+	var userID int64
+	if i.User != nil {
+		userID, _ = strconv.ParseInt(i.User.ID, 10, 64)
+	} else if i.Member != nil && i.Member.User != nil {
+		userID, _ = strconv.ParseInt(i.Member.User.ID, 10, 64)
+	}
+
+	var approvalID string
+	var approved bool
+
+	if len(data) > 8 && data[len(data)-8:] == ":approve" {
+		approvalID = data[:len(data)-8]
+		approved = true
+	} else if len(data) > 5 && data[len(data)-5:] == ":deny" {
+		approvalID = data[:len(data)-5]
+		approved = false
+	} else {
+		logger.Warn("unknown interaction format", "data", data)
+		return
+	}
+
+	d.approvalCallback(approvalID, approved, userID)
+
+	var resultText string
+	if approved {
+		resultText = "Approved"
+	} else {
+		resultText = "Denied"
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
+		Data: &discordgo.InteractionResponseData{
+			Content:    i.Message.Content + "\n\n" + resultText,
+			Components: []discordgo.MessageComponent{},
+		},
+	})
 }

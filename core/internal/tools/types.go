@@ -21,12 +21,20 @@ type Registry struct {
 type ctxKey string
 
 const ChatIDKey ctxKey = "chatID"
+const UserIDKey ctxKey = "userID"
 const MediaKey ctxKey = "media"
 const SafeModeKey ctxKey = "safeMode"
 const SessionIDKey ctxKey = "sessionID"
 
 func ChatIDFromContext(ctx context.Context) int64 {
 	if id, ok := ctx.Value(ChatIDKey).(int64); ok {
+		return id
+	}
+	return 0
+}
+
+func UserIDFromContext(ctx context.Context) int64 {
+	if id, ok := ctx.Value(UserIDKey).(int64); ok {
 		return id
 	}
 	return 0

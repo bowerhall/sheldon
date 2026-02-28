@@ -330,6 +330,9 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 	// add session info to context for tools
 	ctx = context.WithValue(ctx, tools.ChatIDKey, chatID)
 	ctx = context.WithValue(ctx, tools.SessionIDKey, sessionID)
+	if opts.UserID != 0 {
+		ctx = context.WithValue(ctx, tools.UserIDKey, opts.UserID)
+	}
 	if len(media) > 0 {
 		ctx = context.WithValue(ctx, tools.MediaKey, media)
 	}
@@ -550,7 +553,36 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 		for _, tc := range resp.ToolCalls {
 			logger.Info("executing tool", "name", tc.Name, "isolatedMode", isolatedMode)
 
-			result, err := a.tools.Execute(ctx, tc.Name, tc.Arguments)
+			var result string
+			var err error
+
+			// check if tool requires approval
+			if tools.RequiresApproval(tc.Name) && a.approvals != nil && a.approvalSender != nil {
+				chatID := tools.ChatIDFromContext(ctx)
+				userID := tools.UserIDFromContext(ctx)
+
+				desc := a.describeToolCall(tc.Name, tc.Arguments)
+				approvalID := a.approvals.Start(chatID, userID, tc.Name, tc.Arguments, desc)
+
+				sendErr := a.approvalSender(chatID, desc, approvalID)
+				if sendErr != nil {
+					a.approvals.Cancel(approvalID)
+					result = fmt.Sprintf("Failed to request approval: %s", sendErr.Error())
+				} else {
+					approved, approvalErr := a.approvals.Wait(ctx, approvalID)
+					if approvalErr != nil {
+						result = fmt.Sprintf("Approval request failed: %s", approvalErr.Error())
+					} else if !approved {
+						result = fmt.Sprintf("User denied %s (approval %s)", tc.Name, approvalID)
+						logger.Info("tool denied by user", "tool", tc.Name, "approvalID", approvalID)
+					} else {
+						logger.Info("tool approved by user", "tool", tc.Name, "approvalID", approvalID)
+						result, err = a.tools.Execute(ctx, tc.Name, tc.Arguments)
+					}
+				}
+			} else {
+				result, err = a.tools.Execute(ctx, tc.Name, tc.Arguments)
+			}
 
 			// enter isolated mode after browser tools to prevent prompt injection
 			if browserTools[tc.Name] {
@@ -855,5 +887,29 @@ func defaultModelForProvider(provider string) string {
 		return "gpt-4o"
 	default:
 		return ""
+	}
+}
+
+func (a *Agent) describeToolCall(toolName, args string) string {
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(args), &parsed); err != nil {
+		return fmt.Sprintf("[Approval Required]\nTool: %s\nArgs: %s", toolName, args)
+	}
+
+	switch toolName {
+	case "deploy_app":
+		name, _ := parsed["name"].(string)
+		if name == "" {
+			name = "unknown"
+		}
+		return fmt.Sprintf("[Approval Required]\nTool: deploy_app\nAction: Deploy \"%s\" to production", name)
+	case "remove_app":
+		name, _ := parsed["name"].(string)
+		if name == "" {
+			name = "unknown"
+		}
+		return fmt.Sprintf("[Approval Required]\nTool: remove_app\nAction: Remove \"%s\" from production", name)
+	default:
+		return fmt.Sprintf("[Approval Required]\nTool: %s", toolName)
 	}
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/bowerhall/sheldon/internal/agent"
 	"github.com/bowerhall/sheldon/internal/alerts"
+	"github.com/bowerhall/sheldon/internal/approval"
 	"github.com/bowerhall/sheldon/internal/bot"
 	"github.com/bowerhall/sheldon/internal/browser"
 	"github.com/bowerhall/sheldon/internal/budget"
@@ -340,6 +341,26 @@ func main() {
 			logger.Error("notification failed", "error", err, "chatID", chatID)
 		}
 	})
+
+	// approval system for dangerous tools
+	approvalMgr := approval.NewManager(2 * time.Minute)
+	sheldon.SetApprovalManager(approvalMgr)
+	sheldon.SetApprovalSender(func(chatID int64, message string, approvalID string) error {
+		buttons := []bot.Button{
+			{Label: "Approve", CallbackID: approvalID + ":approve"},
+			{Label: "Deny", CallbackID: approvalID + ":deny"},
+		}
+		_, err := notifyBot.SendWithButtons(chatID, message, buttons)
+		return err
+	})
+	for _, b := range bots {
+		b.SetApprovalCallback(func(approvalID string, approved bool, userID int64) {
+			if err := approvalMgr.Resolve(approvalID, approved, userID); err != nil {
+				logger.Warn("approval resolve failed", "error", err, "approvalID", approvalID)
+			}
+		})
+	}
+	logger.Info("approval system enabled", "timeout", approvalMgr.Timeout())
 
 	// media tools for sending images/videos/documents to users
 	if storageClient != nil {

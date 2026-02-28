@@ -14,7 +14,16 @@ type Bot interface {
 	SendPhoto(chatID int64, data []byte, caption string) error
 	SendVideo(chatID int64, data []byte, caption string) error
 	SendDocument(chatID int64, data []byte, filename, caption string) error
+	SendWithButtons(chatID int64, message string, buttons []Button) (messageID int64, err error)
+	SetApprovalCallback(fn ApprovalCallback)
 }
+
+type Button struct {
+	Label      string
+	CallbackID string
+}
+
+type ApprovalCallback func(approvalID string, approved bool, userID int64)
 
 type Config struct {
 	Provider       string
@@ -26,8 +35,9 @@ type Config struct {
 }
 
 type telegram struct {
-	api            *tgbotapi.BotAPI
-	agent          *agent.Agent
-	ownerChatID    int64
-	activeSessions map[int64]context.CancelFunc
+	api              *tgbotapi.BotAPI
+	agent            *agent.Agent
+	ownerChatID      int64
+	activeSessions   map[int64]context.CancelFunc
+	approvalCallback ApprovalCallback
 }

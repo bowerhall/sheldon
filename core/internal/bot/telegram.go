@@ -37,6 +37,11 @@ func (t *telegram) Start(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case update := <-updates:
+			if update.CallbackQuery != nil {
+				go t.handleCallback(update.CallbackQuery)
+				continue
+			}
+
 			if update.Message == nil {
 				continue
 			}
@@ -177,7 +182,11 @@ func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 		}
 	}()
 
-	response, err := t.agent.ProcessWithMedia(opCtx, sessionID, text, media)
+	response, err := t.agent.ProcessWithOptions(opCtx, sessionID, text, agent.ProcessOptions{
+		Media:   media,
+		Trusted: true,
+		UserID:  msg.From.ID,
+	})
 	close(typingDone)
 	if err != nil {
 		if opCtx.Err() == context.Canceled {
@@ -293,4 +302,69 @@ func truncate(s string, max int) string {
 
 func isPDF(mimeType string) bool {
 	return mimeType == "application/pdf"
+}
+
+func (t *telegram) SendWithButtons(chatID int64, message string, buttons []Button) (int64, error) {
+	var keyboardButtons []tgbotapi.InlineKeyboardButton
+	for _, b := range buttons {
+		keyboardButtons = append(keyboardButtons, tgbotapi.NewInlineKeyboardButtonData(b.Label, b.CallbackID))
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(keyboardButtons...),
+	)
+
+	msg := tgbotapi.NewMessage(chatID, message)
+	msg.ReplyMarkup = keyboard
+
+	sent, err := t.api.Send(msg)
+	if err != nil {
+		logger.Error("send with buttons failed", "error", err, "chatID", chatID)
+		return 0, err
+	}
+
+	logger.Info("message with buttons sent", "chatID", chatID, "messageID", sent.MessageID)
+	return int64(sent.MessageID), nil
+}
+
+func (t *telegram) SetApprovalCallback(fn ApprovalCallback) {
+	t.approvalCallback = fn
+}
+
+func (t *telegram) handleCallback(callback *tgbotapi.CallbackQuery) {
+	if t.approvalCallback == nil {
+		logger.Warn("received callback but no handler set", "data", callback.Data)
+		return
+	}
+
+	data := callback.Data
+	userID := callback.From.ID
+
+	var approvalID string
+	var approved bool
+
+	if len(data) > 8 && data[len(data)-8:] == ":approve" {
+		approvalID = data[:len(data)-8]
+		approved = true
+	} else if len(data) > 5 && data[len(data)-5:] == ":deny" {
+		approvalID = data[:len(data)-5]
+		approved = false
+	} else {
+		logger.Warn("unknown callback format", "data", data)
+		return
+	}
+
+	t.approvalCallback(approvalID, approved, userID)
+
+	answer := tgbotapi.NewCallback(callback.ID, "")
+	t.api.Request(answer)
+
+	var resultText string
+	if approved {
+		resultText = "Approved"
+	} else {
+		resultText = "Denied"
+	}
+	edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID, callback.Message.Text+"\n\n"+resultText)
+	t.api.Send(edit)
 }
