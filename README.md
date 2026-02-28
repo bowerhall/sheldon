@@ -291,12 +291,13 @@ cd sheldon
 
 ### 2. Create VPS
 
-1. Go to [console.hetzner.cloud](https://console.hetzner.cloud)
-2. Create project → Add Server
-3. **Image**: Ubuntu 24.04
-4. **Type**: CX33 (4 vCPU, 8GB RAM, €8.49/mo)
-5. **SSH Key**: Add your public key
-6. Create and note the IP address
+Any VPS provider works (Hetzner, DigitalOcean, Linode, Vultr, etc.):
+
+1. Create an Ubuntu 24.04 server (4GB+ RAM recommended)
+2. Add your SSH public key
+3. Note the IP address
+
+**Recommended:** Hetzner CX22 (~€4/mo) or CX33 (~€8/mo) for best value.
 
 ### 3. Configure Secrets
 
@@ -306,21 +307,42 @@ Choose **one** of these options:
 
 Add these secrets directly in GitHub (repo → Settings → Secrets → Actions):
 
-| Secret | Purpose |
-|--------|---------|
-| `VPS_HOST` | Your VPS IP |
-| `VPS_USER` | `root` |
-| `VPS_SSH_KEY` | Your SSH private key (full content) |
-| `GHCR_TOKEN` | GitHub PAT with `write:packages` scope |
-| `TELEGRAM_TOKEN` | From @BotFather |
-| `KIMI_API_KEY` | LLM + Coder (or any provider key) |
-| `STORAGE_ADMIN_PASSWORD` | Your storage console password |
-| `STORAGE_SHELDON_PASSWORD` | Sheldon's storage password |
-| `TZ` | Your timezone (e.g., `Europe/London`) |
-| `DOMAIN` | Your domain *(optional, enables HTTPS)* |
-| `ACME_EMAIL` | Email for Let's Encrypt *(optional, with DOMAIN)* |
-| `GIT_TOKEN` | GitHub PAT for code push *(optional, enables coder git)* |
-| `GIT_ORG_URL` | e.g., `https://github.com/you` *(optional, with GIT_TOKEN)* |
+| Secret | Required? | Purpose |
+|--------|-----------|---------|
+| **Deployment** |||
+| `VPS_HOST` | Yes | Your VPS IP |
+| `VPS_USER` | Yes | `root` |
+| `VPS_SSH_KEY` | Yes | Your SSH private key (full content) |
+| `GHCR_TOKEN` | Yes | GitHub PAT with `write:packages` scope |
+| **Bot Tokens** |||
+| `TELEGRAM_TOKEN` | Yes* | From @BotFather |
+| `DISCORD_TOKEN` | Yes* | From Discord Developer Portal |
+| **LLM** |||
+| `KIMI_API_KEY` | Yes** | Kimi API key |
+| `ANTHROPIC_API_KEY` | Yes** | Claude API key |
+| `OPENAI_API_KEY` | Yes** | OpenAI API key |
+| **Storage** |||
+| `STORAGE_ADMIN_PASSWORD` | Yes | MinIO console password |
+| `STORAGE_SHELDON_PASSWORD` | Yes | Sheldon's MinIO password |
+| **Telegram IDs** |||
+| `OWNER_CHAT_ID` | No | Your Telegram user ID (enables owner-only features) |
+| **Discord IDs** |||
+| `DISCORD_GUILD_ID` | No | Server ID (restricts which server can talk to Sheldon) |
+| `DISCORD_OWNER_ID` | No | Your Discord user ID (DMs get full access) |
+| `DISCORD_TRUSTED_CHANNEL` | No | Channel ID with full access (alternative to owner ID) |
+| **Optional** |||
+| `TZ` | No | Your timezone (e.g., `Europe/London`) |
+| `DOMAIN` | No | Your domain (enables HTTPS) |
+| `ACME_EMAIL` | No | Email for Let's Encrypt (required with DOMAIN) |
+| `GIT_TOKEN` | No | GitHub PAT for code push (enables coder git) |
+| `GIT_ORG_URL` | No | e.g., `https://github.com/you` (required with GIT_TOKEN) |
+
+\* At least one bot token required (Telegram or Discord)
+\** At least one LLM API key required
+
+**Getting your IDs:**
+- **Telegram user ID**: Message [@userinfobot](https://t.me/userinfobot) or [@RawDataBot](https://t.me/RawDataBot)
+- **Discord IDs**: Settings → Advanced → Developer Mode → right-click → Copy ID
 
 #### Option B: Doppler (easier to manage)
 
