@@ -53,11 +53,12 @@ func NewDockerRunner(cfg DockerRunnerConfig) *DockerRunner {
 	if cfg.ArtifactsDir == "" {
 		cfg.ArtifactsDir = "/tmp/sheldon-artifacts"
 	}
-	if cfg.Model == "" {
-		cfg.Model = "kimi-k2.5:cloud"
-	}
+	// detect available provider instead of hardcoding kimi
 	if cfg.Provider == "" {
-		cfg.Provider = "kimi"
+		cfg.Provider = config.DetectProvider()
+	}
+	if cfg.Model == "" {
+		cfg.Model = config.DefaultCoderModel(cfg.Provider)
 	}
 	// if no host path specified, assume same as artifacts dir (not in container)
 	if cfg.HostArtifactDir == "" {

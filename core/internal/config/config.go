@@ -119,10 +119,10 @@ func loadCoderConfig() CoderConfig {
 	provider := os.Getenv("CODER_PROVIDER")
 	model := os.Getenv("CODER_MODEL")
 	if provider == "" {
-		provider = detectProvider()
+		provider = DetectProvider()
 	}
 	if model == "" {
-		model = defaultCoderModel(provider)
+		model = DefaultCoderModel(provider)
 	}
 
 	sandboxDir := os.Getenv("CODER_SANDBOX")
@@ -283,7 +283,7 @@ func loadBotConfig() (BotConfig, error) {
 func loadLLMConfig() (LLMConfig, error) {
 	provider := os.Getenv("LLM_PROVIDER")
 	if provider == "" {
-		provider = detectProvider()
+		provider = DetectProvider()
 	}
 
 	apiKey, err := getAPIKey(provider, "LLM")
@@ -319,7 +319,7 @@ func defaultLLMModel(provider string) string {
 func loadExtractorConfig() (LLMConfig, error) {
 	provider := os.Getenv("EXTRACTOR_PROVIDER")
 	if provider == "" {
-		provider = detectProvider()
+		provider = DetectProvider()
 	}
 
 	apiKey, err := getAPIKey(provider, "EXTRACTOR")
@@ -338,7 +338,8 @@ func loadExtractorConfig() (LLMConfig, error) {
 	}, nil
 }
 
-func detectProvider() string {
+// DetectProvider returns the first available LLM provider based on API keys
+func DetectProvider() string {
 	if os.Getenv("KIMI_API_KEY") != "" {
 		return "kimi"
 	}
@@ -351,7 +352,8 @@ func detectProvider() string {
 	return "ollama"
 }
 
-func defaultCoderModel(provider string) string {
+// DefaultCoderModel returns the default model for code generation based on provider
+func DefaultCoderModel(provider string) string {
 	switch provider {
 	case "kimi":
 		return "kimi-k2.5"

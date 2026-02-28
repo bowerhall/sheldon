@@ -242,9 +242,6 @@ these, explain why it's not supported and suggest they modify the server config 
 		}
 
 		// set both provider and model
-		oldProvider := rc.Get(providerKey)
-		oldModel := rc.Get(modelKey)
-
 		if err := rc.Set(providerKey, provider); err != nil {
 			return "", fmt.Errorf("failed to set provider: %w", err)
 		}

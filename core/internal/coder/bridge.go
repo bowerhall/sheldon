@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bowerhall/sheldon/internal/config"
 	"github.com/bowerhall/sheldon/internal/logger"
 )
 
@@ -297,10 +298,10 @@ func (b *Bridge) executeWithSubprocess(ctx context.Context, task Task, cfg struc
 }
 
 func (b *Bridge) run(ctx context.Context, ws *Workspace, prompt string, maxTurns int) (string, error) {
-	// Build ollama launch claude command with model from env
+	// Build ollama launch claude command with model from sandbox config
 	model := b.sandbox.model
 	if model == "" {
-		model = "kimi-k2.5"
+		model = config.DefaultCoderModel(config.DetectProvider())
 	}
 
 	// ollama launch claude --model MODEL -- CLAUDE_ARGS
@@ -522,10 +523,10 @@ func (b *Bridge) executeWithSubprocessProgress(ctx context.Context, task Task, c
 }
 
 func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt string, maxTurns int, onProgress func(StreamEvent)) (string, error) {
-	// Build ollama launch claude command with model from env
+	// Build ollama launch claude command with model from sandbox config
 	model := b.sandbox.model
 	if model == "" {
-		model = "kimi-k2.5"
+		model = config.DefaultCoderModel(config.DetectProvider())
 	}
 
 	// ollama launch claude --model MODEL -- CLAUDE_ARGS
