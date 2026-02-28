@@ -43,14 +43,13 @@ Relationships format:
 
 Only extract what is explicitly stated. If nothing to extract, use empty arrays.
 
-Example:
+FORMAT EXAMPLE (do not extract these - they are just to show the structure):
 {
   "facts": [
-    {"subject": "user", "field": "name", "value": "John", "domain": "identity", "confidence": 0.95}
+    {"subject": "user", "field": "favorite_color", "value": "blue", "domain": "preferences", "confidence": 0.95}
   ],
   "relationships": [
-    {"source": "user", "target": "Sarah", "target_type": "person", "relation": "friends_with", "strength": 0.9},
-    {"source": "user", "target": "Google", "target_type": "organization", "relation": "works_at", "strength": 0.95}
+    {"source": "user", "target": "EXAMPLE_PERSON", "target_type": "person", "relation": "knows", "strength": 0.9}
   ]
 }
 
