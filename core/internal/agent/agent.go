@@ -772,7 +772,10 @@ func (a *Agent) tryFallbackProvider(ctx context.Context, failedProviders map[str
 				logger.Debug("no installed ollama models for fallback")
 				continue
 			}
-			baseURL = a.runtimeConfig.Get("ollama_host")
+			baseURL = os.Getenv("OLLAMA_HOST")
+			if baseURL == "" {
+				baseURL = a.runtimeConfig.Get("ollama_host")
+			}
 			if baseURL == "" {
 				baseURL = "http://localhost:11434"
 			}

@@ -22,6 +22,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+          cache-dependency-path: |
+            core/go.sum
+            pkg/sheldonmem/go.sum
 
       - name: Test sheldonmem
         run: |
