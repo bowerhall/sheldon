@@ -435,10 +435,9 @@ Sheldon uses a unified provider system for all LLM needs. Add API keys to Dopple
 **Components that use models:**
 - `llm` - Main chat (switchable at runtime)
 - `coder` - Code generation (switchable at runtime)
-- `extractor` - Memory extraction (fixed: ollama/qwen2.5:3b)
 - `embedder` - Embeddings (fixed: ollama/nomic-embed-text)
 
-*Note: extractor and embedder are locked at runtime. Changing embedder would break vector compatibility with existing memories.*
+*Note: embedder is locked at runtime. Changing it would break vector compatibility with existing memories.*
 
 ### Provider Fallback
 

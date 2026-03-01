@@ -171,15 +171,15 @@ func registerSwitchModel(registry *Registry, rc *config.RuntimeConfig, mr *confi
 
 Never assume which model the user wants. Always show options and get explicit confirmation first.
 
-NOTE: Only 'llm' and 'coder' can be switched. Extractor and embedder are core infrastructure -
-changing embedder would break vector compatibility with existing memories. If user asks to change
-these, explain why it's not supported and suggest they modify the server config instead.`,
+NOTE: Only 'llm' and 'coder' can be switched. Embedder is core infrastructure -
+changing it would break vector compatibility with existing memories. If user asks to change
+embedder, explain why it's not supported and suggest they modify the server config instead.`,
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"purpose": map[string]any{
 					"type":        "string",
-					"description": "Which component to switch: llm (main chat) or coder (code generation). Extractor and embedder cannot be changed at runtime.",
+					"description": "Which component to switch: llm (main chat) or coder (code generation). Embedder cannot be changed at runtime.",
 					"enum":        []string{"llm", "coder"},
 				},
 				"provider": map[string]any{

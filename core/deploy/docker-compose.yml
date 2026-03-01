@@ -102,11 +102,6 @@ services:
       - EMBEDDER_URL=http://ollama:11434
       - EMBEDDER_MODEL=nomic-embed-text
 
-      # Extractor (local model via Ollama - no API cost)
-      - EXTRACTOR_PROVIDER=ollama
-      - EXTRACTOR_BASE_URL=http://ollama:11434
-      - EXTRACTOR_MODEL=qwen2.5:3b
-
       # Coder (uses same provider keys as LLM - KIMI_API_KEY, ANTHROPIC_API_KEY, etc.)
       # Set CODER_PROVIDER and CODER_MODEL to override (default: kimi, kimi-k2.5:cloud)
 
@@ -145,8 +140,8 @@ services:
       - ollama_data:/root/.ollama
     networks:
       - sheldon-net
-    # Pull models on first start (embeddings + extraction)
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && ollama pull qwen2.5:3b && wait"]
+    # Pull embedding model on first start
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && wait"]
 
   minio:
     image: minio/minio:latest

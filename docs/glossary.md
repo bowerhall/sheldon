@@ -10,7 +10,7 @@
 | **Domain Router** | Haiku LLM call that classifies a message into primary + related domains and selects model tier. |
 | **Recall** | sheldonmem's retrieval operation: hybrid keyword + semantic + graph expansion search. |
 | **Remember** | sheldonmem's storage operation: LLM extraction → entity resolution → fact insertion. |
-| **Extractor** | Pluggable interface for extracting facts/entities/edges from conversation turns. |
+| **End-of-Day Processing** | Nightly batch job that extracts facts and generates summaries from the day's conversations. |
 | **Embedder** | Pluggable interface for generating vector embeddings for semantic search. |
 | **SOUL.md** | File defining Sheldon's personality, tone, and behavioral guidelines. |
 | **IDENTITY.md** | File with seeded facts about the user (bootstrap for empty memory). |

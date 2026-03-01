@@ -122,7 +122,6 @@ Sheldon can change some config at runtime via `set_config`, but critical infrast
 | `llm_provider/model` | Yes | User-facing, safe to switch |
 | `coder_provider/model` | Yes | User-facing, safe to switch |
 | `embedder_*` | **No** | Changing breaks vector compatibility |
-| `extractor_*` | **No** | Infrastructure, not user-facing |
 | `ollama_host` | **No** | Prevents rogue server attacks |
 
 An attacker cannot trick Sheldon into pointing to a malicious ollama server or breaking embeddings.
@@ -132,10 +131,9 @@ An attacker cannot trick Sheldon into pointing to a malicious ollama server or b
 Sheldon can pull and remove ollama models, with protections:
 
 - **Cannot remove active embedder model** (e.g., `nomic-embed-text`)
-- **Cannot remove active extractor model** (e.g., `qwen2.5:3b`)
 - **Requires explicit confirmation** before pull/remove
 
-This prevents an attacker from tricking Sheldon into breaking memory search or extraction.
+This prevents an attacker from tricking Sheldon into breaking memory search.
 
 ## Credential Management
 

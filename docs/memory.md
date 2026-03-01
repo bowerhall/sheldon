@@ -525,7 +525,7 @@ Effect: low-scoring facts deprioritized in retrieval (not deleted)
 sheldonmem is designed as a standalone, extractable package:
 
 - Zero dependency on Sheldon or any specific assistant framework
-- Pluggable interfaces for LLM (Extractor), embedding (Embedder), routing (Router)
+- Pluggable interfaces for LLM (end-of-day processing), embedding (Embedder)
 - Single SQLite file with WAL journaling
 - Pure Go with sqlite-vec for vector search
 - AGPL-3.0 license
