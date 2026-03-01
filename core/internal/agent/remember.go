@@ -109,13 +109,14 @@ func (a *Agent) getOrCreateNamedEntity(name, entityType string) int64 {
 	return entity.ID
 }
 
-// ProcessEndOfDay runs extraction and summarization for yesterday's conversations
-// This is triggered by a system cron at ~3am
-func (a *Agent) ProcessEndOfDay(ctx context.Context) error {
+// ProcessEndOfDay runs extraction and summarization for conversations
+// This is triggered by a system cron at ~3am, or manually via force_extraction tool
+// If includeToday is true, also processes today's messages (for manual triggers)
+func (a *Agent) ProcessEndOfDay(ctx context.Context, includeToday bool) error {
 	resolver := &entityResolver{agent: a}
 	adapter := &llmAdapter{llm: a.getLLM()}
 
-	if err := a.memory.ProcessEndOfDay(ctx, adapter, resolver); err != nil {
+	if err := a.memory.ProcessEndOfDay(ctx, adapter, resolver, includeToday); err != nil {
 		return fmt.Errorf("sheldonmem processing failed: %w", err)
 	}
 

@@ -155,13 +155,21 @@ type LLMMessage struct {
 }
 
 // ProcessEndOfDay runs extraction and summarization for all pending conversations
-// (any date before today that hasn't been processed yet)
-func (s *Store) ProcessEndOfDay(ctx context.Context, llm LLM, resolver EntityResolver) error {
-	// Use UTC to match SQLite's date('now') which is UTC
-	today := time.Now().UTC().Format("2006-01-02")
+// If includeToday is false, only processes dates before today (normal 3am behavior)
+// If includeToday is true, processes ALL pending messages including today (for manual triggers)
+// Messages are kept after extraction for same-day keyword search
+func (s *Store) ProcessEndOfDay(ctx context.Context, llm LLM, resolver EntityResolver, includeToday bool) error {
+	var excludeDate string
+	if includeToday {
+		// Include everything by using tomorrow as the cutoff
+		excludeDate = time.Now().UTC().AddDate(0, 0, 1).Format("2006-01-02")
+	} else {
+		// Normal: exclude today, only process previous days
+		excludeDate = time.Now().UTC().Format("2006-01-02")
+	}
 
-	// Get all pending (session, date) pairs excluding today
-	pending, err := s.getPendingDailyMessages(today)
+	// Get all pending (session, date) pairs
+	pending, err := s.getPendingDailyMessages(excludeDate)
 	if err != nil {
 		return fmt.Errorf("failed to get pending messages: %w", err)
 	}
@@ -175,6 +183,7 @@ func (s *Store) ProcessEndOfDay(ctx context.Context, llm LLM, resolver EntityRes
 			// log error but continue with other sessions
 			continue
 		}
+		// Messages are kept for same-day keyword search, cleaned up separately
 	}
 
 	return nil
@@ -284,10 +293,12 @@ func (s *Store) processSessionEndOfDay(ctx context.Context, llm LLM, resolver En
 		s.SaveDailySummary(ctx, sessionID, dateTime, result.Summary)
 	}
 
-	// Clean up processed messages
-	s.DeleteMessagesForDate(sessionID, date)
-
 	return nil
+}
+
+// deleteProcessedMessages removes messages after extraction (called separately to allow skipping today)
+func (s *Store) deleteProcessedMessages(sessionID, date string) {
+	s.DeleteMessagesForDate(sessionID, date)
 }
 
 var unquotedKeyRe = regexp.MustCompile(`(\s|,)([a-z_]+):\s*`)

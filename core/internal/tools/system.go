@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,47 @@ import (
 
 func RegisterSystemTools(registry *Registry, memoryPath string, storageClient *storage.Client) {
 	registerSystemStatus(registry, memoryPath, storageClient)
+}
+
+// ExtractorFunc is a callback to trigger end-of-day extraction
+// The bool parameter indicates whether to include today's messages
+type ExtractorFunc func(ctx context.Context, includeToday bool) error
+
+// RegisterExtractionTool adds a debug tool to manually trigger memory extraction
+func RegisterExtractionTool(registry *Registry, extractor ExtractorFunc) {
+	tool := llm.Tool{
+		Name:        "force_extraction",
+		Description: "Manually trigger memory extraction. Processes pending daily messages into long-term facts and summaries. Use include_today=true to also process today's conversation (useful before backups or testing).",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"include_today": map[string]any{
+					"type":        "boolean",
+					"description": "Also process today's messages (default: false, only processes previous days)",
+				},
+			},
+		},
+	}
+
+	registry.Register(tool, func(ctx context.Context, args string) (string, error) {
+		var params struct {
+			IncludeToday bool `json:"include_today"`
+		}
+		if args != "" && args != "{}" {
+			if err := json.Unmarshal([]byte(args), &params); err != nil {
+				return "", fmt.Errorf("invalid arguments: %w", err)
+			}
+		}
+
+		if err := extractor(ctx, params.IncludeToday); err != nil {
+			return "", fmt.Errorf("extraction failed: %w", err)
+		}
+
+		if params.IncludeToday {
+			return "Extraction complete (including today). All messages processed into long-term memory.", nil
+		}
+		return "Extraction complete. Pending messages from previous days processed into long-term memory.", nil
+	})
 }
 
 func registerSystemStatus(registry *Registry, memoryPath string, storageClient *storage.Client) {
