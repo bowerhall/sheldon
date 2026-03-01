@@ -121,6 +121,8 @@ services:
       - MINIO_ROOT_USER=admin
       - MINIO_ROOT_PASSWORD=${STORAGE_ADMIN_PASSWORD}
     ports:
+      # MinIO API - exposed for shareable URLs
+      - "9000:9000"
       # MinIO console accessible on localhost only
       - "127.0.0.1:9001:9001"
     networks:

@@ -4,17 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"strings"
 
 	"github.com/bowerhall/sheldon/internal/deployer"
 	"github.com/bowerhall/sheldon/internal/llm"
 )
-
-// isIPAddress checks if a string is an IP address (not a domain name)
-func isIPAddress(s string) bool {
-	return net.ParseIP(s) != nil
-}
 
 type ComposeDeployArgs struct {
 	AppDir string `json:"app_dir"`
@@ -66,18 +60,10 @@ func RegisterComposeDeployerTools(registry *Registry, builder *deployer.Builder,
 			return "", err
 		}
 
-		// Build URL - use subdomain for domains, direct for IPs
-		var appURL string
-		if isIPAddress(domain) {
-			// IP address - can't use subdomain, app accessible via container name
-			appURL = fmt.Sprintf("%s (container: %s)", domain, params.Name)
-		} else {
-			appURL = fmt.Sprintf("%s.%s", params.Name, domain)
-		}
-		registry.Notify(ctx, fmt.Sprintf("✅ Deployed: %s → http://%s", params.Name, appURL))
+		registry.Notify(ctx, fmt.Sprintf("✅ Deployed: %s → %s", params.Name, result.URL))
 
-		return fmt.Sprintf("App deployed: %s\nURL: http://%s\nStatus: %s",
-			strings.Join(result.Resources, ", "), appURL, result.Status), nil
+		return fmt.Sprintf("App deployed: %s\nURL: %s\nStatus: %s",
+			strings.Join(result.Resources, ", "), result.URL, result.Status), nil
 	})
 
 	removeTool := llm.Tool{

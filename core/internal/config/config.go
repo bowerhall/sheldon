@@ -99,12 +99,19 @@ func loadStorageConfig() StorageConfig {
 		endpoint = "minio:9000"
 	}
 
+	publicEndpoint := os.Getenv("STORAGE_PUBLIC_ENDPOINT")
+	// if not set, public endpoint is same as internal (works for local dev)
+	if publicEndpoint == "" {
+		publicEndpoint = endpoint
+	}
+
 	return StorageConfig{
-		Enabled:   true,
-		Endpoint:  endpoint,
-		AccessKey: os.Getenv("STORAGE_ACCESS_KEY"),
-		SecretKey: os.Getenv("STORAGE_SHELDON_PASSWORD"),
-		UseSSL:    os.Getenv("STORAGE_USE_SSL") == "true",
+		Enabled:        true,
+		Endpoint:       endpoint,
+		PublicEndpoint: publicEndpoint,
+		AccessKey:      os.Getenv("STORAGE_ACCESS_KEY"),
+		SecretKey:      os.Getenv("STORAGE_SHELDON_PASSWORD"),
+		UseSSL:         os.Getenv("STORAGE_USE_SSL") == "true",
 	}
 }
 

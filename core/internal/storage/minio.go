@@ -16,17 +16,21 @@ import (
 
 // Client wraps MinIO client with Sheldon-specific functionality
 type Client struct {
-	mc          *minio.Client
-	userBucket  string
-	agentBucket string
+	mc             *minio.Client
+	userBucket     string
+	agentBucket    string
+	endpoint       string // internal endpoint (e.g., minio:9000)
+	publicEndpoint string // external endpoint for shareable URLs
+	useSSL         bool
 }
 
 // Config holds MinIO connection settings
 type Config struct {
-	Endpoint  string
-	AccessKey string
-	SecretKey string
-	UseSSL    bool
+	Endpoint       string
+	PublicEndpoint string // for shareable URLs (defaults to Endpoint if empty)
+	AccessKey      string
+	SecretKey      string
+	UseSSL         bool
 }
 
 // NewClient creates a new storage client
@@ -39,10 +43,18 @@ func NewClient(cfg Config) (*Client, error) {
 		return nil, fmt.Errorf("minio client: %w", err)
 	}
 
+	publicEndpoint := cfg.PublicEndpoint
+	if publicEndpoint == "" {
+		publicEndpoint = cfg.Endpoint
+	}
+
 	c := &Client{
-		mc:          mc,
-		userBucket:  "sheldon-user",
-		agentBucket: "sheldon-agent",
+		mc:             mc,
+		userBucket:     "sheldon-user",
+		agentBucket:    "sheldon-agent",
+		endpoint:       cfg.Endpoint,
+		publicEndpoint: publicEndpoint,
+		useSSL:         cfg.UseSSL,
 	}
 
 	return c, nil
@@ -159,13 +171,34 @@ func (c *Client) Healthy(ctx context.Context) bool {
 	return err == nil
 }
 
-// PresignedURL generates a presigned URL for downloading a file
+// PresignedURL generates a presigned URL for downloading a file (internal endpoint)
 func (c *Client) PresignedURL(ctx context.Context, bucket, name string, expiry time.Duration) (string, error) {
 	url, err := c.mc.PresignedGetObject(ctx, bucket, name, expiry, nil)
 	if err != nil {
 		return "", fmt.Errorf("presign %s/%s: %w", bucket, name, err)
 	}
 	return url.String(), nil
+}
+
+// PublicPresignedURL generates a presigned URL using the public endpoint for external access
+func (c *Client) PublicPresignedURL(ctx context.Context, bucket, name string, expiry time.Duration) (string, error) {
+	url, err := c.mc.PresignedGetObject(ctx, bucket, name, expiry, nil)
+	if err != nil {
+		return "", fmt.Errorf("presign %s/%s: %w", bucket, name, err)
+	}
+
+	// replace internal endpoint with public endpoint
+	urlStr := url.String()
+	if c.endpoint != c.publicEndpoint {
+		// determine scheme based on SSL settings
+		scheme := "http://"
+		if c.useSSL {
+			scheme = "https://"
+		}
+		urlStr = strings.Replace(urlStr, scheme+c.endpoint, scheme+c.publicEndpoint, 1)
+	}
+
+	return urlStr, nil
 }
 
 // BackupBucket returns the backup bucket name
