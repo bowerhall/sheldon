@@ -151,6 +151,7 @@ type LLMMessage struct {
 // ProcessEndOfDay runs extraction and summarization for all pending conversations
 // If includeToday is false, only processes dates before today (normal 3am behavior)
 // If includeToday is true, processes ALL pending messages including today (for manual triggers)
+// Messages are kept after extraction for same-day keyword search
 func (s *Store) ProcessEndOfDay(ctx context.Context, llm LLM, resolver EntityResolver, includeToday bool) error {
 	var excludeDate string
 	if includeToday {
@@ -176,6 +177,7 @@ func (s *Store) ProcessEndOfDay(ctx context.Context, llm LLM, resolver EntityRes
 			// log error but continue with other sessions
 			continue
 		}
+		// Messages are kept for same-day keyword search, cleaned up separately
 	}
 
 	return nil
@@ -285,10 +287,12 @@ func (s *Store) processSessionEndOfDay(ctx context.Context, llm LLM, resolver En
 		s.SaveDailySummary(ctx, sessionID, dateTime, result.Summary)
 	}
 
-	// Clean up processed messages
-	s.DeleteMessagesForDate(sessionID, date)
-
 	return nil
+}
+
+// deleteProcessedMessages removes messages after extraction (called separately to allow skipping today)
+func (s *Store) deleteProcessedMessages(sessionID, date string) {
+	s.DeleteMessagesForDate(sessionID, date)
 }
 
 var unquotedKeyRe = regexp.MustCompile(`(\s|,)([a-z_]+):\s*`)
