@@ -289,6 +289,7 @@ func main() {
 	tools.RegisterModelTools(sheldon.Registry(), runtimeCfg, modelRegistry)
 	tools.RegisterRemoteTools(sheldon.Registry(), runtimeCfg)
 	tools.RegisterSystemTools(sheldon.Registry(), cfg.MemoryPath, storageClient)
+	tools.RegisterExtractionTool(sheldon.Registry(), sheldon.ProcessEndOfDay)
 	logger.Info("model management enabled", "ollama", runtimeCfg.Get("ollama_host"))
 
 	ctx, cancel := context.WithCancel(context.Background())

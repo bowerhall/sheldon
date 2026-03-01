@@ -102,7 +102,7 @@ func (r *CronRunner) checkSystemCrons(ctx context.Context) {
 			r.lastEndOfDayRun = now
 
 			go func() {
-				if err := r.agent.ProcessEndOfDay(ctx); err != nil {
+				if err := r.agent.ProcessEndOfDay(ctx, false); err != nil {
 					logger.Error("end-of-day processing failed", "error", err)
 				}
 			}()
