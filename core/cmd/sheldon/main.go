@@ -23,6 +23,7 @@ import (
 	"github.com/bowerhall/sheldon/internal/cron"
 	"github.com/bowerhall/sheldon/internal/deployer"
 	"github.com/bowerhall/sheldon/internal/embedder"
+	"github.com/bowerhall/sheldon/internal/health"
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldon/internal/logger"
 	"github.com/bowerhall/sheldon/internal/operational"
@@ -453,6 +454,18 @@ func main() {
 	if embedderProvider == "" {
 		embedderProvider = "none"
 	}
+
+	// start health server for container orchestration
+	healthPort := 8080
+	if p := os.Getenv("HEALTH_PORT"); p != "" {
+		if port, err := strconv.Atoi(p); err == nil {
+			healthPort = port
+		}
+	}
+	healthServer := health.New(healthPort)
+	healthServer.AddChecker(memory)
+	healthServer.Start()
+	logger.Debug("health server started", "port", healthPort)
 
 	// show actual active model (runtime config overrides env var)
 	activeLLM := cfg.LLM.Provider

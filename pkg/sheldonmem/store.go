@@ -1,6 +1,7 @@
 package sheldonmem
 
 import (
+	"context"
 	"database/sql"
 
 	_ "github.com/asg017/sqlite-vec-go-bindings/ncruces"
@@ -84,6 +85,11 @@ func (s *Store) Close() error {
 	}
 
 	return nil
+}
+
+// HealthCheck verifies the database connection is alive
+func (s *Store) HealthCheck(ctx context.Context) error {
+	return s.db.PingContext(ctx)
 }
 
 func (s *Store) DB() *sql.DB {
