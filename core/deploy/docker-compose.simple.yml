@@ -168,6 +168,17 @@ services:
     networks:
       - sheldon-net
 
+  # Auto-healer - restarts unhealthy containers
+  autoheal:
+    image: willfarrell/autoheal
+    container_name: autoheal
+    restart: unless-stopped
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=all
+      - DOCKER_API_VERSION=1.44
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
 networks:
   sheldon-net:
     name: sheldon-net
