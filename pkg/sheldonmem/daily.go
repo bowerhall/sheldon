@@ -148,27 +148,59 @@ type LLMMessage struct {
 	Content string
 }
 
-// ProcessEndOfDay runs extraction and summarization for yesterday's conversations
+// ProcessEndOfDay runs extraction and summarization for all pending conversations
+// (any date before today that hasn't been processed yet)
 func (s *Store) ProcessEndOfDay(ctx context.Context, llm LLM, resolver EntityResolver) error {
-	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	// Use UTC to match SQLite's date('now') which is UTC
+	today := time.Now().UTC().Format("2006-01-02")
 
-	sessions, err := s.GetSessionsWithMessagesForDate(yesterday)
+	// Get all pending (session, date) pairs excluding today
+	pending, err := s.getPendingDailyMessages(today)
 	if err != nil {
-		return fmt.Errorf("failed to get sessions: %w", err)
+		return fmt.Errorf("failed to get pending messages: %w", err)
 	}
 
-	if len(sessions) == 0 {
+	if len(pending) == 0 {
 		return nil
 	}
 
-	for _, sessionID := range sessions {
-		if err := s.processSessionEndOfDay(ctx, llm, resolver, sessionID, yesterday); err != nil {
+	for _, p := range pending {
+		if err := s.processSessionEndOfDay(ctx, llm, resolver, p.sessionID, p.date); err != nil {
 			// log error but continue with other sessions
 			continue
 		}
 	}
 
 	return nil
+}
+
+type pendingSession struct {
+	sessionID string
+	date      string
+}
+
+// getPendingDailyMessages returns all (session_id, date) pairs with unprocessed messages
+func (s *Store) getPendingDailyMessages(excludeDate string) ([]pendingSession, error) {
+	rows, err := s.db.Query(`
+		SELECT DISTINCT session_id, date
+		FROM daily_messages
+		WHERE date < ?
+		ORDER BY date ASC`,
+		excludeDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var pending []pendingSession
+	for rows.Next() {
+		var p pendingSession
+		if err := rows.Scan(&p.sessionID, &p.date); err != nil {
+			return nil, err
+		}
+		pending = append(pending, p)
+	}
+	return pending, nil
 }
 
 func (s *Store) processSessionEndOfDay(ctx context.Context, llm LLM, resolver EntityResolver, sessionID, date string) error {
