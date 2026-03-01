@@ -47,6 +47,102 @@ func (s *Store) SearchToday(sessionID, query string) ([]DailyMessage, error) {
 	return messages, nil
 }
 
+// SearchRecentByKeyword searches recent messages (last N days) for a keyword
+// Used by cron system to find same-day context not yet embedded
+// Supports smart matching: case-insensitive, splits on delimiters
+// Requires at least 2 tokens to match (or all if only 1-2 tokens)
+func (s *Store) SearchRecentByKeyword(sessionID, keyword string, daysBack int) ([]DailyMessage, error) {
+	if daysBack <= 0 {
+		daysBack = 1 // default to today only
+	}
+
+	// Tokenize keyword: split on common delimiters, filter empty
+	tokens := tokenizeKeyword(keyword)
+	if len(tokens) == 0 {
+		return nil, nil
+	}
+
+	// Build OR query for all tokens (case-insensitive) - we filter in Go
+	var conditions []string
+	var args []any
+	args = append(args, sessionID, fmt.Sprintf("-%d", daysBack))
+
+	for _, token := range tokens {
+		conditions = append(conditions, "LOWER(content) LIKE LOWER(?)")
+		args = append(args, "%"+token+"%")
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, session_id, role, content, created_at, date
+		FROM daily_messages
+		WHERE session_id = ?
+		AND date >= date('now', ? || ' days')
+		AND (%s)
+		ORDER BY created_at DESC
+		LIMIT 50`, strings.Join(conditions, " OR "))
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Determine minimum matches required
+	minMatches := 2
+	if len(tokens) <= 2 {
+		minMatches = len(tokens) // require all if only 1-2 tokens
+	}
+
+	var messages []DailyMessage
+	for rows.Next() {
+		var m DailyMessage
+		var createdAt string
+		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &createdAt, &m.Date); err != nil {
+			return nil, err
+		}
+		if t, err := time.Parse("2006-01-02 15:04:05", createdAt); err == nil {
+			m.CreatedAt = t.In(time.Local)
+		}
+
+		// Count token matches
+		contentLower := strings.ToLower(m.Content)
+		matchCount := 0
+		for _, token := range tokens {
+			if strings.Contains(contentLower, token) {
+				matchCount++
+			}
+		}
+
+		// Only include if enough tokens match
+		if matchCount >= minMatches {
+			messages = append(messages, m)
+			if len(messages) >= 20 {
+				break
+			}
+		}
+	}
+	return messages, nil
+}
+
+// tokenizeKeyword splits a keyword into searchable tokens
+func tokenizeKeyword(keyword string) []string {
+	// Replace common delimiters with space
+	keyword = strings.ToLower(keyword)
+	for _, delim := range []string{"-", "_", ".", ":"} {
+		keyword = strings.ReplaceAll(keyword, delim, " ")
+	}
+
+	// Split and filter
+	var tokens []string
+	for _, token := range strings.Fields(keyword) {
+		token = strings.TrimSpace(token)
+		if len(token) >= 2 { // skip single chars
+			tokens = append(tokens, token)
+		}
+	}
+	return tokens
+}
+
 // GetTodayMessages returns all messages from today
 func (s *Store) GetTodayMessages(sessionID string) ([]DailyMessage, error) {
 	return s.GetMessagesForDate(sessionID, time.Now().Format("2006-01-02"))
