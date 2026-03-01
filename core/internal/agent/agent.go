@@ -38,7 +38,7 @@ func init() {
 	}
 }
 
-func New(model, extractor llm.LLM, memory *sheldonmem.Store, essencePath, timezone string) *Agent {
+func New(model llm.LLM, memory *sheldonmem.Store, essencePath, timezone string) *Agent {
 	systemPrompt := loadSystemPrompt(essencePath)
 
 	loc, err := time.LoadLocation(timezone)
@@ -54,7 +54,6 @@ func New(model, extractor llm.LLM, memory *sheldonmem.Store, essencePath, timezo
 
 	return &Agent{
 		llm:          model,
-		extractor:    extractor,
 		memory:       memory,
 		sessions:     session.NewStore(),
 		tools:        registry,

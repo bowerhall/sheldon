@@ -36,7 +36,6 @@ type ApprovalSender func(chatID int64, message string, approvalID string) error
 type Agent struct {
 	mu           sync.RWMutex
 	llm          llm.LLM
-	extractor    llm.LLM
 	memory       *sheldonmem.Store
 	convo        *conversation.Store
 	sessions     *session.Store

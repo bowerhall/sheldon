@@ -77,16 +77,6 @@ func main() {
 		logger.Fatal("failed to create llm", "error", err)
 	}
 
-	extractor, err := llm.New(llm.Config{
-		Provider: cfg.Extractor.Provider,
-		APIKey:   cfg.Extractor.APIKey,
-		Model:    cfg.Extractor.Model,
-		BaseURL:  cfg.Extractor.BaseURL,
-	})
-	if err != nil {
-		logger.Fatal("failed to create extractor", "error", err)
-	}
-
 	memory, err := sheldonmem.Open(cfg.MemoryPath)
 	if err != nil {
 		logger.Fatal("failed to open memory", "error", err)
@@ -120,7 +110,7 @@ func main() {
 		logger.Fatal("health check failed", "error", err)
 	}
 
-	sheldon := agent.New(model, extractor, memory, cfg.EssencePath, cfg.Timezone)
+	sheldon := agent.New(model, memory, cfg.EssencePath, cfg.Timezone)
 
 	var coderBridge *coder.Bridge
 	if cfg.Coder.Enabled {

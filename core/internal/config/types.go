@@ -5,7 +5,6 @@ type Config struct {
 	MemoryPath  string
 	Timezone    string
 	LLM         LLMConfig
-	Extractor   LLMConfig
 	Embedder    EmbedderConfig
 	Coder       CoderConfig
 	Browser     BrowserConfig

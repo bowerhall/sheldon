@@ -235,8 +235,8 @@ these, explain why it's not supported and suggest they modify the server config 
 		case "coder":
 			providerKey = "coder_provider"
 			modelKey = "coder_model"
-		case "extractor", "embedder":
-			return "", fmt.Errorf("cannot switch %s at runtime - it's core infrastructure. Changing embedder would break vector compatibility with existing memories. Modify server environment config instead", params.Purpose)
+		case "embedder":
+			return "", fmt.Errorf("cannot switch embedder at runtime - it's core infrastructure. Changing embedder would break vector compatibility with existing memories. Modify server environment config instead")
 		default:
 			return "", fmt.Errorf("invalid purpose %q, must be one of: llm, coder", params.Purpose)
 		}
@@ -283,7 +283,7 @@ func purposeToCapability(purpose string) string {
 		return "chat"
 	case "coder":
 		return "code"
-	case "extractor", "embedder":
+	case "embedder":
 		return "" // no specific capability required
 	default:
 		return ""
@@ -368,7 +368,7 @@ func registerRemoveModel(registry *Registry, mr *config.ModelRegistry) {
 		Description: `Remove a downloaded ollama model to free up disk space. IMPORTANT: Before removing:
 1. Confirm the user wants to delete this specific model
 2. Warn that this will require re-downloading if needed later
-3. Check that it's not currently in use (extractor, embedder, coder)
+3. Check that it's not currently in use (embedder, coder)
 
 Never remove models without explicit confirmation.`,
 		Parameters: map[string]any{
@@ -393,13 +393,9 @@ Never remove models without explicit confirmation.`,
 
 		// protect critical infrastructure models
 		embedderModel := os.Getenv("EMBEDDER_MODEL")
-		extractorModel := os.Getenv("EXTRACTOR_MODEL")
 
 		if params.Model == embedderModel || strings.HasPrefix(embedderModel, params.Model) {
 			return "", fmt.Errorf("cannot remove %s - it's the active embedder model. Removing it would break memory search", params.Model)
-		}
-		if params.Model == extractorModel || strings.HasPrefix(extractorModel, params.Model) {
-			return "", fmt.Errorf("cannot remove %s - it's the active extractor model. Removing it would break memory extraction", params.Model)
 		}
 
 		registry.Notify(ctx, fmt.Sprintf("removing model %s...", params.Model))

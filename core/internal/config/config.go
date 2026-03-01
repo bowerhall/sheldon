@@ -27,11 +27,6 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	extractorConfig, err := loadExtractorConfig()
-	if err != nil {
-		return nil, err
-	}
-
 	embedderConfig := loadEmbedderConfig()
 
 	botConfig, err := loadBotConfig()
@@ -52,7 +47,6 @@ func Load() (*Config, error) {
 		MemoryPath:  memoryPath,
 		Timezone:    timezone,
 		LLM:         llmConfig,
-		Extractor:   extractorConfig,
 		Embedder:    embedderConfig,
 		Coder:       coderConfig,
 		Browser:     browserConfig,
@@ -314,28 +308,6 @@ func defaultLLMModel(provider string) string {
 	default:
 		return "qwen2.5:3b"
 	}
-}
-
-func loadExtractorConfig() (LLMConfig, error) {
-	provider := os.Getenv("EXTRACTOR_PROVIDER")
-	if provider == "" {
-		provider = DetectProvider()
-	}
-
-	apiKey, err := getAPIKey(provider, "EXTRACTOR")
-	if err != nil {
-		return LLMConfig{}, err
-	}
-
-	// Base URL for Ollama (defaults handled in llm package)
-	baseURL := os.Getenv("EXTRACTOR_BASE_URL")
-
-	return LLMConfig{
-		Provider: provider,
-		APIKey:   apiKey,
-		Model:    os.Getenv("EXTRACTOR_MODEL"),
-		BaseURL:  baseURL,
-	}, nil
 }
 
 // DetectProvider returns the first available LLM provider based on API keys

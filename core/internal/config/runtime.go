@@ -18,15 +18,13 @@ type RuntimeConfig struct {
 
 // RuntimeData is the serializable runtime config
 type RuntimeData struct {
-	LLMProvider       string `json:"llm_provider,omitempty"`
-	LLMModel          string `json:"llm_model,omitempty"`
-	ExtractorProvider string `json:"extractor_provider,omitempty"`
-	ExtractorModel    string `json:"extractor_model,omitempty"`
-	EmbedderProvider  string `json:"embedder_provider,omitempty"`
-	EmbedderModel     string `json:"embedder_model,omitempty"`
-	CoderProvider     string `json:"coder_provider,omitempty"`
-	CoderModel        string `json:"coder_model,omitempty"`
-	OllamaHost        string `json:"ollama_host,omitempty"`
+	LLMProvider      string `json:"llm_provider,omitempty"`
+	LLMModel         string `json:"llm_model,omitempty"`
+	EmbedderProvider string `json:"embedder_provider,omitempty"`
+	EmbedderModel    string `json:"embedder_model,omitempty"`
+	CoderProvider    string `json:"coder_provider,omitempty"`
+	CoderModel       string `json:"coder_model,omitempty"`
+	OllamaHost       string `json:"ollama_host,omitempty"`
 }
 
 // AllowedKeys defines which config keys can be changed at runtime
@@ -128,16 +126,6 @@ func (rc *RuntimeConfig) Get(key string) string {
 			return rc.data.LLMModel
 		}
 		return os.Getenv("LLM_MODEL")
-	case "extractor_provider":
-		if rc.data.ExtractorProvider != "" {
-			return rc.data.ExtractorProvider
-		}
-		return os.Getenv("EXTRACTOR_PROVIDER")
-	case "extractor_model":
-		if rc.data.ExtractorModel != "" {
-			return rc.data.ExtractorModel
-		}
-		return os.Getenv("EXTRACTOR_MODEL")
 	case "embedder_provider":
 		if rc.data.EmbedderProvider != "" {
 			return rc.data.EmbedderProvider
@@ -185,10 +173,6 @@ func (rc *RuntimeConfig) Set(key, value string) error {
 		rc.data.LLMProvider = value
 	case "llm_model":
 		rc.data.LLMModel = value
-	case "extractor_provider":
-		rc.data.ExtractorProvider = value
-	case "extractor_model":
-		rc.data.ExtractorModel = value
 	case "embedder_provider":
 		rc.data.EmbedderProvider = value
 	case "embedder_model":
@@ -240,12 +224,6 @@ func (rc *RuntimeConfig) Overrides() map[string]string {
 	}
 	if rc.data.LLMModel != "" {
 		result["llm_model"] = rc.data.LLMModel
-	}
-	if rc.data.ExtractorProvider != "" {
-		result["extractor_provider"] = rc.data.ExtractorProvider
-	}
-	if rc.data.ExtractorModel != "" {
-		result["extractor_model"] = rc.data.ExtractorModel
 	}
 	if rc.data.EmbedderProvider != "" {
 		result["embedder_provider"] = rc.data.EmbedderProvider
