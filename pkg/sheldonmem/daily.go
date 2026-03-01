@@ -65,7 +65,7 @@ func (s *Store) SearchRecentByKeyword(sessionID, keyword string, daysBack int) (
 	// Build OR query for all tokens (case-insensitive) - we filter in Go
 	var conditions []string
 	var args []any
-	args = append(args, sessionID, fmt.Sprintf("-%d", daysBack))
+	args = append(args, sessionID, fmt.Sprintf("-%d", daysBack-1))
 
 	for _, token := range tokens {
 		conditions = append(conditions, "LOWER(content) LIKE LOWER(?)")

@@ -139,16 +139,20 @@ func (r *CronRunner) fireCron(ctx context.Context, c cron.Cron) {
 		}
 	}
 
-	// Add recent message context
-	if len(recentMsgs) > 0 {
+	// Add recent message context (only user messages)
+	var userMsgs []sheldonmem.DailyMessage
+	for _, m := range recentMsgs {
+		if m.Role == "user" {
+			userMsgs = append(userMsgs, m)
+		}
+	}
+	if len(userMsgs) > 0 {
 		if factsContext.Len() > 0 {
 			factsContext.WriteString("\n")
 		}
 		factsContext.WriteString("From recent conversation:\n")
-		for _, m := range recentMsgs {
-			if m.Role == "user" {
-				fmt.Fprintf(&factsContext, "- User said: %s\n", truncate(m.Content, 200))
-			}
+		for _, m := range userMsgs {
+			fmt.Fprintf(&factsContext, "- User said: %s\n", truncate(m.Content, 200))
 		}
 	}
 
