@@ -52,10 +52,6 @@ services:
       - DOCKER_API_VERSION=1.44
       - DOCKER_BUILDKIT=0
 
-      # Coder paths (must match bind mount for container-in-container)
-      - CODER_SANDBOX=/data/sandbox
-      - CODER_HOST_SANDBOX=/opt/sheldon/data/sandbox
-
       # Required - Telegram
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
       - OWNER_CHAT_ID=${OWNER_CHAT_ID:-}
