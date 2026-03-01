@@ -140,8 +140,12 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        sleep 5
-        mc alias set minio http://minio:9000 admin $${STORAGE_ADMIN_PASSWORD}
+        # Wait for minio to be ready (retry up to 30 times)
+        for i in $(seq 1 30); do
+          mc alias set minio http://minio:9000 admin $${STORAGE_ADMIN_PASSWORD} && break
+          echo "Waiting for minio... ($$i/30)"
+          sleep 2
+        done
 
         # Create buckets
         mc mb --ignore-existing minio/sheldon-user
