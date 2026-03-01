@@ -166,6 +166,17 @@ Respond naturally - the user will see your message.`, c.Keyword, currentTime, fa
 		return
 	}
 
+	// one-time crons: delete after firing instead of rescheduling
+	// detected by expiry being set and before the next computed run
+	if c.ExpiresAt != nil && c.ExpiresAt.Before(nextRun) {
+		if err := r.crons.Delete(c.ID); err != nil {
+			logger.Error("failed to delete one-time cron", "id", c.ID, "error", err)
+		} else {
+			logger.Debug("one-time cron fired and deleted", "keyword", c.Keyword)
+		}
+		return
+	}
+
 	if err := r.crons.UpdateNextRun(c.ID, nextRun); err != nil {
 		logger.Error("failed to update cron next_run", "id", c.ID, "error", err)
 	}
