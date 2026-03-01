@@ -29,8 +29,7 @@
 │                   └── Vectors (semantic search via Ollama)           │
 │                                                                      │
 │  Ollama (sidecar)                                                    │
-│    ├── nomic-embed-text (embeddings)                                 │
-│    └── qwen2.5:3b (fact extraction)                                  │
+│    └── nomic-embed-text (embeddings)                                 │
 │                                                                      │
 │  Coder Sandbox (ephemeral containers)                                │
 │    └── Claude Code CLI + Kimi K2.5                                   │
