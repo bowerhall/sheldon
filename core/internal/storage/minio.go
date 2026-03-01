@@ -16,12 +16,10 @@ import (
 
 // Client wraps MinIO client with Sheldon-specific functionality
 type Client struct {
-	mc             *minio.Client
-	userBucket     string
-	agentBucket    string
-	endpoint       string // internal endpoint (e.g., minio:9000)
-	publicEndpoint string // external endpoint for shareable URLs
-	useSSL         bool
+	mc         *minio.Client // internal client for operations
+	mcPublic   *minio.Client // public client for presigned URLs (may be same as mc)
+	userBucket  string
+	agentBucket string
 }
 
 // Config holds MinIO connection settings
@@ -35,6 +33,7 @@ type Config struct {
 
 // NewClient creates a new storage client
 func NewClient(cfg Config) (*Client, error) {
+	// internal client for bucket operations
 	mc, err := minio.New(cfg.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
 		Secure: cfg.UseSSL,
@@ -43,18 +42,25 @@ func NewClient(cfg Config) (*Client, error) {
 		return nil, fmt.Errorf("minio client: %w", err)
 	}
 
+	// public client for presigned URLs (uses public endpoint for correct signature)
 	publicEndpoint := cfg.PublicEndpoint
 	if publicEndpoint == "" {
 		publicEndpoint = cfg.Endpoint
 	}
 
+	mcPublic, err := minio.New(publicEndpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
+		Secure: cfg.UseSSL,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("minio public client: %w", err)
+	}
+
 	c := &Client{
-		mc:             mc,
-		userBucket:     "sheldon-user",
-		agentBucket:    "sheldon-agent",
-		endpoint:       cfg.Endpoint,
-		publicEndpoint: publicEndpoint,
-		useSSL:         cfg.UseSSL,
+		mc:          mc,
+		mcPublic:    mcPublic,
+		userBucket:  "sheldon-user",
+		agentBucket: "sheldon-agent",
 	}
 
 	return c, nil
@@ -181,24 +187,13 @@ func (c *Client) PresignedURL(ctx context.Context, bucket, name string, expiry t
 }
 
 // PublicPresignedURL generates a presigned URL using the public endpoint for external access
+// Uses a separate client configured with the public endpoint so signatures are valid
 func (c *Client) PublicPresignedURL(ctx context.Context, bucket, name string, expiry time.Duration) (string, error) {
-	url, err := c.mc.PresignedGetObject(ctx, bucket, name, expiry, nil)
+	url, err := c.mcPublic.PresignedGetObject(ctx, bucket, name, expiry, nil)
 	if err != nil {
 		return "", fmt.Errorf("presign %s/%s: %w", bucket, name, err)
 	}
-
-	// replace internal endpoint with public endpoint
-	urlStr := url.String()
-	if c.endpoint != c.publicEndpoint {
-		// determine scheme based on SSL settings
-		scheme := "http://"
-		if c.useSSL {
-			scheme = "https://"
-		}
-		urlStr = strings.Replace(urlStr, scheme+c.endpoint, scheme+c.publicEndpoint, 1)
-	}
-
-	return urlStr, nil
+	return url.String(), nil
 }
 
 // BackupBucket returns the backup bucket name
