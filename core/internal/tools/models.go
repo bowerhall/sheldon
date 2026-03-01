@@ -220,10 +220,13 @@ embedder, explain why it's not supported and suggest they modify the server conf
 			return "", fmt.Errorf("cannot switch to %s: %s not configured", provider, envKey)
 		}
 
-		// validate model has the right capability for the purpose
-		requiredCap := purposeToCapability(params.Purpose)
-		if requiredCap != "" && !modelHasCapability(params.Model, requiredCap, mr) {
-			return "", fmt.Errorf("model %q does not support %s (required for %s purpose)", params.Model, requiredCap, params.Purpose)
+		// validate model has the right capability for llm purpose
+		// coder allows any model - user's choice if it doesn't code well
+		if params.Purpose == "llm" {
+			requiredCap := purposeToCapability(params.Purpose)
+			if requiredCap != "" && !modelHasCapability(params.Model, requiredCap, mr) {
+				return "", fmt.Errorf("model %q does not support %s (required for %s purpose)", params.Model, requiredCap, params.Purpose)
+			}
 		}
 
 		// validate purpose
@@ -281,12 +284,8 @@ func purposeToCapability(purpose string) string {
 	switch purpose {
 	case "llm":
 		return "chat"
-	case "coder":
-		return "code"
-	case "embedder":
-		return "" // no specific capability required
 	default:
-		return ""
+		return "" // coder/embedder: no capability check, user's choice
 	}
 }
 
