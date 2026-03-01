@@ -94,12 +94,13 @@ while true; do
     echo "  s) Show logs"
     echo "  u) Update Sheldon"
     echo "  p) Status (all services)"
+    echo "  m) Current model"
     echo "  c) Cleanup (prune Docker)"
     echo "  d) Disk usage"
     echo "  b) Backup memory"
     echo "  q) Quit"
     echo ""
-    read -p "Select option (1-7/r/s/u/p/c/d/b/q): " choice < /dev/tty
+    read -p "Select option (1-7/r/s/u/p/m/c/d/b/q): " choice < /dev/tty
 
     case $choice in
         1)
@@ -173,6 +174,13 @@ while true; do
         p|P)
             echo ""
             show_status
+            ;;
+        m|M)
+            echo ""
+            echo -e "${CYAN}Current Model Config:${NC}"
+            echo ""
+            docker exec sheldon cat /data/runtime_config.json 2>/dev/null || echo "Using env defaults"
+            echo ""
             ;;
         c|C)
             echo ""
