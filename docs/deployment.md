@@ -202,9 +202,8 @@ We use [Doppler](https://doppler.com) for secrets management. This gives you:
 | `EMBEDDER_BASE_URL`  | -           | Ollama URL if using                                  |
 | `EMBEDDER_MODEL`     | -           | Embedding model name                                 |
 | `CODER_ISOLATED`     | `true`      | Run coder in Docker containers (recommended)         |
-| `CODER_MODEL`        | `kimi-k2.5` | Model for code generation                            |
-| `NVIDIA_API_KEY`     | -           | NVIDIA NIM API key (primary)                         |
-| `KIMI_API_KEY`       | -           | Kimi API key (fallback)                              |
+| `CODER_PROVIDER`     | auto        | LLM provider for coder (kimi, claude, openai)        |
+| `CODER_MODEL`        | auto        | Model for code generation (depends on provider)      |
 | `GIT_TOKEN`          | -           | GitHub PAT for coder to push code                    |
 | `GIT_USER_NAME`      | `Sheldon`   | Git commit author name                               |
 | `GIT_USER_EMAIL`     | -           | Git commit author email                              |
@@ -297,7 +296,7 @@ docker compose up -d
 
 ## Code Generation (Coder)
 
-Coder is enabled automatically when you provide an API key (`NVIDIA_API_KEY` or `KIMI_API_KEY`).
+Coder is enabled automatically when you provide an LLM API key. It uses the same provider keys as the main agent (KIMI_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY).
 
 By default, coder runs in isolated Docker containers for security. To enable:
 
@@ -307,11 +306,11 @@ By default, coder runs in isolated Docker containers for security. To enable:
 docker pull ghcr.io/bowerhall/sheldon-coder-sandbox:latest
 ```
 
-2. Add to your `.env`:
+2. Optionally configure provider in `.env`:
 
 ```env
-KIMI_API_KEY=your_kimi_api_key
-# Optional: NVIDIA_API_KEY for free tier access
+CODER_PROVIDER=claude  # or kimi, openai (auto-detected if not set)
+CODER_MODEL=claude-sonnet-4-20250514  # (auto-selected based on provider if not set)
 ```
 
 3. Restart:

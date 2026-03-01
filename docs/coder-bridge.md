@@ -207,8 +207,8 @@ args := []string{
     "run", "--rm",
     "-v", fmt.Sprintf("%s:/workspace", workDir),
     "-w", "/workspace",
-    "-e", "NVIDIA_API_KEY=" + apiKey,
-    "-e", "KIMI_API_KEY=" + fallbackKey,
+    "-e", "ANTHROPIC_API_KEY=" + apiKey,  // or KIMI_API_KEY, OPENAI_API_KEY
+    "-e", "CODER_PROVIDER=" + provider,
     "-e", "CODER_MODEL=" + model,
     "-e", "GIT_USER_NAME=" + gitUserName,  // for local commits only
     "-e", "GIT_USER_EMAIL=" + gitUserEmail,
@@ -237,13 +237,13 @@ The container starts with minimal environment:
 
 ```bash
 docker run --rm \
-  -e NVIDIA_API_KEY=xxx \
-  -e KIMI_API_KEY=xxx \
-  -e CODER_MODEL=kimi-k2.5 \
+  -e ANTHROPIC_API_KEY=xxx \
+  -e CODER_PROVIDER=claude \
+  -e CODER_MODEL=claude-sonnet-4-20250514 \
   -e GIT_USER_NAME=Sheldon \
   -e GIT_USER_EMAIL=sheldon@example.com \
   # NO GIT_TOKEN (handled externally by Sheldon)
-  # No TELEGRAM_TOKEN, no ANTHROPIC_API_KEY, no access to sheldon.db
+  # No TELEGRAM_TOKEN, no access to sheldon.db
   sheldon-coder-sandbox:latest
 ```
 
@@ -254,7 +254,7 @@ No access to:
 - TELEGRAM_TOKEN
 - /data/sheldon.db
 
-LLM keys (NVIDIA_API_KEY, KIMI_API_KEY) are passed because coder needs them to function. These are low-risk: easily rotatable and only burn API credits if leaked.
+LLM API keys are passed because coder needs them to function. These are low-risk: easily rotatable and only burn API credits if leaked.
 
 ## Complexity Tiers
 
@@ -424,13 +424,14 @@ By handling git operations externally, coder never sees the token.
 
 ### Environment Variables (Coder Container)
 
-| Variable         | Description         | Example               | Passed?           |
-| ---------------- | ------------------- | --------------------- | ----------------- |
-| `GIT_TOKEN`      | GitHub PAT          | `ghp_xxxx`            | **NO** (security) |
-| `GIT_USER_NAME`  | Commit author name  | `Sheldon`             | Yes               |
-| `GIT_USER_EMAIL` | Commit author email | `sheldon@example.com` | Yes               |
-| `NVIDIA_API_KEY` | LLM API key         | `nvapi-xxx`           | Yes               |
-| `KIMI_API_KEY`   | Fallback LLM key    | `sk-xxx`              | Yes               |
+| Variable           | Description         | Example                    | Passed?           |
+| ------------------ | ------------------- | -------------------------- | ----------------- |
+| `GIT_TOKEN`        | GitHub PAT          | `ghp_xxxx`                 | **NO** (security) |
+| `GIT_USER_NAME`    | Commit author name  | `Sheldon`                  | Yes               |
+| `GIT_USER_EMAIL`   | Commit author email | `sheldon@example.com`      | Yes               |
+| `ANTHROPIC_API_KEY`| LLM API key         | `sk-ant-xxx`               | Yes               |
+| `CODER_PROVIDER`   | LLM provider        | `claude`                   | Yes               |
+| `CODER_MODEL`      | Model name          | `claude-sonnet-4-20250514` | Yes               |
 
 LLM keys are necessary for coder to function and are low risk (easily revocable, only burn credits if leaked).
 
@@ -545,7 +546,7 @@ These are separate from coder - Sheldon uses them for explicit PR management aft
 - Main branches are protected - require PR review
 - Sheldon can push branches but can't merge to main
 - PAT has `repo` scope only, no admin access
-- LLM API keys (NVIDIA, KIMI) are passed to coder but are low-risk (easily rotated, only burn API credits)
+- LLM API keys are passed to coder but are low-risk (easily rotated, only burn API credits)
 
 ## Integration with Phase 6 (Self-Extension)
 

@@ -237,7 +237,7 @@ If neither `DISCORD_OWNER_ID` nor `DISCORD_TRUSTED_CHANNEL` is set, all conversa
 │     │  sheldonmem  │    │         ┌───────────────────────────┐
 │     │   (SQLite)   │    │         │    Coder Sandbox          │
 │     │              │    │────────►│  (ephemeral containers)   │
-│     │ • Entities   │    │         │  Claude Code CLI + Kimi   │
+│     │ • Entities   │    │         │  Claude Code + LLM        │
 │     │ • Facts      │    │         └───────────────────────────┘
 │     │ • Vectors    │    │
 │     │ • Convo buf  │    │         ┌───────────────────────────┐

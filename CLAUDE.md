@@ -32,7 +32,7 @@
 │    └── nomic-embed-text (embeddings)                                 │
 │                                                                      │
 │  Coder Sandbox (ephemeral containers)                                │
-│    └── Claude Code CLI + Kimi K2.5                                   │
+│    └── Claude Code + LLM                                             │
 │                                                                      │
 │  Browser Sandbox (ephemeral containers)                              │
 │    └── agent-browser + Chromium                                      │

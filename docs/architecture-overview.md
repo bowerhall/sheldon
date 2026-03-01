@@ -46,26 +46,24 @@ Sheldon is a single Go binary running on Docker Compose. The memory system (shel
 │       SHELDONMEM          │  │         CODE GENERATION         │  │   STORAGE   │
 │    (SQLite + sqlite-vec)  │  │                                 │  │   (MinIO)   │
 │                           │  │  ┌───────────────────────────┐  │  │             │
-│  ┌─────────┐ ┌─────────┐  │  │  │     Ollama + Kimi K2.5    │  │  │  • uploads  │
+│  ┌─────────┐ ┌─────────┐  │  │  │     Claude Code + LLM     │  │  │  • uploads  │
 │  │Entities │ │  Facts  │  │  │  │  (subprocess or Docker)   │  │  │  • backups  │
 │  │ (graph) │ │(14 doms)│  │  │  └─────────────┬─────────────┘  │  │  • files     │
 │  └────┬────┘ └────┬────┘  │  │                │                │  └─────────────┘
 │       │           │       │  │                ▼                │
 │  ┌────┴───────────┴────┐  │  │  ┌───────────────────────────┐  │
-│  │       Edges         │  │  │  │    Model Selection        │  │
+│  │       Edges         │  │  │  │    Provider Selection     │  │
 │  │   (relationships)   │  │  │  │                           │  │
-│  └─────────────────────┘  │  │  │  NVIDIA_API_KEY set?      │  │
+│  └─────────────────────┘  │  │  │  CODER_PROVIDER or auto   │  │
 │                           │  │  │         │                 │  │
-│  ┌─────────────────────┐  │  │  │    yes  │  no             │  │
-│  │      Vectors        │  │  │  │         ▼                 │  │
-│  │  (semantic search)  │  │  │  │  ┌──────┴───────┐         │  │
-│  └─────────────────────┘  │  │  │  ▼              ▼         │  │
-│                           │  │  │ NVIDIA NIM    Kimi API    │  │
-│  Single file: sheldon.db   │  │  │ (free tier)   (fallback)  │  │
-└───────────────────────────┘  │  │     │              │      │  │
-                               │  │     └──────┬───────┘      │  │
-                               │  │            ▼              │  │
-                               │  │     kimi-k2.5 model       │  │
+│  ┌─────────────────────┐  │  │  │         ▼                 │  │
+│  │      Vectors        │  │  │  │  ┌─────────────────┐      │  │
+│  │  (semantic search)  │  │  │  │  │ kimi / claude / │      │  │
+│  └─────────────────────┘  │  │  │  │ openai / ollama │      │  │
+│                           │  │  │  └────────┬────────┘      │  │
+│  Single file: sheldon.db   │  │  │           │               │  │
+└───────────────────────────┘  │  │           ▼               │  │
+                               │  │     configured model      │  │
                                │  │            │              │  │
                                │  │            ▼              │  │
                                │  │   Code / Files / Git Push │  │
@@ -77,8 +75,8 @@ Sheldon is a single Go binary running on Docker Compose. The memory system (shel
 │                                                                             │
 │   Main Chat & Memory Extraction          Code Generation                    │
 │   ┌─────────────────────────┐            ┌─────────────────────────┐        │
-│   │  Kimi (kimi-k2-0711)    │            │  Ollama + Kimi K2.5     │        │
-│   │  via KIMI_API_KEY       │            │  via NVIDIA or Kimi API │        │
+│   │  Kimi/Claude/OpenAI     │            │  Claude Code + LLM      │        │
+│   │  via provider API key   │            │  via configured provider│        │
 │   └─────────────────────────┘            └─────────────────────────┘        │
 │                                                                             │
 │   Supported: claude, openai, kimi        Runs in isolated sandbox/Docker    │
@@ -124,8 +122,8 @@ Sheldon is a single Go binary running on Docker Compose. The memory system (shel
 1. User requests code task via chat
 2. Agent calls write_code tool with prompt
 3. Bridge creates isolated workspace (sandbox or Docker container)
-4. Ollama launches with kimi-k2.5 model
-   └── Model selection: NVIDIA NIM (free) → Kimi API (fallback)
+4. Claude Code runs with configured LLM provider
+   └── Set via CODER_PROVIDER and CODER_MODEL env vars
 5. Coder writes/edits files in workspace
 6. Output sanitized (API keys, tokens stripped)
 7. Files collected, workspace path returned
@@ -164,9 +162,8 @@ Sheldon is a single Go binary running on Docker Compose. The memory system (shel
 | Component           | Cost        |
 | ------------------- | ----------- |
 | Hetzner CX32 VPS    | €8/mo       |
-| NVIDIA NIM API      | Free        |
-| Kimi API (fallback) | Pay-per-use |
-| **Total**           | ~€8/mo      |
+| LLM API             | Pay-per-use |
+| **Total**           | ~€8/mo + API costs |
 
 ## Why sheldonmem Over Markdown Memory
 

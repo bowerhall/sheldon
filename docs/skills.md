@@ -33,7 +33,7 @@ When a skill is triggered (by router classification or explicit command), Sheldo
   - **Isolated**: Ephemeral Docker container (`CODER_ISOLATED=true`)
 - Context: per-task CONTEXT.md generated from sheldonmem (language, style, preferences)
 - Sandbox: isolated workspace, stripped env, restricted tools, complexity-tiered timeouts
-- Model: Kimi K2.5 via Ollama (or NVIDIA NIM)
+- Model: Configurable via `CODER_PROVIDER` and `CODER_MODEL`
 - Output sanitized before display
 
 ## Custom Skills

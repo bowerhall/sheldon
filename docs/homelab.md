@@ -126,7 +126,7 @@ curl -fsSL https://raw.githubusercontent.com/bowerhall/sheldon/main/core/scripts
 
 ### Switching Ollama Host
 
-Set `OLLAMA_HOST` in Doppler to your GPU server's Headscale IP:
+Set `OLLAMA_HOST` in your secrets (Doppler or GitHub) to your GPU server's Headscale IP:
 
 ```
 OLLAMA_HOST=http://100.64.0.5:11434

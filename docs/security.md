@@ -31,7 +31,7 @@ Coder runs in isolated Docker containers (`docker run --rm`), not inside Sheldon
 Benefits:
 
 - Coder cannot access Sheldon's filesystem, sheldon.db, or secrets
-- Separate API key (NVIDIA/Kimi) - rotatable without affecting Sheldon
+- Separate LLM API key - rotatable without affecting Sheldon
 - Container deleted after task - no persistent compromise
 - Clean environment every task
 
@@ -219,7 +219,7 @@ Sheldon has write access to a dedicated GitHub org via `GIT_TOKEN`:
            ┌─────────────────┼─────────────────┐
            │                 │                 │
            ▼                 ▼                 ▼
-      Telegram API      LLM APIs          Kimi/NVIDIA
+      Telegram API      LLM APIs          Coder LLM
            ▲                 ▲                 ▲
            │                 │                 │
            │   OUTBOUND ONLY │                 │
@@ -257,7 +257,7 @@ Sheldon has write access to a dedicated GitHub org via `GIT_TOKEN`:
 
 ## Incident Response
 
-**If NVIDIA/Kimi API key compromised:**
+**If LLM API key compromised:**
 
 1. Rotate key in provider console
 2. Update .env file
