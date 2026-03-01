@@ -208,7 +208,7 @@ func main() {
 	logger.Info("cron tools enabled", "timezone", cfg.Timezone)
 
 	// conversation buffer for recent message continuity
-	convoBufferSize := 24 // default
+	convoBufferSize := 12 // default
 	if size, err := strconv.Atoi(os.Getenv("CONVERSATION_BUFFER_SIZE")); err == nil && size > 0 {
 		convoBufferSize = size
 	}
