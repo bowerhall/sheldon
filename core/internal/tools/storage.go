@@ -284,7 +284,7 @@ func RegisterStorageTools(registry *Registry, client *storage.Client) {
 			expiry = time.Duration(params.ExpiresHours) * time.Hour
 		}
 
-		url, err := client.PresignedURL(ctx, bucket, params.Path, expiry)
+		url, err := client.PublicPresignedURL(ctx, bucket, params.Path, expiry)
 		if err != nil {
 			return "", err
 		}

@@ -16,21 +16,24 @@ import (
 
 // Client wraps MinIO client with Sheldon-specific functionality
 type Client struct {
-	mc          *minio.Client
+	mc         *minio.Client // internal client for operations
+	mcPublic   *minio.Client // public client for presigned URLs (may be same as mc)
 	userBucket  string
 	agentBucket string
 }
 
 // Config holds MinIO connection settings
 type Config struct {
-	Endpoint  string
-	AccessKey string
-	SecretKey string
-	UseSSL    bool
+	Endpoint       string
+	PublicEndpoint string // for shareable URLs (defaults to Endpoint if empty)
+	AccessKey      string
+	SecretKey      string
+	UseSSL         bool
 }
 
 // NewClient creates a new storage client
 func NewClient(cfg Config) (*Client, error) {
+	// internal client for bucket operations
 	mc, err := minio.New(cfg.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
 		Secure: cfg.UseSSL,
@@ -39,8 +42,23 @@ func NewClient(cfg Config) (*Client, error) {
 		return nil, fmt.Errorf("minio client: %w", err)
 	}
 
+	// public client for presigned URLs (uses public endpoint for correct signature)
+	publicEndpoint := cfg.PublicEndpoint
+	if publicEndpoint == "" {
+		publicEndpoint = cfg.Endpoint
+	}
+
+	mcPublic, err := minio.New(publicEndpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
+		Secure: cfg.UseSSL,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("minio public client: %w", err)
+	}
+
 	c := &Client{
 		mc:          mc,
+		mcPublic:    mcPublic,
 		userBucket:  "sheldon-user",
 		agentBucket: "sheldon-agent",
 	}
@@ -159,9 +177,19 @@ func (c *Client) Healthy(ctx context.Context) bool {
 	return err == nil
 }
 
-// PresignedURL generates a presigned URL for downloading a file
+// PresignedURL generates a presigned URL for downloading a file (internal endpoint)
 func (c *Client) PresignedURL(ctx context.Context, bucket, name string, expiry time.Duration) (string, error) {
 	url, err := c.mc.PresignedGetObject(ctx, bucket, name, expiry, nil)
+	if err != nil {
+		return "", fmt.Errorf("presign %s/%s: %w", bucket, name, err)
+	}
+	return url.String(), nil
+}
+
+// PublicPresignedURL generates a presigned URL using the public endpoint for external access
+// Uses a separate client configured with the public endpoint so signatures are valid
+func (c *Client) PublicPresignedURL(ctx context.Context, bucket, name string, expiry time.Duration) (string, error) {
+	url, err := c.mcPublic.PresignedGetObject(ctx, bucket, name, expiry, nil)
 	if err != nil {
 		return "", fmt.Errorf("presign %s/%s: %w", bucket, name, err)
 	}

@@ -8,11 +8,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/bowerhall/sheldon/internal/logger"
 	"gopkg.in/yaml.v3"
 )
+
+const baseAppPort = 8080 // starting port for IP-only app deployments
 
 var validAppName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
 
@@ -189,26 +192,39 @@ func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string
 		return nil, fmt.Errorf("no Dockerfile found in %s or its subdirectories", appDir)
 	}
 
-	// add traefik labels for routing
-	// Skip traefik for IP addresses (subdomain routing requires DNS)
+	// routing configuration depends on domain type
 	isIP := net.ParseIP(domain) != nil
+	var appURL string
+	var appPort int
+
 	if domain != "" && domain != "localhost" && !isIP {
-		// Domain name - use HTTPS with Let's Encrypt
+		// Domain name - use HTTPS with Let's Encrypt via Traefik
 		service.Labels = []string{
 			"traefik.enable=true",
 			fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", name, name, domain),
 			fmt.Sprintf("traefik.http.routers.%s.entrypoints=websecure", name),
 			fmt.Sprintf("traefik.http.routers.%s.tls.certresolver=letsencrypt", name),
 		}
+		appURL = fmt.Sprintf("https://%s.%s", name, domain)
 	} else if domain == "localhost" {
-		// localhost: HTTP only with subdomain
+		// localhost: HTTP only with subdomain via Traefik
 		service.Labels = []string{
 			"traefik.enable=true",
 			fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", name, name, domain),
 			fmt.Sprintf("traefik.http.routers.%s.entrypoints=web", name),
 		}
+		appURL = fmt.Sprintf("http://%s.%s", name, domain)
+	} else if isIP {
+		// IP address - expose port directly (no Traefik routing)
+		// check if this service already has a port assigned
+		appPort = d.getServicePort(compose, name)
+		if appPort == 0 {
+			appPort = d.findNextAvailablePort(compose)
+		}
+		service.Ports = []string{fmt.Sprintf("%d:80", appPort)}
+		appURL = fmt.Sprintf("http://%s:%d", domain, appPort)
+		logger.Debug("IP-only deployment", "port", appPort, "url", appURL)
 	}
-	// For IP addresses, no traefik labels - app runs on internal network only
 
 	// add service to compose
 	if compose.Services == nil {
@@ -235,11 +251,13 @@ func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string
 		}, err
 	}
 
-	logger.Info("app deployed via compose", "name", name, "file", d.appsFile)
+	logger.Info("app deployed via compose", "name", name, "file", d.appsFile, "url", appURL)
 
 	return &DeployResult{
 		Resources: []string{name},
 		Status:    "deployed",
+		URL:       appURL,
+		Port:      appPort,
 	}, nil
 }
 
@@ -381,4 +399,50 @@ func (d *ComposeDeployer) composeDown(ctx context.Context, service string) error
 		return fmt.Errorf("compose down: %w\n%s", err, string(output))
 	}
 	return nil
+}
+
+// findNextAvailablePort scans existing services and returns the next available port
+func (d *ComposeDeployer) findNextAvailablePort(compose *ComposeFile) int {
+	usedPorts := make(map[int]bool)
+
+	for _, svc := range compose.Services {
+		for _, portMapping := range svc.Ports {
+			// parse "HOST:CONTAINER" or just "PORT"
+			parts := strings.Split(portMapping, ":")
+			if len(parts) >= 1 {
+				hostPort := parts[0]
+				if port, err := strconv.Atoi(hostPort); err == nil {
+					usedPorts[port] = true
+				}
+			}
+		}
+	}
+
+	// find next available starting from baseAppPort
+	for port := baseAppPort; port < baseAppPort+100; port++ {
+		if !usedPorts[port] {
+			return port
+		}
+	}
+
+	return baseAppPort + len(compose.Services)
+}
+
+// getServicePort returns the host port for an existing service, or 0 if not found
+func (d *ComposeDeployer) getServicePort(compose *ComposeFile, name string) int {
+	svc, ok := compose.Services[name]
+	if !ok {
+		return 0
+	}
+
+	for _, portMapping := range svc.Ports {
+		parts := strings.Split(portMapping, ":")
+		if len(parts) >= 1 {
+			if port, err := strconv.Atoi(parts[0]); err == nil {
+				return port
+			}
+		}
+	}
+
+	return 0
 }

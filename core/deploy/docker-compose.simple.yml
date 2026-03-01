@@ -52,10 +52,6 @@ services:
       - DOCKER_API_VERSION=1.44
       - DOCKER_BUILDKIT=0
 
-      # Coder paths (must match bind mount for container-in-container)
-      - CODER_SANDBOX=/data/sandbox
-      - CODER_HOST_SANDBOX=/opt/sheldon/data/sandbox
-
       # Required - Telegram
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
       - OWNER_CHAT_ID=${OWNER_CHAT_ID:-}
@@ -120,8 +116,14 @@ services:
     environment:
       - MINIO_ROOT_USER=admin
       - MINIO_ROOT_PASSWORD=${STORAGE_ADMIN_PASSWORD}
+      # Disable browser on API port (console is on 9001)
+      - MINIO_BROWSER_REDIRECT_URL=http://localhost:9001
     ports:
-      # MinIO console accessible on localhost only
+      # MinIO API - exposed for shareable presigned URLs
+      # Security: sheldon user has limited access (sheldon-* buckets only)
+      # Passwords are auto-generated (16 chars) during install
+      - "9000:9000"
+      # MinIO console accessible on localhost only (SSH tunnel required)
       - "127.0.0.1:9001:9001"
     networks:
       - sheldon-net

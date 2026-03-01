@@ -30,11 +30,12 @@ type DeployerConfig struct {
 }
 
 type StorageConfig struct {
-	Enabled   bool
-	Endpoint  string
-	AccessKey string
-	SecretKey string
-	UseSSL    bool
+	Enabled        bool
+	Endpoint       string // internal endpoint (e.g., minio:9000)
+	PublicEndpoint string // public endpoint for shareable URLs (e.g., storage.example.com or 1.2.3.4:9000)
+	AccessKey      string
+	SecretKey      string
+	UseSSL         bool
 }
 
 type CoderConfig struct {
