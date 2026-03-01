@@ -3,8 +3,10 @@ package bot
 import (
 	"context"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/bowerhall/sheldon/internal/agent"
@@ -12,6 +14,46 @@ import (
 	"github.com/bowerhall/sheldon/internal/logger"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
+
+// markdownToTelegramHTML converts common markdown to Telegram-safe HTML
+func markdownToTelegramHTML(text string) string {
+	// Escape HTML special chars first
+	text = html.EscapeString(text)
+
+	// Code blocks: ```code``` → <pre>code</pre>
+	codeBlock := regexp.MustCompile("```([\\s\\S]*?)```")
+	text = codeBlock.ReplaceAllString(text, "<pre>$1</pre>")
+
+	// Inline code: `code` → <code>code</code>
+	inlineCode := regexp.MustCompile("`([^`]+)`")
+	text = inlineCode.ReplaceAllString(text, "<code>$1</code>")
+
+	// Bold: **text** or __text__ → <b>text</b>
+	bold := regexp.MustCompile(`\*\*(.+?)\*\*|__(.+?)__`)
+	text = bold.ReplaceAllStringFunc(text, func(m string) string {
+		inner := regexp.MustCompile(`\*\*(.+?)\*\*|__(.+?)__`).FindStringSubmatch(m)
+		if inner[1] != "" {
+			return "<b>" + inner[1] + "</b>"
+		}
+		return "<b>" + inner[2] + "</b>"
+	})
+
+	// Italic: *text* or _text_ → <i>text</i>
+	italic := regexp.MustCompile(`\*([^*]+)\*|_([^_]+)_`)
+	text = italic.ReplaceAllStringFunc(text, func(m string) string {
+		inner := regexp.MustCompile(`\*([^*]+)\*|_([^_]+)_`).FindStringSubmatch(m)
+		if inner[1] != "" {
+			return "<i>" + inner[1] + "</i>"
+		}
+		return "<i>" + inner[2] + "</i>"
+	})
+
+	// Strikethrough: ~~text~~ → <s>text</s>
+	strike := regexp.MustCompile(`~~(.+?)~~`)
+	text = strike.ReplaceAllString(text, "<s>$1</s>")
+
+	return text
+}
 
 func newTelegram(token string, agent *agent.Agent, ownerChatID int64) (Bot, error) {
 	api, err := tgbotapi.NewBotAPI(token)
@@ -197,8 +239,9 @@ func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 		response = "Something went wrong."
 	}
 
-	reply := tgbotapi.NewMessage(chatID, response)
+	reply := tgbotapi.NewMessage(chatID, markdownToTelegramHTML(response))
 	reply.ReplyToMessageID = msg.MessageID
+	reply.ParseMode = tgbotapi.ModeHTML
 
 	if _, err := t.api.Send(reply); err != nil {
 		logger.Error("send failed", "error", err)
@@ -208,7 +251,8 @@ func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 }
 
 func (t *telegram) Send(chatID int64, message string) error {
-	msg := tgbotapi.NewMessage(chatID, message)
+	msg := tgbotapi.NewMessage(chatID, markdownToTelegramHTML(message))
+	msg.ParseMode = tgbotapi.ModeHTML
 	_, err := t.api.Send(msg)
 	if err != nil {
 		logger.Error("proactive send failed", "error", err, "chatID", chatID)
@@ -314,8 +358,9 @@ func (t *telegram) SendWithButtons(chatID int64, message string, buttons []Butto
 		tgbotapi.NewInlineKeyboardRow(keyboardButtons...),
 	)
 
-	msg := tgbotapi.NewMessage(chatID, message)
+	msg := tgbotapi.NewMessage(chatID, markdownToTelegramHTML(message))
 	msg.ReplyMarkup = keyboard
+	msg.ParseMode = tgbotapi.ModeHTML
 
 	sent, err := t.api.Send(msg)
 	if err != nil {
