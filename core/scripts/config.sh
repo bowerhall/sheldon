@@ -81,13 +81,25 @@ EOF
     chmod 600 "$ENV_FILE"
 }
 
+show_status() {
+    echo -e "${CYAN}Service Status:${NC}"
+    echo ""
+    docker compose -f /opt/sheldon/docker-compose.yml ps --format "table {{.Name}}\t{{.Status}}" 2>/dev/null || docker ps --filter "name=sheldon" --format "table {{.Names}}\t{{.Status}}"
+    echo ""
+}
+
 while true; do
     show_config
     echo "  r) Restart Sheldon"
     echo "  s) Show logs"
+    echo "  u) Update Sheldon"
+    echo "  p) Status (all services)"
+    echo "  c) Cleanup (prune Docker)"
+    echo "  d) Disk usage"
+    echo "  b) Backup memory"
     echo "  q) Quit"
     echo ""
-    read -p "Select option to edit (1-7) or action (r/s/q): " choice < /dev/tty
+    read -p "Select option (1-7/r/s/u/p/c/d/b/q): " choice < /dev/tty
 
     case $choice in
         1)
@@ -147,6 +159,54 @@ while true; do
         s|S)
             echo ""
             docker logs --tail 50 sheldon
+            echo ""
+            ;;
+        u|U)
+            echo ""
+            echo -e "${GREEN}Updating Sheldon...${NC}"
+            cd /opt/sheldon
+            docker compose pull sheldon
+            docker compose up -d sheldon
+            echo -e "${GREEN}Update complete!${NC}"
+            echo ""
+            ;;
+        p|P)
+            echo ""
+            show_status
+            ;;
+        c|C)
+            echo ""
+            echo -e "${YELLOW}This will remove unused Docker images and containers.${NC}"
+            read -p "Continue? (y/N): " confirm < /dev/tty
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                echo -e "${GREEN}Cleaning up...${NC}"
+                docker system prune -f
+                echo -e "${GREEN}Done!${NC}"
+            fi
+            echo ""
+            ;;
+        d|D)
+            echo ""
+            echo -e "${CYAN}Disk Usage:${NC}"
+            echo ""
+            df -h /opt/sheldon 2>/dev/null || df -h /
+            echo ""
+            echo -e "${CYAN}Sheldon Data:${NC}"
+            du -sh /opt/sheldon/data/* 2>/dev/null || echo "  No data directory"
+            echo ""
+            echo -e "${CYAN}Docker Usage:${NC}"
+            docker system df
+            echo ""
+            ;;
+        b|B)
+            echo ""
+            BACKUP_FILE="/opt/sheldon/backups/sheldon_$(date +%Y%m%d_%H%M%S).db"
+            mkdir -p /opt/sheldon/backups
+            echo -e "${GREEN}Creating backup...${NC}"
+            cp /opt/sheldon/data/sheldon.db "$BACKUP_FILE"
+            echo -e "${GREEN}Backup saved: $BACKUP_FILE${NC}"
+            echo ""
+            ls -lh /opt/sheldon/backups/*.db 2>/dev/null | tail -5
             echo ""
             ;;
         q|Q)
