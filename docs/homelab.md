@@ -400,7 +400,7 @@ Sheldon can run on a Raspberry Pi with Ollama offloaded to a more powerful homel
 │                     │      │                     │
 │   - Sheldon         │  HS  │   - Ollama          │
 │   - Traefik         │      │   - nomic-embed     │
-│   - MinIO           │      │   - qwen2.5:3b      │
+│   - MinIO           │      │                     │
 │   - Headscale       │      │                     │
 └─────────────────────┘      └─────────────────────┘
         HS = Headscale (WireGuard mesh)
