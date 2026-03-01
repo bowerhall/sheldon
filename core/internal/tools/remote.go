@@ -46,6 +46,11 @@ func (h *RemoteClient) isLocalhost() bool {
 func RegisterRemoteTools(registry *Registry, rc *config.RuntimeConfig) {
 	client := NewRemoteClient(rc)
 
+	// Don't register remote tools if ollama is local (no homelab-agent)
+	if client.isLocalhost() || strings.Contains(client.agentURL(), "://ollama:") {
+		return
+	}
+
 	registerRemoteStatus(registry, client)
 	registerListContainers(registry, client)
 	registerContainerStatus(registry, client)
