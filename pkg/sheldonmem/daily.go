@@ -38,7 +38,10 @@ func (s *Store) SearchToday(sessionID, query string) ([]DailyMessage, error) {
 		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &createdAt, &m.Date); err != nil {
 			return nil, err
 		}
-		m.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		// SQLite stores CURRENT_TIMESTAMP as UTC; parse and convert to local time
+		if t, err := time.Parse("2006-01-02 15:04:05", createdAt); err == nil {
+			m.CreatedAt = t.In(time.Local)
+		}
 		messages = append(messages, m)
 	}
 	return messages, nil
@@ -69,7 +72,10 @@ func (s *Store) GetMessagesForDate(sessionID, date string) ([]DailyMessage, erro
 		if err := rows.Scan(&m.ID, &m.SessionID, &m.Role, &m.Content, &createdAt, &m.Date); err != nil {
 			return nil, err
 		}
-		m.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+		// SQLite stores CURRENT_TIMESTAMP as UTC; parse and convert to local time
+		if t, err := time.Parse("2006-01-02 15:04:05", createdAt); err == nil {
+			m.CreatedAt = t.In(time.Local)
+		}
 		messages = append(messages, m)
 	}
 	return messages, nil
