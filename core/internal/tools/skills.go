@@ -18,6 +18,30 @@ type SkillsManager struct {
 	skillsDir string
 }
 
+// validateSkillName checks if a skill name is safe (no path traversal)
+func validateSkillName(name string) error {
+	// reject empty names
+	if name == "" {
+		return fmt.Errorf("skill name cannot be empty")
+	}
+
+	// reject path separators and traversal
+	if strings.Contains(name, "/") || strings.Contains(name, "\\") ||
+		strings.Contains(name, "..") || strings.HasPrefix(name, ".") {
+		return fmt.Errorf("invalid skill name: contains path characters")
+	}
+
+	// only allow alphanumeric, hyphens, underscores
+	for _, r := range name {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '-' || r == '_') {
+			return fmt.Errorf("invalid skill name: only alphanumeric, hyphens, and underscores allowed")
+		}
+	}
+
+	return nil
+}
+
 func NewSkillsManager(skillsDir string) (*SkillsManager, error) {
 	if err := os.MkdirAll(skillsDir, 0755); err != nil {
 		return nil, fmt.Errorf("create skills dir: %w", err)
@@ -438,6 +462,10 @@ func (m *SkillsManager) downloadGitHubDirRecursive(ctx context.Context, owner, r
 }
 
 func (m *SkillsManager) Save(name, content string) (string, error) {
+	if err := validateSkillName(name); err != nil {
+		return "", err
+	}
+
 	filename := strings.ToUpper(name)
 	if !strings.HasSuffix(filename, ".MD") {
 		filename += ".md"
@@ -452,6 +480,10 @@ func (m *SkillsManager) Save(name, content string) (string, error) {
 }
 
 func (m *SkillsManager) Read(name string) (string, error) {
+	if err := validateSkillName(name); err != nil {
+		return "", err
+	}
+
 	// First check for directory-based skill
 	dirPath := filepath.Join(m.skillsDir, strings.ToLower(name))
 	if info, err := os.Stat(dirPath); err == nil && info.IsDir() {
@@ -490,6 +522,10 @@ func (m *SkillsManager) Read(name string) (string, error) {
 
 // ReadFile reads a specific file from a multi-file skill
 func (m *SkillsManager) ReadFile(skillName, relativePath string) (string, error) {
+	if err := validateSkillName(skillName); err != nil {
+		return "", err
+	}
+
 	dirPath := filepath.Join(m.skillsDir, strings.ToLower(skillName))
 	if info, err := os.Stat(dirPath); err != nil || !info.IsDir() {
 		return "", fmt.Errorf("skill '%s' is not a multi-file skill", skillName)
@@ -518,6 +554,10 @@ func (m *SkillsManager) ReadFile(skillName, relativePath string) (string, error)
 }
 
 func (m *SkillsManager) Remove(name string) error {
+	if err := validateSkillName(name); err != nil {
+		return err
+	}
+
 	// Check for directory-based skill first
 	dirPath := filepath.Join(m.skillsDir, strings.ToLower(name))
 	if info, err := os.Stat(dirPath); err == nil && info.IsDir() {

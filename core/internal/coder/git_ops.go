@@ -39,14 +39,16 @@ func (g *GitOps) CloneRepo(ctx context.Context, repoName, workspacePath string) 
 		return fmt.Errorf("git not configured (missing token or org URL)")
 	}
 
-	// Build authenticated clone URL
-	cloneURL, err := g.buildAuthURL(repoName)
+	// Build clone URL without embedded token (token passed via env)
+	cloneURL, err := g.buildCloneURL(repoName)
 	if err != nil {
-		return fmt.Errorf("build auth URL: %w", err)
+		return fmt.Errorf("build clone URL: %w", err)
 	}
 
-	// Try to clone
+	// Clone using GIT_ASKPASS to provide credentials securely
+	// This avoids exposing the token in ps aux
 	cmd := exec.CommandContext(ctx, "git", "clone", cloneURL, workspacePath)
+	cmd.Env = g.gitEnvWithAuth()
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
@@ -162,10 +164,10 @@ func (g *GitOps) PushChanges(ctx context.Context, workspacePath, repoName, branc
 		return false, fmt.Errorf("git commit: %s", string(output))
 	}
 
-	// Set remote with auth URL
-	authURL, err := g.buildAuthURL(repoName)
+	// Set remote with clean URL (no embedded token)
+	remoteURL, err := g.buildCloneURL(repoName)
 	if err != nil {
-		return false, fmt.Errorf("build auth URL: %w", err)
+		return false, fmt.Errorf("build remote URL: %w", err)
 	}
 
 	// Check if remote exists
@@ -173,23 +175,24 @@ func (g *GitOps) PushChanges(ctx context.Context, workspacePath, repoName, branc
 	cmd.Dir = workspacePath
 	if err := cmd.Run(); err != nil {
 		// Add remote
-		cmd = exec.CommandContext(ctx, "git", "remote", "add", "origin", authURL)
+		cmd = exec.CommandContext(ctx, "git", "remote", "add", "origin", remoteURL)
 		cmd.Dir = workspacePath
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return false, fmt.Errorf("add remote: %s", string(output))
 		}
 	} else {
 		// Update remote URL
-		cmd = exec.CommandContext(ctx, "git", "remote", "set-url", "origin", authURL)
+		cmd = exec.CommandContext(ctx, "git", "remote", "set-url", "origin", remoteURL)
 		cmd.Dir = workspacePath
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return false, fmt.Errorf("set remote: %s", string(output))
 		}
 	}
 
-	// Push
+	// Push with credentials via environment (not in URL)
 	cmd = exec.CommandContext(ctx, "git", "push", "-u", "origin", branchName, "--force")
 	cmd.Dir = workspacePath
+	cmd.Env = g.gitEnvWithAuth()
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return false, fmt.Errorf("git push: %s", string(output))
 	}
@@ -225,9 +228,47 @@ func (g *GitOps) CreateRepo(ctx context.Context, repoName string, private bool) 
 	return nil
 }
 
-// buildAuthURL constructs an authenticated git URL
+// buildCloneURL constructs a git URL without embedded credentials
+func (g *GitOps) buildCloneURL(repoName string) (string, error) {
+	parsed, err := url.Parse(g.orgURL)
+	if err != nil {
+		return "", fmt.Errorf("parse org URL: %w", err)
+	}
+
+	// URL without token - credentials provided via GIT_ASKPASS
+	return fmt.Sprintf("https://%s%s/%s.git", parsed.Host, parsed.Path, repoName), nil
+}
+
+// gitEnvWithAuth returns environment variables for git commands with secure auth.
+// Uses git credential helper to provide credentials without exposing them in process args.
+func (g *GitOps) gitEnvWithAuth() []string {
+	env := os.Environ()
+
+	// Parse org URL to get the host
+	parsed, _ := url.Parse(g.orgURL)
+	host := "github.com"
+	if parsed != nil && parsed.Host != "" {
+		host = parsed.Host
+	}
+
+	// Use git credential helper via environment
+	// GIT_CONFIG_COUNT + GIT_CONFIG_KEY/VALUE allows setting config without files
+	env = append(env,
+		"GIT_TERMINAL_PROMPT=0",
+		"GIT_CONFIG_COUNT=1",
+		"GIT_CONFIG_KEY_0=credential.helper",
+		// The helper script echoes username and password from env vars
+		fmt.Sprintf("GIT_CONFIG_VALUE_0=!f() { echo username=x-access-token; echo password=$GIT_TOKEN; }; f"),
+		"GIT_TOKEN="+g.token,
+		// Also set credential for specific host
+		fmt.Sprintf("GIT_CREDENTIAL_%s_USERNAME=x-access-token", strings.ToUpper(strings.ReplaceAll(host, ".", "_"))),
+	)
+
+	return env
+}
+
+// buildAuthURL constructs an authenticated git URL (deprecated, kept for gh CLI)
 func (g *GitOps) buildAuthURL(repoName string) (string, error) {
-	// Parse org URL (e.g., https://github.com/myorg)
 	parsed, err := url.Parse(g.orgURL)
 	if err != nil {
 		return "", fmt.Errorf("parse org URL: %w", err)

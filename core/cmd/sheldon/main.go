@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -153,7 +156,9 @@ func main() {
 		})
 		domain := os.Getenv("DOMAIN")
 		if domain == "" {
-			domain = "localhost"
+			// No domain configured - use server's public IP for links
+			domain = getPublicIP()
+			logger.Info("no domain configured, using IP for app URLs", "ip", domain)
 		}
 		tools.RegisterComposeDeployerTools(sheldon.Registry(), builder, composeDeploy, domain)
 		logger.Info("deployer enabled", "apps_file", cfg.Deployer.AppsFile)
@@ -513,4 +518,50 @@ func getAPIKeyForProvider(provider string, cfg *config.Config) string {
 		}
 		return cfg.LLM.APIKey
 	}
+}
+
+// getPublicIP returns the server's public IP address.
+// Falls back to local IP if public IP detection fails.
+func getPublicIP() string {
+	// Try public IP services
+	services := []string{
+		"https://api.ipify.org",
+		"https://ifconfig.me/ip",
+		"https://icanhazip.com",
+	}
+
+	client := &http.Client{Timeout: 3 * time.Second}
+	for _, svc := range services {
+		resp, err := client.Get(svc)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusOK {
+			body, err := io.ReadAll(io.LimitReader(resp.Body, 64))
+			if err == nil {
+				ip := strings.TrimSpace(string(body))
+				if net.ParseIP(ip) != nil {
+					return ip
+				}
+			}
+		}
+	}
+
+	// Fallback to local interface IP
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "localhost"
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+
+	return "localhost"
 }

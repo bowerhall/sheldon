@@ -3,6 +3,7 @@ package deployer
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +15,40 @@ import (
 )
 
 var validAppName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
+
+// validDomain matches valid domain names (RFC 1035 compliant)
+// Each label: alphanumeric, hyphens allowed in middle, 1-63 chars
+// Total domain: up to 253 chars
+var validDomain = regexp.MustCompile(`^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$`)
+
+// validateDomain checks if a domain is valid for deployment
+func validateDomain(domain string) error {
+	if domain == "" || domain == "localhost" {
+		return nil
+	}
+
+	// Allow IP addresses
+	if net.ParseIP(domain) != nil {
+		return nil
+	}
+
+	// Check total length
+	if len(domain) > 253 {
+		return fmt.Errorf("domain too long: max 253 characters")
+	}
+
+	// Check format
+	if !validDomain.MatchString(domain) {
+		return fmt.Errorf("invalid domain format: must be valid DNS name")
+	}
+
+	// Reject suspicious patterns
+	if strings.Contains(domain, "..") {
+		return fmt.Errorf("invalid domain: contains consecutive dots")
+	}
+
+	return nil
+}
 
 // ComposeDeployer deploys apps using docker compose
 type ComposeDeployer struct {
@@ -123,10 +158,8 @@ func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string
 	}
 
 	// validate domain if provided
-	if domain != "" && domain != "localhost" {
-		if !validAppName.MatchString(strings.Split(domain, ".")[0]) {
-			return nil, fmt.Errorf("invalid domain %q: contains invalid characters", domain)
-		}
+	if err := validateDomain(domain); err != nil {
+		return nil, fmt.Errorf("invalid domain %q: %w", domain, err)
 	}
 
 	// validate app directory exists
@@ -156,22 +189,26 @@ func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string
 		return nil, fmt.Errorf("no Dockerfile found in %s or its subdirectories", appDir)
 	}
 
-	// add traefik labels for routing with HTTPS
-	if domain != "" && domain != "localhost" {
+	// add traefik labels for routing
+	// Skip traefik for IP addresses (subdomain routing requires DNS)
+	isIP := net.ParseIP(domain) != nil
+	if domain != "" && domain != "localhost" && !isIP {
+		// Domain name - use HTTPS with Let's Encrypt
 		service.Labels = []string{
 			"traefik.enable=true",
 			fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", name, name, domain),
 			fmt.Sprintf("traefik.http.routers.%s.entrypoints=websecure", name),
 			fmt.Sprintf("traefik.http.routers.%s.tls.certresolver=letsencrypt", name),
 		}
-	} else if domain != "" {
-		// localhost: HTTP only
+	} else if domain == "localhost" {
+		// localhost: HTTP only with subdomain
 		service.Labels = []string{
 			"traefik.enable=true",
 			fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", name, name, domain),
 			fmt.Sprintf("traefik.http.routers.%s.entrypoints=web", name),
 		}
 	}
+	// For IP addresses, no traefik labels - app runs on internal network only
 
 	// add service to compose
 	if compose.Services == nil {
