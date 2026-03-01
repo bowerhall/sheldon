@@ -13,11 +13,13 @@ import (
 
 // CronRunner checks for due crons and triggers the agent loop
 type CronRunner struct {
-	crons    *cron.Store
-	memory   *sheldonmem.Store
-	trigger  TriggerFunc // injects into agent loop
-	notify   NotifyFunc  // sends messages to chat
-	timezone *time.Location
+	crons            *cron.Store
+	memory           *sheldonmem.Store
+	trigger          TriggerFunc // injects into agent loop
+	notify           NotifyFunc  // sends messages to chat
+	timezone         *time.Location
+	agent            *Agent           // for system crons
+	lastEndOfDayRun  time.Time        // track last end-of-day run
 }
 
 // NewCronRunner creates a new CronRunner
@@ -29,6 +31,11 @@ func NewCronRunner(crons *cron.Store, memory *sheldonmem.Store, trigger TriggerF
 		notify:   notify,
 		timezone: tz,
 	}
+}
+
+// SetAgent sets the agent for system crons (end-of-day processing)
+func (r *CronRunner) SetAgent(agent *Agent) {
+	r.agent = agent
 }
 
 // Run starts the cron checker loop
@@ -53,6 +60,9 @@ func (r *CronRunner) Run(ctx context.Context) {
 }
 
 func (r *CronRunner) checkDueCrons(ctx context.Context) {
+	// check system crons first
+	r.checkSystemCrons(ctx)
+
 	// cleanup expired crons
 	deleted, err := r.crons.DeleteExpired()
 	if err != nil {
@@ -70,6 +80,33 @@ func (r *CronRunner) checkDueCrons(ctx context.Context) {
 
 	for _, c := range crons {
 		r.fireCron(ctx, c)
+	}
+}
+
+// checkSystemCrons handles hardcoded system crons like end-of-day processing
+func (r *CronRunner) checkSystemCrons(ctx context.Context) {
+	if r.agent == nil {
+		return
+	}
+
+	now := time.Now().In(r.timezone)
+
+	// End-of-day processing: runs at 3am, processes yesterday's conversations
+	// Only run once per day
+	if now.Hour() == 3 && now.Minute() < 10 {
+		today := now.Format("2006-01-02")
+		lastRun := r.lastEndOfDayRun.Format("2006-01-02")
+
+		if lastRun != today {
+			logger.Info("running end-of-day processing")
+			r.lastEndOfDayRun = now
+
+			go func() {
+				if err := r.agent.ProcessEndOfDay(ctx); err != nil {
+					logger.Error("end-of-day processing failed", "error", err)
+				}
+			}()
+		}
 	}
 }
 

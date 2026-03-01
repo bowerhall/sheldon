@@ -30,12 +30,6 @@ CREATE TABLE IF NOT EXISTS recent_messages (
 CREATE INDEX IF NOT EXISTS idx_recent_messages_session ON recent_messages(session_id, created_at DESC);
 `
 
-// migration to convert old chat_id to session_id
-const migrationSQL = `
--- Check if old table exists with chat_id column
--- SQLite doesn't support IF EXISTS for columns, so we handle this in Go
-`
-
 // NewStore creates a conversation buffer using the provided database connection
 func NewStore(db *sql.DB, maxMessages int) (*Store, error) {
 	if maxMessages <= 0 {
@@ -58,10 +52,7 @@ func (s *Store) migrate() error {
 
 	if err == nil && hasOldSchema {
 		// Migrate old data: convert chat_id to session_id with telegram prefix
-		// (assuming old data was telegram-only)
-		_, _ = s.db.Exec(`
-			ALTER TABLE recent_messages RENAME TO recent_messages_old;
-		`)
+		_, _ = s.db.Exec(`ALTER TABLE recent_messages RENAME TO recent_messages_old;`)
 		_, err = s.db.Exec(schema)
 		if err != nil {
 			return err
@@ -114,9 +105,7 @@ func (s *Store) Add(sessionID string, role, content string) (*AddResult, error) 
 	rows.Close()
 
 	// If buffer is full, the oldest messages will be evicted
-	// After adding 2 new messages (user + assistant), we need to evict 2
 	if len(existing) >= s.maxMessages {
-		// Return the messages that will be evicted (oldest ones)
 		evictCount := len(existing) - s.maxMessages + 2 // +2 for incoming user+assistant
 		if evictCount > 0 && evictCount <= len(existing) {
 			result.Overflow = existing[:evictCount]

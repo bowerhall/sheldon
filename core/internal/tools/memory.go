@@ -269,7 +269,13 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			}
 		}
 
-		// Search facts and summaries in parallel
+		sessionID := SessionIDFromContext(ctx)
+
+		// Search today's messages, facts, and summaries in parallel
+		type todayResult struct {
+			messages []sheldonmem.DailyMessage
+			err      error
+		}
 		type factsResult struct {
 			result *sheldonmem.RecallResult
 			err    error
@@ -279,8 +285,20 @@ The user must signal intent to save with words like "remember", "save", "don't f
 			err       error
 		}
 
+		todayCh := make(chan todayResult, 1)
 		factsCh := make(chan factsResult, 1)
 		summariesCh := make(chan summariesResult, 1)
+
+		// Search today's messages (exact match, no hallucination possible)
+		go func() {
+			if sessionID == "" {
+				todayCh <- todayResult{nil, nil}
+				return
+			}
+			// Search today's messages via sheldonmem
+			msgs, err := memory.SearchToday(sessionID, params.Query)
+			todayCh <- todayResult{msgs, err}
+		}()
 
 		// Search facts
 		go func() {
@@ -290,7 +308,6 @@ The user must signal intent to save with words like "remember", "save", "don't f
 
 		// Search summaries (using session ID from context)
 		go func() {
-			sessionID := SessionIDFromContext(ctx)
 			if sessionID == "" {
 				summariesCh <- summariesResult{nil, nil}
 				return
@@ -300,23 +317,36 @@ The user must signal intent to save with words like "remember", "save", "don't f
 		}()
 
 		// Collect results
+		todayRes := <-todayCh
 		factsRes := <-factsCh
 		summariesRes := <-summariesCh
 
 		if factsRes.err != nil {
 			return "", factsRes.err
 		}
+		todayMsgs := todayRes.messages
 		result := factsRes.result
 		summaries := summariesRes.summaries
 
-		if len(result.Facts) == 0 && len(result.Entities) == 0 && len(summaries) == 0 {
+		if len(todayMsgs) == 0 && len(result.Facts) == 0 && len(result.Entities) == 0 && len(summaries) == 0 {
 			return "No relevant memories found.", nil
 		}
 
 		var sb strings.Builder
 
+		// Today's messages come first - exact quotes, most reliable
+		if len(todayMsgs) > 0 {
+			sb.WriteString("[TODAY'S CONVERSATION]\n")
+			for _, m := range todayMsgs {
+				timeStr := m.CreatedAt.Format("15:04")
+				fmt.Fprintf(&sb, "%s %s: %s\n", timeStr, m.Role, m.Content)
+			}
+			sb.WriteString("\n")
+		}
+
+		// Then past facts
 		if len(result.Facts) > 0 {
-			sb.WriteString("Facts:\n")
+			sb.WriteString("[STORED FACTS]\n")
 			for _, f := range result.Facts {
 				sensitiveMarker := ""
 				if f.Sensitive {
@@ -335,7 +365,7 @@ The user must signal intent to save with words like "remember", "save", "don't f
 		}
 
 		if len(result.Entities) > 0 {
-			sb.WriteString("\nRelated entities:\n")
+			sb.WriteString("\n[RELATED ENTITIES]\n")
 			for _, t := range result.Entities {
 				if t.Relation != "" {
 					fmt.Fprintf(&sb, "- %s (%s, via %s, depth %d)\n", t.Entity.Name, t.Entity.EntityType, t.Relation, t.Depth)
@@ -349,7 +379,7 @@ The user must signal intent to save with words like "remember", "save", "don't f
 		}
 
 		if len(summaries) > 0 {
-			sb.WriteString("\nConversation context:\n")
+			sb.WriteString("\n[PAST CONVERSATIONS]\n")
 			for _, s := range summaries {
 				fmt.Fprintf(&sb, "- %s: %s\n", s.SummaryDate.Format("Jan 2"), s.Summary)
 			}

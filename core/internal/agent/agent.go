@@ -167,6 +167,7 @@ func (a *Agent) buildDynamicPrompt() string {
 	return prompt
 }
 
+
 // formatAge returns a human-readable age string like "2 days ago" or "3 hours ago"
 func formatAge(t time.Time) string {
 	d := time.Since(t)
@@ -346,24 +347,23 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 		return "", err
 	}
 
-	// save to recent conversation buffer
+	// save to recent conversation buffer (FIFO for LLM context)
 	if a.convo != nil {
 		if _, err := a.convo.Add(sessionID, "user", userMessage); err != nil {
 			logger.Warn("failed to save user message to conversation buffer", "error", err)
 		}
-		if result, err := a.convo.Add(sessionID, "assistant", response); err != nil {
+		if _, err := a.convo.Add(sessionID, "assistant", response); err != nil {
 			logger.Warn("failed to save assistant response to conversation buffer", "error", err)
-		} else if result != nil && len(result.Overflow) > 0 {
-			// Buffer overflowed - save evicted messages as a chunk for daily summaries
-			go a.saveOverflowAsChunk(sessionID, result.Overflow)
 		}
 	}
 
-	// extract facts only from the new exchange (not the buffer)
-	go a.rememberExchange(ctx, sessionID, userMessage, response)
-
-	// check if we need to generate summaries for previous days (async)
-	go a.generatePendingSummaries(ctx, sessionID)
+	// save to sheldonmem's daily messages (for same-day recall)
+	if err := a.memory.AddDailyMessage(sessionID, "user", userMessage); err != nil {
+		logger.Warn("failed to save user message to daily storage", "error", err)
+	}
+	if err := a.memory.AddDailyMessage(sessionID, "assistant", response); err != nil {
+		logger.Warn("failed to save assistant message to daily storage", "error", err)
+	}
 
 	return response, nil
 }

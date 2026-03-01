@@ -88,3 +88,38 @@ type Note struct {
 	Tier      string // "working" or "archive"
 	UpdatedAt time.Time
 }
+
+// DailyMessage is a message stored for same-day recall
+type DailyMessage struct {
+	ID        int64
+	SessionID string
+	Role      string
+	Content   string
+	CreatedAt time.Time
+	Date      string
+}
+
+// ExtractedFact is a fact extracted from conversation
+type ExtractedFact struct {
+	Subject    string  `json:"subject"`
+	Field      string  `json:"field"`
+	Value      string  `json:"value"`
+	Domain     string  `json:"domain"`
+	Confidence float64 `json:"confidence"`
+}
+
+// ExtractedRelationship is a relationship extracted from conversation
+type ExtractedRelationship struct {
+	Source     string  `json:"source"`
+	Target     string  `json:"target"`
+	TargetType string  `json:"target_type"`
+	Relation   string  `json:"relation"`
+	Strength   float64 `json:"strength"`
+}
+
+// EndOfDayResult is the combined extraction + summary result
+type EndOfDayResult struct {
+	Facts         []ExtractedFact         `json:"facts"`
+	Relationships []ExtractedRelationship `json:"relationships"`
+	Summary       string                  `json:"summary"`
+}

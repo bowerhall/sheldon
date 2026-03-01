@@ -84,6 +84,17 @@ CREATE TABLE IF NOT EXISTS daily_summaries (
 
 CREATE INDEX IF NOT EXISTS idx_summaries_session ON daily_summaries(session_id);
 CREATE INDEX IF NOT EXISTS idx_summaries_date ON daily_summaries(summary_date);
+
+CREATE TABLE IF NOT EXISTS daily_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT (datetime('now')),
+    date TEXT NOT NULL DEFAULT (date('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_daily_messages_session_date ON daily_messages(session_id, date);
 `
 
 const vecSchema = `

@@ -454,6 +454,7 @@ func main() {
 			},
 			tz,
 		)
+		cronRunner.SetAgent(sheldon)
 		go cronRunner.Run(ctx)
 		logger.Info("cron runner started", "provider", provider)
 	}

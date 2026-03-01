@@ -2,152 +2,46 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
-	"github.com/bowerhall/sheldon/internal/conversation"
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldon/internal/logger"
 	"github.com/bowerhall/sheldonmem"
 )
 
-const extractPrompt = `You are a fact and relationship extractor. Analyze the conversation and extract:
-1. FACTS worth remembering
-2. RELATIONSHIPS between people, places, or organizations
-
-Extract facts about:
-- The USER - preferences, life details, plans, events, changes
-- SHELDON (the assistant) - instructions about behavior, communication style
-
-Extract relationships when people mention:
-- People they know (friends, family, colleagues)
-- Places they work, live, or frequent
-- Organizations they belong to
-
-Return JSON with two arrays: "facts" and "relationships".
-
-Facts format:
-- "subject": "user" or "sheldon"
-- "field": short key (e.g., "saturday_plans", "favorite_food")
-- "value": the information
-- "domain": identity, health, mind, beliefs, knowledge, relationships, career, finances, place, goals, preferences, routines, events, patterns
-- "confidence": 0.0-1.0
-
-Relationships format:
-- "source": who/what the relationship is from (e.g., "user", "Sarah")
-- "target": who/what the relationship is to (e.g., "Sarah", "Google")
-- "target_type": "person", "place", or "organization"
-- "relation": the relationship type (e.g., "knows", "works_at", "lives_in", "married_to", "friends_with", "sibling_of")
-- "strength": 0.0-1.0
-
-Only extract what is explicitly stated. If nothing to extract, use empty arrays.
-
-FORMAT EXAMPLE (do not extract these - they are just to show the structure):
-{
-  "facts": [
-    {"subject": "user", "field": "favorite_color", "value": "blue", "domain": "preferences", "confidence": 0.95}
-  ],
-  "relationships": [
-    {"source": "user", "target": "EXAMPLE_PERSON", "target_type": "person", "relation": "knows", "strength": 0.9}
-  ]
+// entityResolver implements sheldonmem.EntityResolver
+type entityResolver struct {
+	agent *Agent
 }
 
-Conversation:
-%s
-
-Extract (JSON only):`
-
-type extractedFact struct {
-	Subject    string  `json:"subject"`
-	Field      string  `json:"field"`
-	Value      string  `json:"value"`
-	Domain     string  `json:"domain"`
-	Confidence float64 `json:"confidence"`
+func (r *entityResolver) GetOrCreateUserEntity(sessionID string) int64 {
+	return r.agent.getOrCreateUserEntity(sessionID)
 }
 
-type extractedRelationship struct {
-	Source     string  `json:"source"`
-	Target     string  `json:"target"`
-	TargetType string  `json:"target_type"`
-	Relation   string  `json:"relation"`
-	Strength   float64 `json:"strength"`
+func (r *entityResolver) GetSheldonEntityID() int64 {
+	return r.agent.getSheldonEntityID()
 }
 
-type extractionResult struct {
-	Facts         []extractedFact         `json:"facts"`
-	Relationships []extractedRelationship `json:"relationships"`
+func (r *entityResolver) GetOrCreateNamedEntity(name, entityType string) int64 {
+	return r.agent.getOrCreateNamedEntity(name, entityType)
 }
 
-func (a *Agent) rememberExchange(ctx context.Context, sessionID string, userMessage, assistantResponse string) {
-	conversation := fmt.Sprintf("user: %s\nassistant: %s\n", userMessage, assistantResponse)
-	prompt := fmt.Sprintf(extractPrompt, conversation)
+func (r *entityResolver) ResolveEntityID(name, sessionID string, userID, sheldonID int64) int64 {
+	return r.agent.resolveEntityID(name, sessionID, userID, sheldonID)
+}
 
-	response, err := a.extractor.Chat(ctx, "", []llm.Message{{Role: "user", Content: prompt}})
-	if err != nil {
-		logger.Error("fact extraction failed", "error", err)
-		return
+// llmAdapter adapts our LLM interface to sheldonmem.LLM
+type llmAdapter struct {
+	llm llm.LLM
+}
+
+func (a *llmAdapter) Chat(ctx context.Context, systemPrompt string, messages []sheldonmem.LLMMessage) (string, error) {
+	llmMsgs := make([]llm.Message, len(messages))
+	for i, m := range messages {
+		llmMsgs[i] = llm.Message{Role: m.Role, Content: m.Content}
 	}
-
-	result, err := parseExtraction(response)
-	if err != nil {
-		logger.Error("extraction parsing failed", "error", err, "response", response)
-		return
-	}
-
-	userEntityID := a.getOrCreateUserEntity(sessionID)
-	sheldonEntityID := a.getSheldonEntityID()
-
-	for _, fact := range result.Facts {
-		domainID, ok := sheldonmem.DomainSlugToID[fact.Domain]
-		if !ok {
-			domainID = 1
-		}
-
-		var entityID int64
-		subject := strings.ToLower(fact.Subject)
-		if subject == "sheldon" || subject == "assistant" {
-			entityID = sheldonEntityID
-		} else {
-			entityID = userEntityID
-		}
-
-		if entityID == 0 {
-			logger.Error("no entity ID for fact", "subject", fact.Subject)
-			continue
-		}
-
-		res, err := a.memory.AddFactWithContext(ctx, &entityID, domainID, fact.Field, fact.Value, fact.Confidence, false)
-		if err != nil {
-			logger.Error("failed to store fact", "error", err, "field", fact.Field)
-			continue
-		}
-
-		if res.Superseded != nil {
-			logger.Info("fact superseded", "subject", subject, "field", fact.Field, "old", res.Superseded.Value, "new", fact.Value)
-		} else {
-			logger.Info("fact remembered", "subject", subject, "field", fact.Field, "value", fact.Value, "domain", fact.Domain)
-		}
-	}
-
-	for _, rel := range result.Relationships {
-		sourceID := a.resolveEntityID(rel.Source, sessionID, userEntityID, sheldonEntityID)
-		targetID := a.getOrCreateNamedEntity(rel.Target, rel.TargetType)
-
-		if sourceID == 0 || targetID == 0 {
-			logger.Warn("skipping relationship, missing entity", "source", rel.Source, "target", rel.Target)
-			continue
-		}
-
-		_, err := a.memory.AddEdge(sourceID, targetID, rel.Relation, rel.Strength, "")
-		if err != nil {
-			logger.Error("failed to store relationship", "error", err, "relation", rel.Relation)
-			continue
-		}
-
-		logger.Info("relationship remembered", "source", rel.Source, "relation", rel.Relation, "target", rel.Target)
-	}
+	return a.llm.Chat(ctx, systemPrompt, llmMsgs)
 }
 
 func (a *Agent) getSheldonEntityID() int64 {
@@ -215,107 +109,15 @@ func (a *Agent) getOrCreateNamedEntity(name, entityType string) int64 {
 	return entity.ID
 }
 
-var unquotedKeyRe = regexp.MustCompile(`(\s|,)([a-z_]+):\s*`)
-var invalidEscapeRe = regexp.MustCompile(`\\([^"\\\/bfnrtu])`)
+// ProcessEndOfDay runs extraction and summarization for yesterday's conversations
+// This is triggered by a system cron at ~3am
+func (a *Agent) ProcessEndOfDay(ctx context.Context) error {
+	resolver := &entityResolver{agent: a}
+	adapter := &llmAdapter{llm: a.getLLM()}
 
-func parseExtraction(response string) (*extractionResult, error) {
-	response = strings.TrimSpace(response)
-
-	start := strings.Index(response, "{")
-	end := strings.LastIndex(response, "}")
-
-	if start == -1 || end == -1 || end < start {
-		return nil, fmt.Errorf("no JSON object found")
+	if err := a.memory.ProcessEndOfDay(ctx, adapter, resolver); err != nil {
+		return fmt.Errorf("sheldonmem processing failed: %w", err)
 	}
 
-	jsonStr := response[start : end+1]
-
-	// Fix unquoted keys (e.g., target: -> "target":)
-	jsonStr = unquotedKeyRe.ReplaceAllString(jsonStr, `$1"$2": `)
-
-	// Fix invalid escape sequences (e.g., \_ -> _)
-	jsonStr = invalidEscapeRe.ReplaceAllString(jsonStr, `$1`)
-
-	var result extractionResult
-
-	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
-		return nil, err
-	}
-
-	return &result, nil
-}
-
-// saveOverflowAsChunk stores evicted buffer messages for daily summaries
-func (a *Agent) saveOverflowAsChunk(sessionID string, messages []conversation.Message) {
-	var chunk strings.Builder
-	for _, m := range messages {
-		fmt.Fprintf(&chunk, "%s: %s\n", m.Role, m.Content)
-	}
-	if err := a.memory.SaveChunk(sessionID, chunk.String()); err != nil {
-		logger.Error("failed to save conversation chunk", "error", err)
-	}
-	logger.Debug("saved overflow chunk", "session", sessionID, "messages", len(messages))
-}
-
-const summaryPrompt = `Summarize this day's conversations concisely. Focus on:
-- Key topics discussed
-- Decisions made
-- Plans or events mentioned (especially changes/cancellations)
-- Important information shared
-
-Keep it to 2-3 paragraphs max. Write in past tense, third person ("User discussed...", "They decided...").
-
-Conversations:
-%s
-
-Summary:`
-
-// generatePendingSummaries creates daily summaries for any days with unsummarized chunks
-func (a *Agent) generatePendingSummaries(ctx context.Context, sessionID string) {
-	pendingDates, err := a.memory.GetPendingChunkDates(sessionID)
-	if err != nil {
-		logger.Error("failed to get pending chunk dates", "error", err)
-		return
-	}
-
-	if len(pendingDates) == 0 {
-		return
-	}
-
-	logger.Info("generating daily summaries", "session", sessionID, "days", len(pendingDates))
-
-	for _, date := range pendingDates {
-		chunks, err := a.memory.GetChunksForDate(sessionID, date)
-		if err != nil {
-			logger.Error("failed to get chunks for date", "error", err, "date", date)
-			continue
-		}
-
-		if len(chunks) == 0 {
-			continue
-		}
-
-		// combine all chunks for the day
-		var combined strings.Builder
-		for _, c := range chunks {
-			combined.WriteString(c.Content)
-			combined.WriteString("\n\n---\n\n")
-		}
-
-		// generate summary using extractor LLM
-		prompt := fmt.Sprintf(summaryPrompt, combined.String())
-		summary, err := a.extractor.Chat(ctx, "", []llm.Message{{Role: "user", Content: prompt}})
-		if err != nil {
-			logger.Error("failed to generate summary", "error", err, "date", date)
-			continue
-		}
-
-		// save the summary (embedding handled internally by sheldonmem)
-		if err := a.memory.SaveDailySummary(ctx, sessionID, date, summary); err != nil {
-			logger.Error("failed to save daily summary", "error", err, "date", date)
-			continue
-		}
-
-		logger.Info("daily summary generated", "session", sessionID, "date", date.Format("2006-01-02"))
-	}
+	return nil
 }
