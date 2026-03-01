@@ -135,6 +135,9 @@ echo -e "${GREEN}[5/5]${NC} Starting Sheldon..."
 mkdir -p "$INSTALL_DIR/data"
 chown -R 1000:1000 "$INSTALL_DIR/data"
 
+# Clean up any stale network from failed installs
+docker network rm sheldon-net 2>/dev/null || true
+
 # Start services
 cd "$INSTALL_DIR"
 docker compose up -d
