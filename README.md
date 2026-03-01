@@ -4,7 +4,7 @@ A personal AI assistant that remembers your entire life, runs on your own infras
 
 ## Features
 
-- 🚀 **Zero-cost embeddings** — Local Ollama models, no API fees
+- 🚀 **Cheap memory** — End-of-day batch embedding, negligible cost (~$0.01/day)
 - 🧠 **Unified memory** — SQLite + sqlite-vec, single file, salience-aware decay
 - 🔒 **Isolated coder** — Ephemeral Docker containers for safe code execution
 - 🌐 **Browser automation** — Sandboxed agent-browser for JS-heavy sites
@@ -435,9 +435,9 @@ Sheldon uses a unified provider system for all LLM needs. Add API keys to Dopple
 **Components that use models:**
 - `llm` - Main chat (switchable at runtime)
 - `coder` - Code generation (switchable at runtime)
-- `embedder` - Embeddings (fixed: ollama/nomic-embed-text)
+- `embedder` - Embeddings (configurable via env, locked at runtime)
 
-*Note: embedder is locked at runtime. Changing it would break vector compatibility with existing memories.*
+*Note: embedder is set via `EMBEDDER_PROVIDER` and `EMBEDDER_MODEL`. Cannot be changed at runtime — would break vector compatibility with existing memories.*
 
 ### Provider Fallback
 
