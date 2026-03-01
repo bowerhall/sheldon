@@ -341,7 +341,19 @@ func RegisterStorageTools(registry *Registry, client *storage.Client) {
 		if err != nil {
 			return "", fmt.Errorf("create request: %w", err)
 		}
-		req.Header.Set("User-Agent", "Sheldon/1.0")
+
+		// Set browser-like headers to avoid 401/403 blocks
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		req.Header.Set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+		req.Header.Set("Sec-Fetch-Dest", "image")
+		req.Header.Set("Sec-Fetch-Mode", "no-cors")
+		req.Header.Set("Sec-Fetch-Site", "cross-site")
+
+		// Add Referer based on URL origin (bypass hotlink protection)
+		if parsed, err := url.Parse(params.URL); err == nil {
+			req.Header.Set("Referer", fmt.Sprintf("%s://%s/", parsed.Scheme, parsed.Host))
+		}
 
 		resp, err := fetchHTTPClient.Do(req)
 		if err != nil {
