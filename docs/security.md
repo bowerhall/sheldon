@@ -147,6 +147,29 @@ This prevents an attacker from tricking Sheldon into breaking memory search.
 
 Coder does NOT receive GIT_TOKEN - Sheldon handles all git operations externally. If coder is compromised, it cannot push to repos.
 
+**Git Token Security:**
+
+Git operations use credential helpers instead of embedding tokens in URLs:
+- Token not visible in `ps aux` output
+- Passed via `GIT_TOKEN` environment variable to git credential helper
+- Never appears in command line arguments
+
+## Skills Security
+
+Skills are validated to prevent path traversal attacks:
+
+```go
+// Rejected patterns:
+// - ../../../etc/passwd
+// - .hidden_file
+// - path/with/slashes
+
+// Only allowed: alphanumeric, hyphens, underscores
+validateSkillName(name) // returns error if invalid
+```
+
+This prevents malicious skill names from reading/writing outside the skills directory.
+
 ## GitHub Access Control
 
 Sheldon has write access to a dedicated GitHub org via `GIT_TOKEN`:

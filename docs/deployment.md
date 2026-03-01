@@ -65,9 +65,16 @@ cd /opt/sheldon
 curl -O https://raw.githubusercontent.com/bowerhall/sheldon/main/core/deploy/docker-compose.yml
 curl -O https://raw.githubusercontent.com/bowerhall/sheldon/main/core/.env.example
 
-# 5. Configure
+# 5. Configure secrets (choose one)
+
+# Option A: Simple .env file (quick setup)
 cp .env.example .env
 nano .env  # Add your tokens
+
+# Option B: Doppler (recommended for production)
+# Install: curl -sLf https://cli.doppler.com/install.sh | sh
+# Setup:   doppler login && doppler setup
+# Run:     doppler run -- docker compose up -d
 
 # 6. Create network and start
 docker network create sheldon-net
@@ -98,6 +105,59 @@ Sheldon will:
 2. Add it to `apps.yml`
 3. Run `docker compose -f apps.yml up -d`
 4. Configure Traefik labels for routing
+
+---
+
+## Secrets Management
+
+Two options for managing API keys and tokens:
+
+| Approach | Best For | Security |
+|----------|----------|----------|
+| `.env` file | Quick setup, single user | Keys in file on disk |
+| Doppler | Production, teams | Keys in encrypted vault |
+
+**Option A: .env file (simple)**
+
+```bash
+cp .env.example .env
+nano .env  # Add your tokens
+docker compose up -d
+```
+
+Keys are stored in `.env` on disk. Secure the file:
+```bash
+chmod 600 .env
+```
+
+**Option B: Doppler (recommended for production)**
+
+```bash
+# Install Doppler CLI
+curl -sLf https://cli.doppler.com/install.sh | sh
+
+# Login and setup
+doppler login
+doppler setup  # Select your project
+
+# Run with secrets injected
+doppler run -- docker compose up -d
+```
+
+Keys never touch disk - injected at runtime from Doppler's encrypted vault.
+
+---
+
+## No Domain? Use IP Address
+
+If you don't have a domain, Sheldon auto-detects your server's public IP:
+
+```bash
+# No DOMAIN in .env = Sheldon uses public IP
+# Apps accessible via container name on Docker network
+```
+
+Note: Without a domain, apps won't have public URLs via Traefik (subdomain routing requires DNS). Apps are still accessible within the Docker network.
 
 ---
 
