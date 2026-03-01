@@ -111,20 +111,52 @@ func (r *CronRunner) checkSystemCrons(ctx context.Context) {
 }
 
 func (r *CronRunner) fireCron(ctx context.Context, c cron.Cron) {
-	// search memory for keyword across all domains
+	sessionID := fmt.Sprintf("telegram:%d", c.ChatID)
+
+	// HYBRID SEARCH: semantic on embedded facts + keyword on recent messages
+	// This ensures same-day context (not yet embedded) is still found
+
+	// 1. Semantic search on embedded facts
 	result, err := r.memory.Recall(ctx, c.Keyword, nil, 10)
 	if err != nil {
 		logger.Error("cron memory recall failed", "keyword", c.Keyword, "error", err)
-		return
 	}
 
-	// build context from recalled facts
+	// 2. Keyword search on recent daily messages (catches same-day context)
+	recentMsgs, err := r.memory.SearchRecentByKeyword(sessionID, c.Keyword, 2)
+	if err != nil {
+		logger.Error("cron daily search failed", "keyword", c.Keyword, "error", err)
+	}
+
+	// Build combined context
 	var factsContext strings.Builder
-	if len(result.Facts) > 0 {
+
+	// Add semantic results
+	if result != nil && len(result.Facts) > 0 {
+		factsContext.WriteString("From memory:\n")
 		for _, f := range result.Facts {
 			fmt.Fprintf(&factsContext, "- %s: %s\n", f.Field, f.Value)
 		}
-	} else {
+	}
+
+	// Add recent message context (only user messages)
+	var userMsgs []sheldonmem.DailyMessage
+	for _, m := range recentMsgs {
+		if m.Role == "user" {
+			userMsgs = append(userMsgs, m)
+		}
+	}
+	if len(userMsgs) > 0 {
+		if factsContext.Len() > 0 {
+			factsContext.WriteString("\n")
+		}
+		factsContext.WriteString("From recent conversation:\n")
+		for _, m := range userMsgs {
+			fmt.Fprintf(&factsContext, "- User said: %s\n", truncate(m.Content, 200))
+		}
+	}
+
+	if factsContext.Len() == 0 {
 		factsContext.WriteString("(No specific context found)")
 	}
 
@@ -146,7 +178,6 @@ This is a scheduled trigger you set up earlier. Take appropriate action based on
 Respond naturally - the user will see your message.`, c.Keyword, currentTime, factsContext.String())
 
 	// inject into agent loop
-	sessionID := fmt.Sprintf("telegram:%d", c.ChatID)
 	response, err := r.trigger(c.ChatID, sessionID, prompt)
 	if err != nil {
 		logger.Error("cron trigger failed", "keyword", c.Keyword, "error", err)
@@ -182,4 +213,11 @@ Respond naturally - the user will see your message.`, c.Keyword, currentTime, fa
 	}
 
 	logger.Debug("cron next run scheduled", "keyword", c.Keyword, "next", nextRun)
+}
+
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
