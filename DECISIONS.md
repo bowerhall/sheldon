@@ -4,6 +4,114 @@
 
 ---
 
+## 2026-03-01: Memory Architecture Overhaul
+
+### End-of-Day Extraction (Replacing Per-Message Extraction)
+**Decision**: Store full conversation in `daily_messages` table for same-day recall. Extract facts and generate summaries once per day at 3am via the main chat LLM.
+
+**Why per-message extraction was overengineered**:
+- Most messages have zero extractable facts ("ok sounds good" doesn't need an LLM call)
+- Same-day recall doesn't need facts — just search the raw conversation
+- Batch extraction sees full day's context, catches corrections ("actually Seattle not Portland")
+- One API call per day vs dozens
+
+**How it works**:
+1. Every message saved to `daily_messages` (full text, searchable)
+2. `recall_memory` searches today's messages first (exact match, zero hallucination)
+3. At 3am, `ProcessEndOfDay` extracts facts + generates summary in one LLM call
+4. Messages deleted after successful processing
+
+**Tradeoff**: If Sheldon crashes before 3am, that day's facts aren't extracted. But messages remain in `daily_messages` for same-day recall, and next run picks them up.
+
+---
+
+### Removal of Extractor Model
+**Decision**: Eliminated the separate extractor LLM (qwen2.5:3b). End-of-day extraction now uses the main chat LLM (Kimi/Claude).
+
+**Why**:
+- Only one extraction call per day — cost is negligible
+- Better extraction quality from capable chat model
+- ~1.6GB less RAM/VRAM required (qwen2.5:3b was ~1.9GB)
+- Sheldon can now run on €5/mo VPS with 1GB RAM
+
+**What remains**:
+- `nomic-embed-text` (~274MB) for embeddings — still needed for semantic search
+
+**Files cleaned**:
+- Removed `EXTRACTOR_*` env vars from docker-compose
+- Removed `qwen2.5:3b` from ollama entrypoint
+- Removed extractor config from code and docs
+
+---
+
+### Resilient End-of-Day Processing
+**Decision**: `ProcessEndOfDay` queries ALL pending dates with unprocessed messages, not just yesterday.
+
+**Why**: If Sheldon was down or processing failed, messages from older dates would be orphaned forever.
+
+**How it works**:
+```sql
+SELECT DISTINCT session_id, date FROM daily_messages WHERE date < ? ORDER BY date ASC
+```
+
+Uses UTC for date comparison to match SQLite's `date('now')`.
+
+**Edge cases handled**:
+- Failed days retried on next run (messages stay until successful deletion)
+- Duplicate facts handled by supersedes mechanism
+- Duplicate summaries handled by ON CONFLICT UPDATE
+
+---
+
+## 2026-03-01: Container Orchestration Hardening
+
+### HTTP Health Endpoint
+**Decision**: Added `/health` endpoint on port 8080 that pings the SQLite database.
+
+**Why**: Docker Compose can restart crashed containers (`restart: unless-stopped`), but not hung ones. Health checks detect when Sheldon is alive but unresponsive.
+
+**Implementation**:
+```go
+// GET /health returns 200 if DB ping succeeds
+func (s *Store) HealthCheck(ctx context.Context) error {
+    return s.db.PingContext(ctx)
+}
+```
+
+**Docker healthcheck config**:
+```yaml
+healthcheck:
+  test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 30s
+```
+
+---
+
+### Autoheal for Unhealthy Container Restart
+**Decision**: Added `willfarrell/autoheal` container to automatically restart unhealthy containers.
+
+**Why**: Docker's built-in healthcheck only marks containers as unhealthy — it doesn't restart them. Autoheal watches for unhealthy status and triggers restart.
+
+**Flow**:
+1. Sheldon hangs (infinite loop, deadlock, DB lock)
+2. Health check fails 3 consecutive times
+3. Docker marks container as "unhealthy"
+4. Autoheal detects unhealthy status
+5. Autoheal restarts the container
+
+**vs Kubernetes**: For a single VPS, this provides equivalent self-healing without k8s complexity. The main gap is multi-node failover (host dies entirely), which neither solves without a second node.
+
+**Stack summary**:
+| Container | Purpose |
+|-----------|---------|
+| watchtower | Auto-updates Sheldon image |
+| autoheal | Restarts unhealthy containers |
+
+---
+
 ## 2026-02-27: Security Audit & Hardening
 
 ### Go Toolchain Upgrade to 1.24.13
