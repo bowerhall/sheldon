@@ -102,6 +102,13 @@ services:
       - sheldon-net
     # Pull embedding model on first start
     entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull nomic-embed-text && wait"]
+    # Resource limits - prevent starving coder/browser containers
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
 
   minio:
     image: minio/minio:latest
@@ -178,6 +185,24 @@ services:
       - DOCKER_API_VERSION=1.44
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+
+  # Scheduled cleanup - prunes dead containers and unused images every 6 hours
+  docker-gc:
+    image: docker:cli
+    container_name: docker-gc
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          echo "[docker-gc] Running cleanup at $$(date)"
+          docker container prune -f
+          docker image prune -f
+          echo "[docker-gc] Cleanup complete, sleeping 6 hours"
+          sleep 21600
+        done
 
 networks:
   sheldon-net:

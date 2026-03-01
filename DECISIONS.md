@@ -4,6 +4,67 @@
 
 ---
 
+## 2026-03-01: Beta Testing Hardening
+
+### Lessons from First External Tester
+
+**Context**: Friend (Seyi) tested the one-click install on a fresh VPS. Found multiple issues that worked fine in dev but broke in production.
+
+**Issues found and fixed**:
+
+| Issue | Root Cause | Fix |
+|-------|------------|-----|
+| Model switching loop | Missing API keys caused infinite fallback | Better error messages, provider validation |
+| One-click install incomplete | Script didn't pull all containers | Fixed docker-compose pull sequence |
+| MinIO not initialized | Init container race condition | Added `depends_on` with `service_completed_successfully` |
+| Browser tool failing | Image downloads returning 401/403 | Added browser-like headers (User-Agent, Referer) |
+| Deploy app failing without domain | Traefik labels required DOMAIN | Added IP address auto-detection fallback |
+| Conversation buffer mismatch | Code default was 24, compose was 12 | Standardized to 12 everywhere |
+
+**Security fixes discovered during review**:
+
+1. **Git token in CLI args**: Token was visible in `ps aux`. Changed to credential helper via env var.
+2. **Skills path traversal**: `../../../etc/passwd` could escape skills dir. Added name validation.
+3. **Domain validation**: Malformed domains could inject Traefik labels. Added RFC 1035 regex.
+
+**Config script improvements** (`scripts/config.sh`):
+- Added update command (pull + restart)
+- Added status command (all services)
+- Added current model command
+- Added cleanup command (docker prune)
+- Added disk usage command
+- Added backup command
+
+**Key insight**: Development environment has different failure modes than fresh installs. API keys, DNS, file permissions, container ordering — all work locally but fail on clean VPS.
+
+---
+
+### No Docker Resource Limits
+
+**Decision**: Don't add CPU/memory limits to containers in docker-compose.
+
+**Why considered**: Docker supports `deploy.resources.limits` for resource control.
+
+**Why rejected**:
+- Limiting Ollama prevents users from pulling larger local models
+- Single-user VPS doesn't need resource quotas
+- Docker handles sharing naturally
+- Adding limits adds complexity with no benefit for target use case
+
+**Who this affects**: Users who want to run larger models locally (llama3, codellama, etc.) shouldn't be artificially constrained.
+
+---
+
+### End-of-Day Extraction Uses Chat Model
+
+**Decision**: `ProcessEndOfDay` fact extraction uses the main chat LLM (Kimi/Claude), not a separate extractor model.
+
+**Why**: With batch extraction (once per day instead of per-message), the cost of using the capable chat model is negligible. Better extraction quality, simpler architecture.
+
+**Removed**: `qwen2.5:3b` extractor model (~1.6GB savings).
+
+---
+
 ## 2026-03-01: Memory Architecture Overhaul
 
 ### End-of-Day Extraction (Replacing Per-Message Extraction)

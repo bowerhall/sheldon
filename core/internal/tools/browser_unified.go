@@ -226,6 +226,11 @@ func httpFetch(ctx context.Context, client *http.Client, userAgent, targetURL st
 		return "", fmt.Errorf("only http/https URLs supported")
 	}
 
+	// SSRF protection: block internal/private IPs
+	if err := validateExternalURL(targetURL); err != nil {
+		return "", fmt.Errorf("URL blocked: %w", err)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "GET", targetURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)

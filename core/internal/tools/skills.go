@@ -398,6 +398,10 @@ func (m *SkillsManager) InstallFromURL(ctx context.Context, url, name string) (s
 		downloadURL = fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s",
 			ghInfo.Owner, ghInfo.Repo, ghInfo.Branch, ghInfo.Path)
 	} else {
+		// SSRF protection: validate non-GitHub URLs
+		if err := validateExternalURL(url); err != nil {
+			return "", 0, fmt.Errorf("URL blocked: %w", err)
+		}
 		downloadURL = url
 	}
 
