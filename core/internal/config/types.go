@@ -8,6 +8,7 @@ type Config struct {
 	Embedder    EmbedderConfig
 	Coder       CoderConfig
 	Browser     BrowserConfig
+	Pinchtab    PinchtabConfig
 	Deployer    DeployerConfig
 	Storage     StorageConfig
 	Bot         BotConfig
@@ -19,6 +20,12 @@ type Config struct {
 type BrowserConfig struct {
 	SandboxEnabled bool   // use isolated Docker container for browser automation
 	Image          string // browser sandbox image (default: sheldon-browser-sandbox:latest)
+}
+
+type PinchtabConfig struct {
+	Enabled bool
+	URL     string // pinchtab server URL (default: http://pinchtab:9867)
+	Token   string // bearer token for auth
 }
 
 type DeployerConfig struct {

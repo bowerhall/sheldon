@@ -323,6 +323,50 @@ Coder runs in isolated mode by default. Set `CODER_ISOLATED=false` only for loca
 
 ---
 
+## Pinchtab (Authenticated Browsing)
+
+Pinchtab enables Sheldon to browse sites where you're logged in (Gmail, GitHub, etc.) using persistent browser sessions.
+
+### How It Works
+
+1. Pinchtab runs a real Chrome browser with saved cookies/sessions
+2. You log into your accounts once (manually)
+3. Sheldon can then browse those sites as you
+4. Each browse requires your approval via button click (security)
+
+### Setup
+
+1. Add to your `.env`:
+
+```env
+PINCHTAB_URL=http://pinchtab:9867
+PINCHTAB_TOKEN=your-secret-token
+```
+
+2. Start with the pinchtab profile:
+
+```bash
+docker compose --profile pinchtab up -d
+```
+
+3. Log into your accounts through Pinchtab's browser (sessions persist in volume)
+
+### Security Considerations
+
+- **Page content goes to LLM provider** - Don't use for banking or highly sensitive sites
+- **Approval required** - Sheldon can't browse authenticated sites without your button click
+- **Token protected** - `PINCHTAB_TOKEN` prevents unauthorized API access
+- **Isolated from Sheldon** - Runs in separate container, Sheldon only gets page text
+
+### Usage
+
+Once configured, Sheldon automatically uses Pinchtab for authenticated sites:
+
+- "Check my Gmail for unread emails" → uses `browse_session`
+- "Search for X on Google" → uses regular `browse` (anonymous)
+
+---
+
 ## Commands Reference
 
 ```bash
