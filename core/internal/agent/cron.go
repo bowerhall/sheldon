@@ -13,13 +13,13 @@ import (
 
 // CronRunner checks for due crons and triggers the agent loop
 type CronRunner struct {
-	crons            *cron.Store
-	memory           *sheldonmem.Store
-	trigger          TriggerFunc // injects into agent loop
-	notify           NotifyFunc  // sends messages to chat
-	timezone         *time.Location
-	agent            *Agent           // for system crons
-	lastEndOfDayRun  time.Time        // track last end-of-day run
+	crons              *cron.Store
+	memory             *sheldonmem.Store
+	trigger            TriggerFunc // injects into agent loop
+	notify             NotifyFunc  // sends messages to chat
+	timezone           *time.Location
+	agent              *Agent    // for system crons
+	lastExtractionRun  time.Time // track last extraction run (every 6 hours)
 }
 
 // NewCronRunner creates a new CronRunner
@@ -83,30 +83,25 @@ func (r *CronRunner) checkDueCrons(ctx context.Context) {
 	}
 }
 
-// checkSystemCrons handles hardcoded system crons like end-of-day processing
+// checkSystemCrons handles hardcoded system crons like memory extraction
 func (r *CronRunner) checkSystemCrons(ctx context.Context) {
 	if r.agent == nil {
 		return
 	}
 
-	now := time.Now().In(r.timezone)
+	now := time.Now()
 
-	// End-of-day processing: runs at 3am, processes yesterday's conversations
-	// Only run once per day
-	if now.Hour() == 3 && now.Minute() < 10 {
-		today := now.Format("2006-01-02")
-		lastRun := r.lastEndOfDayRun.Format("2006-01-02")
+	// Memory extraction: runs every 6 hours, processes messages older than 6 hours
+	// Failsafe: if runs were missed, all unprocessed messages get caught up
+	if now.Sub(r.lastExtractionRun) >= 6*time.Hour {
+		logger.Info("running memory extraction")
+		r.lastExtractionRun = now
 
-		if lastRun != today {
-			logger.Info("running end-of-day processing")
-			r.lastEndOfDayRun = now
-
-			go func() {
-				if err := r.agent.ProcessEndOfDay(ctx, false); err != nil {
-					logger.Error("end-of-day processing failed", "error", err)
-				}
-			}()
-		}
+		go func() {
+			if err := r.agent.ProcessEndOfDay(ctx, false); err != nil {
+				logger.Error("memory extraction failed", "error", err)
+			}
+		}()
 	}
 }
 
