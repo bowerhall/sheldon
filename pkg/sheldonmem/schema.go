@@ -96,7 +96,6 @@ CREATE TABLE IF NOT EXISTS daily_messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_daily_messages_session_date ON daily_messages(session_id, date);
-CREATE INDEX IF NOT EXISTS idx_daily_messages_pending ON daily_messages(processed_at, created_at);
 `
 
 const vecSchema = `
