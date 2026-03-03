@@ -17,22 +17,36 @@ import (
 )
 
 // markdownToTelegramHTML converts common markdown to Telegram-safe HTML
+// Uses placeholder approach to prevent formatting inside code blocks
 func markdownToTelegramHTML(text string) string {
 	// Escape HTML special chars first
 	text = html.EscapeString(text)
 
-	// Code blocks: ```code``` → <pre>code</pre>
+	// Extract code blocks and inline code, replace with placeholders
+	var codeBlocks []string
+	var inlineCodes []string
+
+	// Code blocks: ```code``` → placeholder
 	codeBlock := regexp.MustCompile("```([\\s\\S]*?)```")
-	text = codeBlock.ReplaceAllString(text, "<pre>$1</pre>")
+	text = codeBlock.ReplaceAllStringFunc(text, func(m string) string {
+		inner := codeBlock.FindStringSubmatch(m)[1]
+		codeBlocks = append(codeBlocks, inner)
+		return fmt.Sprintf("\x00CODEBLOCK%d\x00", len(codeBlocks)-1)
+	})
 
-	// Inline code: `code` → <code>code</code>
+	// Inline code: `code` → placeholder
 	inlineCode := regexp.MustCompile("`([^`]+)`")
-	text = inlineCode.ReplaceAllString(text, "<code>$1</code>")
+	text = inlineCode.ReplaceAllStringFunc(text, func(m string) string {
+		inner := inlineCode.FindStringSubmatch(m)[1]
+		inlineCodes = append(inlineCodes, inner)
+		return fmt.Sprintf("\x00INLINE%d\x00", len(inlineCodes)-1)
+	})
 
+	// Now process formatting on text without code
 	// Bold: **text** or __text__ → <b>text</b>
 	bold := regexp.MustCompile(`\*\*(.+?)\*\*|__(.+?)__`)
 	text = bold.ReplaceAllStringFunc(text, func(m string) string {
-		inner := regexp.MustCompile(`\*\*(.+?)\*\*|__(.+?)__`).FindStringSubmatch(m)
+		inner := bold.FindStringSubmatch(m)
 		if inner[1] != "" {
 			return "<b>" + inner[1] + "</b>"
 		}
@@ -42,7 +56,7 @@ func markdownToTelegramHTML(text string) string {
 	// Italic: *text* or _text_ → <i>text</i>
 	italic := regexp.MustCompile(`\*([^*]+)\*|_([^_]+)_`)
 	text = italic.ReplaceAllStringFunc(text, func(m string) string {
-		inner := regexp.MustCompile(`\*([^*]+)\*|_([^_]+)_`).FindStringSubmatch(m)
+		inner := italic.FindStringSubmatch(m)
 		if inner[1] != "" {
 			return "<i>" + inner[1] + "</i>"
 		}
@@ -52,6 +66,14 @@ func markdownToTelegramHTML(text string) string {
 	// Strikethrough: ~~text~~ → <s>text</s>
 	strike := regexp.MustCompile(`~~(.+?)~~`)
 	text = strike.ReplaceAllString(text, "<s>$1</s>")
+
+	// Restore code blocks
+	for i, code := range codeBlocks {
+		text = regexp.MustCompile(fmt.Sprintf("\x00CODEBLOCK%d\x00", i)).ReplaceAllString(text, "<pre>"+code+"</pre>")
+	}
+	for i, code := range inlineCodes {
+		text = regexp.MustCompile(fmt.Sprintf("\x00INLINE%d\x00", i)).ReplaceAllString(text, "<code>"+code+"</code>")
+	}
 
 	return text
 }

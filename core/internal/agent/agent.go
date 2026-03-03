@@ -26,6 +26,7 @@ var fallbackProviders = []string{"kimi", "claude", "openai"}
 
 const defaultMaxToolIterations = 20
 const maxToolFailures = 3
+const maxSameToolRepeats = 3 // detect spinning on same tool
 
 // maxToolIterations is configurable via AGENT_MAX_ITERATIONS env var
 var maxToolIterations = defaultMaxToolIterations
@@ -469,6 +470,8 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 	toolFailures := make(map[string]int)     // track consecutive failures per tool
 	failedProviders := make(map[string]bool) // track providers that failed this request
 	isolatedMode := false                    // restrict tools after browse/code to prevent prompt injection
+	lastTool := ""                           // track last tool for spinning detection
+	sameToolCount := 0                       // count consecutive calls to same tool
 
 	for i := range maxToolIterations {
 		// filter tools based on mode
@@ -532,6 +535,19 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 
 		for _, tc := range resp.ToolCalls {
 			logger.Info("executing tool", "name", tc.Name, "isolatedMode", isolatedMode)
+
+			// detect spinning - same tool called repeatedly without progress
+			if tc.Name == lastTool {
+				sameToolCount++
+				if sameToolCount >= maxSameToolRepeats {
+					logger.Warn("spinning detected", "tool", tc.Name, "count", sameToolCount)
+					sess.AddMessage("tool", fmt.Sprintf("[SPINNING] Called %s %d times in a row without progress. Stopping.", tc.Name, sameToolCount), nil, tc.ID)
+					return "I got stuck in a loop and had to stop. Let me try a different approach - what would you like me to do?", nil
+				}
+			} else {
+				lastTool = tc.Name
+				sameToolCount = 1
+			}
 
 			var result string
 			var err error
