@@ -17,14 +17,15 @@ import (
 )
 
 // markdownToTelegramHTML converts common markdown to Telegram-safe HTML
-// Uses placeholder approach to prevent formatting inside code blocks
+// Uses placeholder approach to prevent formatting inside code blocks and URLs
 func markdownToTelegramHTML(text string) string {
 	// Escape HTML special chars first
 	text = html.EscapeString(text)
 
-	// Extract code blocks and inline code, replace with placeholders
+	// Extract code blocks, inline code, and URLs - replace with placeholders
 	var codeBlocks []string
 	var inlineCodes []string
+	var urls []string
 
 	// Code blocks: ```code``` → placeholder
 	codeBlock := regexp.MustCompile("```([\\s\\S]*?)```")
@@ -40,6 +41,13 @@ func markdownToTelegramHTML(text string) string {
 		inner := inlineCode.FindStringSubmatch(m)[1]
 		inlineCodes = append(inlineCodes, inner)
 		return fmt.Sprintf("\x00INLINE%d\x00", len(inlineCodes)-1)
+	})
+
+	// URLs: protect from underscore/asterisk formatting
+	urlPattern := regexp.MustCompile(`https?://[^\s<>"]+`)
+	text = urlPattern.ReplaceAllStringFunc(text, func(m string) string {
+		urls = append(urls, m)
+		return fmt.Sprintf("\x00URL%d\x00", len(urls)-1)
 	})
 
 	// Now process formatting on text without code
@@ -67,12 +75,15 @@ func markdownToTelegramHTML(text string) string {
 	strike := regexp.MustCompile(`~~(.+?)~~`)
 	text = strike.ReplaceAllString(text, "<s>$1</s>")
 
-	// Restore code blocks
+	// Restore code blocks and URLs
 	for i, code := range codeBlocks {
 		text = regexp.MustCompile(fmt.Sprintf("\x00CODEBLOCK%d\x00", i)).ReplaceAllString(text, "<pre>"+code+"</pre>")
 	}
 	for i, code := range inlineCodes {
 		text = regexp.MustCompile(fmt.Sprintf("\x00INLINE%d\x00", i)).ReplaceAllString(text, "<code>"+code+"</code>")
+	}
+	for i, url := range urls {
+		text = regexp.MustCompile(fmt.Sprintf("\x00URL%d\x00", i)).ReplaceAllString(text, url)
 	}
 
 	return text
