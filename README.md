@@ -4,8 +4,8 @@ A personal AI assistant that remembers your entire life, runs on your own infras
 
 ## Features
 
-- 🚀 **Cheap memory** — End-of-day batch embedding, negligible cost (~$0.01/day)
-- 🧠 **Unified memory** — SQLite + sqlite-vec, single file, salience-aware decay
+- 🚀 **Local-first memory** — Ollama embeddings on your hardware, ~$0.01/day
+- 🧠 **Portable database** — SQLite + sqlite-vec, single file, salience-aware decay
 - 🔒 **Isolated coder** — Ephemeral Docker containers for safe code execution
 - 🌐 **Browser automation** — Sandboxed agent-browser for JS-heavy sites
 - 🔐 **Authenticated browsing** — Browse your Gmail, GitHub with persistent sessions (via Pinchtab)
