@@ -30,6 +30,7 @@ import (
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldon/internal/logger"
 	"github.com/bowerhall/sheldon/internal/operational"
+	"github.com/bowerhall/sheldon/internal/pinchtab"
 	"github.com/bowerhall/sheldon/internal/storage"
 	"github.com/bowerhall/sheldon/internal/tools"
 	"github.com/bowerhall/sheldonmem"
@@ -191,6 +192,13 @@ func main() {
 	}
 	tools.RegisterUnifiedBrowserTools(sheldon.Registry(), browserRunner, tools.DefaultBrowserConfig())
 	logger.Info("browser tools enabled", "sandbox", cfg.Browser.SandboxEnabled)
+
+	// pinchtab - persistent browser sessions for authenticated browsing
+	if cfg.Pinchtab.Enabled {
+		pinchtabClient := pinchtab.NewClient(cfg.Pinchtab.URL, cfg.Pinchtab.Token)
+		tools.RegisterPinchtabTools(sheldon.Registry(), pinchtabClient)
+		logger.Info("pinchtab tools enabled", "url", cfg.Pinchtab.URL)
+	}
 
 	// github tools for PR management (if git token configured)
 	if cfg.Coder.Git.Token != "" {

@@ -251,21 +251,21 @@ type LLMMessage struct {
 }
 
 // ProcessEndOfDay runs extraction and summarization for all pending conversations
-// If includeToday is false, only processes dates before today (normal 3am behavior)
-// If includeToday is true, processes ALL pending messages including today (for manual triggers)
-// Messages are kept after extraction for same-day keyword search
-func (s *Store) ProcessEndOfDay(ctx context.Context, llm LLM, resolver EntityResolver, includeToday bool) error {
-	var excludeDate string
-	if includeToday {
-		// Include everything by using tomorrow as the cutoff
-		excludeDate = time.Now().UTC().AddDate(0, 0, 1).Format("2006-01-02")
+// Processes messages older than 6 hours that haven't been processed yet.
+// If includeRecent is true, processes ALL unprocessed messages (for manual triggers)
+// This provides a failsafe: if runs were missed, all unprocessed messages get caught up.
+func (s *Store) ProcessEndOfDay(ctx context.Context, llm LLM, resolver EntityResolver, includeRecent bool) error {
+	var minAge time.Duration
+	if includeRecent {
+		// Include everything unprocessed
+		minAge = 0
 	} else {
-		// Normal: exclude today, only process previous days
-		excludeDate = time.Now().UTC().Format("2006-01-02")
+		// Normal: only process messages older than 6 hours
+		minAge = 6 * time.Hour
 	}
 
-	// Get all pending (session, date) pairs
-	pending, err := s.getPendingDailyMessages(excludeDate)
+	// Get all pending (session, date) pairs with unprocessed messages
+	pending, err := s.getPendingDailyMessages(minAge)
 	if err != nil {
 		return fmt.Errorf("failed to get pending messages: %w", err)
 	}
@@ -279,7 +279,8 @@ func (s *Store) ProcessEndOfDay(ctx context.Context, llm LLM, resolver EntityRes
 			// log error but continue with other sessions
 			continue
 		}
-		// Messages are kept for same-day keyword search, cleaned up separately
+		// Mark messages as processed
+		s.markMessagesProcessed(p.sessionID, p.date)
 	}
 
 	return nil
@@ -291,13 +292,16 @@ type pendingSession struct {
 }
 
 // getPendingDailyMessages returns all (session_id, date) pairs with unprocessed messages
-func (s *Store) getPendingDailyMessages(excludeDate string) ([]pendingSession, error) {
+// minAge specifies minimum age for messages to be processed (e.g., 6 hours)
+func (s *Store) getPendingDailyMessages(minAge time.Duration) ([]pendingSession, error) {
+	cutoff := time.Now().UTC().Add(-minAge).Format("2006-01-02 15:04:05")
+
 	rows, err := s.db.Query(`
 		SELECT DISTINCT session_id, date
 		FROM daily_messages
-		WHERE date < ?
+		WHERE processed_at IS NULL AND created_at < ?
 		ORDER BY date ASC`,
-		excludeDate)
+		cutoff)
 	if err != nil {
 		return nil, err
 	}
@@ -312,6 +316,16 @@ func (s *Store) getPendingDailyMessages(excludeDate string) ([]pendingSession, e
 		pending = append(pending, p)
 	}
 	return pending, nil
+}
+
+// markMessagesProcessed marks all messages for a session/date as processed
+func (s *Store) markMessagesProcessed(sessionID, date string) error {
+	_, err := s.db.Exec(`
+		UPDATE daily_messages
+		SET processed_at = datetime('now')
+		WHERE session_id = ? AND date = ? AND processed_at IS NULL`,
+		sessionID, date)
+	return err
 }
 
 func (s *Store) processSessionEndOfDay(ctx context.Context, llm LLM, resolver EntityResolver, sessionID, date string) error {

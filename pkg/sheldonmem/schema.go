@@ -91,10 +91,12 @@ CREATE TABLE IF NOT EXISTS daily_messages (
     role TEXT NOT NULL,
     content TEXT NOT NULL,
     created_at DATETIME DEFAULT (datetime('now')),
-    date TEXT NOT NULL DEFAULT (date('now'))
+    date TEXT NOT NULL DEFAULT (date('now')),
+    processed_at DATETIME
 );
 
 CREATE INDEX IF NOT EXISTS idx_daily_messages_session_date ON daily_messages(session_id, date);
+CREATE INDEX IF NOT EXISTS idx_daily_messages_pending ON daily_messages(processed_at, created_at);
 `
 
 const vecSchema = `

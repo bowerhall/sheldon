@@ -43,6 +43,10 @@ func (s *Store) migrate() error {
 	// Create index after ensuring column exists
 	s.db.Exec("CREATE INDEX IF NOT EXISTS idx_notes_tier ON notes(tier)")
 
+	// Add processed_at column for 6-hour extraction intervals
+	s.db.Exec("ALTER TABLE daily_messages ADD COLUMN processed_at DATETIME")
+	s.db.Exec("CREATE INDEX IF NOT EXISTS idx_daily_messages_pending ON daily_messages(processed_at, created_at)")
+
 	if err := s.seedDomains(); err != nil {
 		return err
 	}

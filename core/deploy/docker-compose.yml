@@ -133,6 +133,10 @@ services:
       # Conversation buffer (recent messages in context, default 12)
       - CONVERSATION_BUFFER_SIZE=${CONVERSATION_BUFFER_SIZE:-12}
 
+      # Pinchtab (optional) - authenticated browser sessions
+      - PINCHTAB_URL=${PINCHTAB_URL:-}
+      - PINCHTAB_TOKEN=${PINCHTAB_TOKEN:-}
+
       # Timezone
       - TZ=${TZ:-UTC}
     networks:
@@ -155,6 +159,21 @@ services:
           memory: 2G
         reservations:
           memory: 512M
+
+  # Pinchtab - persistent browser sessions for authenticated browsing (optional)
+  # Enable by setting PINCHTAB_URL=http://pinchtab:9867 in sheldon env
+  pinchtab:
+    image: pinchtab/pinchtab:latest
+    container_name: pinchtab
+    restart: unless-stopped
+    profiles:
+      - pinchtab
+    environment:
+      - BRIDGE_TOKEN=${PINCHTAB_TOKEN:-}
+    volumes:
+      - pinchtab_data:/data
+    networks:
+      - sheldon-net
 
   minio:
     image: minio/minio:latest
@@ -328,3 +347,4 @@ volumes:
   ollama_data:
   minio_data:
   headscale_data:
+  pinchtab_data:

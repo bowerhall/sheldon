@@ -8,6 +8,7 @@ A personal AI assistant that remembers your entire life, runs on your own infras
 - 🧠 **Unified memory** — SQLite + sqlite-vec, single file, salience-aware decay
 - 🔒 **Isolated coder** — Ephemeral Docker containers for safe code execution
 - 🌐 **Browser automation** — Sandboxed agent-browser for JS-heavy sites
+- 🔐 **Authenticated browsing** — Browse your Gmail, GitHub with persistent sessions (via Pinchtab)
 - ⚡ **One-click deploy** — Push to GitHub → deployed on VPS (~€8/mo)
 - 🗂️ **14 life domains** — Structured memory across your entire life
 - ⏰ **Context-aware triggers** — Recalls context and takes action, not dumb rigid crons
@@ -28,6 +29,7 @@ A personal AI assistant that remembers your entire life, runs on your own infras
 **Browse and research**
 - "Find coworking spaces in Tokyo with 24/7 access"
 - "Summarize the reviews for this product"
+- "Check my Gmail for unread emails" (with Pinchtab)
 - Full browser automation, handles JS-heavy sites
 
 **Remind and check in**

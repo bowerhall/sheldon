@@ -39,6 +39,7 @@ func Load() (*Config, error) {
 	budgetConfig := loadBudgetConfig()
 	coderConfig := loadCoderConfig()
 	browserConfig := loadBrowserConfig()
+	pinchtabConfig := loadPinchtabConfig()
 	storageConfig := loadStorageConfig()
 	deployerConfig := loadDeployerConfig()
 
@@ -50,6 +51,7 @@ func Load() (*Config, error) {
 		Embedder:    embedderConfig,
 		Coder:       coderConfig,
 		Browser:     browserConfig,
+		Pinchtab:    pinchtabConfig,
 		Deployer:    deployerConfig,
 		Storage:     storageConfig,
 		Bot:         botConfig,
@@ -231,6 +233,23 @@ func loadBrowserConfig() BrowserConfig {
 	return BrowserConfig{
 		SandboxEnabled: sandboxEnabled,
 		Image:          image,
+	}
+}
+
+func loadPinchtabConfig() PinchtabConfig {
+	url := os.Getenv("PINCHTAB_URL")
+	token := os.Getenv("PINCHTAB_TOKEN")
+
+	enabled := url != ""
+
+	if url == "" {
+		url = "http://pinchtab:9867"
+	}
+
+	return PinchtabConfig{
+		Enabled: enabled,
+		URL:     url,
+		Token:   token,
 	}
 }
 
