@@ -44,7 +44,8 @@ func markdownToTelegramHTML(text string) string {
 	})
 
 	// URLs: protect from underscore/asterisk formatting
-	urlPattern := regexp.MustCompile(`https?://[^\s<>"]+`)
+	// Exclude * to avoid capturing markdown bold markers like **url**
+	urlPattern := regexp.MustCompile(`https?://[^\s<>"*]+`)
 	text = urlPattern.ReplaceAllStringFunc(text, func(m string) string {
 		urls = append(urls, m)
 		return fmt.Sprintf("\x00URL%d\x00", len(urls)-1)
