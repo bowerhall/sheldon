@@ -264,6 +264,15 @@ A    sheldon.yourdomain.com    → your-vps-ip
 A    *.sheldon.yourdomain.com  → your-vps-ip  (for deployed apps)
 ```
 
+**Required subdomains:**
+
+| Subdomain | Purpose |
+|-----------|---------|
+| `storage.yourdomain.com` | MinIO Console (web UI) |
+| `s3.yourdomain.com` | MinIO API (for file sharing links) |
+
+The wildcard `*` record covers these automatically. If not using wildcard, add them explicitly.
+
 ---
 
 ## HTTPS with Let's Encrypt

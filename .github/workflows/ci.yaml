@@ -152,6 +152,8 @@ jobs:
           echo "TZ=${{ steps.doppler.outputs.TZ || secrets.TZ }}" >> $GITHUB_OUTPUT
           echo "STORAGE_ADMIN_PASSWORD=${{ steps.doppler.outputs.STORAGE_ADMIN_PASSWORD || secrets.STORAGE_ADMIN_PASSWORD }}" >> $GITHUB_OUTPUT
           echo "STORAGE_SHELDON_PASSWORD=${{ steps.doppler.outputs.STORAGE_SHELDON_PASSWORD || secrets.STORAGE_SHELDON_PASSWORD }}" >> $GITHUB_OUTPUT
+          echo "PINCHTAB_URL=${{ steps.doppler.outputs.PINCHTAB_URL || secrets.PINCHTAB_URL }}" >> $GITHUB_OUTPUT
+          echo "PINCHTAB_TOKEN=${{ steps.doppler.outputs.PINCHTAB_TOKEN || secrets.PINCHTAB_TOKEN }}" >> $GITHUB_OUTPUT
 
       - name: Setup VPS (first-run)
         uses: appleboy/ssh-action@v1.0.3
@@ -238,6 +240,8 @@ jobs:
           TZ=${{ steps.secrets.outputs.TZ }}
           STORAGE_ADMIN_PASSWORD=${{ steps.secrets.outputs.STORAGE_ADMIN_PASSWORD }}
           STORAGE_SHELDON_PASSWORD=${{ steps.secrets.outputs.STORAGE_SHELDON_PASSWORD }}
+          PINCHTAB_URL=${{ steps.secrets.outputs.PINCHTAB_URL }}
+          PINCHTAB_TOKEN=${{ steps.secrets.outputs.PINCHTAB_TOKEN }}
           EOF
 
       - name: Copy docker-compose.yml
@@ -307,8 +311,18 @@ jobs:
             # Login to registry
             echo "${{ steps.secrets.outputs.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+            # Determine if pinchtab profile should be enabled
+            # Only self-host pinchtab if token is set AND URL is default/empty (not external)
+            PINCHTAB_URL="${{ steps.secrets.outputs.PINCHTAB_URL }}"
+            PINCHTAB_TOKEN="${{ steps.secrets.outputs.PINCHTAB_TOKEN }}"
+            PROFILE_FLAGS=""
+            if [ -n "$PINCHTAB_TOKEN" ] && { [ -z "$PINCHTAB_URL" ] || [ "$PINCHTAB_URL" = "http://pinchtab:9867" ]; }; then
+              PROFILE_FLAGS="--profile pinchtab"
+              echo "Enabling pinchtab profile (self-hosted)"
+            fi
+
             # Pull images (compose services + sandbox images)
-            docker compose pull
+            docker compose $PROFILE_FLAGS pull
             docker pull ghcr.io/${{ github.repository_owner }}/sheldon-coder-sandbox:latest
             docker pull ghcr.io/${{ github.repository_owner }}/sheldon-browser-sandbox:latest
 
@@ -316,7 +330,7 @@ jobs:
             docker tag ghcr.io/${{ github.repository_owner }}/sheldon-coder-sandbox:latest sheldon-coder-sandbox:latest
             docker tag ghcr.io/${{ github.repository_owner }}/sheldon-browser-sandbox:latest sheldon-browser-sandbox:latest
 
-            docker compose up -d
+            docker compose $PROFILE_FLAGS up -d --remove-orphans
             docker compose ps
 
             # Setup headscale user and ACL

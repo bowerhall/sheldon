@@ -28,7 +28,8 @@ type Config struct {
 	PublicEndpoint string // for shareable URLs (defaults to Endpoint if empty)
 	AccessKey      string
 	SecretKey      string
-	UseSSL         bool
+	UseSSL         bool // SSL for internal endpoint
+	PublicUseSSL   bool // SSL for public endpoint
 }
 
 // NewClient creates a new storage client
@@ -44,13 +45,15 @@ func NewClient(cfg Config) (*Client, error) {
 
 	// public client for presigned URLs (uses public endpoint for correct signature)
 	publicEndpoint := cfg.PublicEndpoint
+	publicUseSSL := cfg.PublicUseSSL
 	if publicEndpoint == "" {
 		publicEndpoint = cfg.Endpoint
+		publicUseSSL = cfg.UseSSL
 	}
 
 	mcPublic, err := minio.New(publicEndpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
-		Secure: cfg.UseSSL,
+		Secure: publicUseSSL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("minio public client: %w", err)

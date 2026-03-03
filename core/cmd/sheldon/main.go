@@ -230,12 +230,14 @@ func main() {
 	// minio storage (optional)
 	var storageClient *storage.Client
 	if cfg.Storage.Enabled {
-		// auto-detect public endpoint if not set (for IP-only installs)
 		publicEndpoint := cfg.Storage.PublicEndpoint
-		if publicEndpoint == "" || publicEndpoint == cfg.Storage.Endpoint {
-			// use public IP with port 9000
+		publicUseSSL := cfg.Storage.PublicUseSSL
+
+		// auto-detect public endpoint only if not explicitly set (fallback for IP-only installs)
+		if publicEndpoint == "" {
 			if ip := getPublicIP(); ip != "" {
 				publicEndpoint = ip + ":9000"
+				publicUseSSL = false // raw IP = no SSL
 			}
 		}
 
@@ -246,6 +248,7 @@ func main() {
 			AccessKey:      cfg.Storage.AccessKey,
 			SecretKey:      cfg.Storage.SecretKey,
 			UseSSL:         cfg.Storage.UseSSL,
+			PublicUseSSL:   publicUseSSL,
 		})
 		if err != nil {
 			logger.Error("failed to create storage client", "error", err)
