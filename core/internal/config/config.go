@@ -34,7 +34,7 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
-	heartbeatConfig := loadHeartbeatConfig()
+	alertConfig := loadAlertConfig()
 	multiBot := loadMultiBotConfig()
 	budgetConfig := loadBudgetConfig()
 	coderConfig := loadCoderConfig()
@@ -56,7 +56,7 @@ func Load() (*Config, error) {
 		Storage:     storageConfig,
 		Bot:         botConfig,
 		Bots:        multiBot,
-		Heartbeat:   heartbeatConfig,
+		Alert:       alertConfig,
 		Budget:      budgetConfig,
 	}, nil
 }
@@ -253,13 +253,16 @@ func loadPinchtabConfig() PinchtabConfig {
 	}
 }
 
-func loadHeartbeatConfig() HeartbeatConfig {
+func loadAlertConfig() AlertConfig {
 	var chatID int64
-	if id, err := strconv.ParseInt(os.Getenv("HEARTBEAT_CHAT_ID"), 10, 64); err == nil {
+	// prefer ALERT_CHAT_ID, fall back to HEARTBEAT_CHAT_ID for backwards compat
+	if id, err := strconv.ParseInt(os.Getenv("ALERT_CHAT_ID"), 10, 64); err == nil {
+		chatID = id
+	} else if id, err := strconv.ParseInt(os.Getenv("HEARTBEAT_CHAT_ID"), 10, 64); err == nil {
 		chatID = id
 	}
 
-	return HeartbeatConfig{
+	return AlertConfig{
 		ChatID: chatID,
 	}
 }

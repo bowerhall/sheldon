@@ -195,9 +195,7 @@ We use [Doppler](https://doppler.com) for secrets management. This gives you:
 | Secret               | Default     | Description                                          |
 | -------------------- | ----------- | ---------------------------------------------------- |
 | `ACME_EMAIL`         | -           | Email for Let's Encrypt HTTPS                        |
-| `HEARTBEAT_ENABLED`  | `false`     | Enable proactive check-ins                           |
-| `HEARTBEAT_CHAT_ID`  | -           | Telegram chat ID for heartbeats                      |
-| `HEARTBEAT_INTERVAL` | `8`         | Hours between heartbeats                             |
+| `ALERT_CHAT_ID`      | -           | Telegram chat ID for budget warnings and error alerts|
 | `EMBEDDER_PROVIDER`  | -           | `ollama` or `voyage`                                 |
 | `EMBEDDER_BASE_URL`  | -           | Ollama URL if using                                  |
 | `EMBEDDER_MODEL`     | -           | Embedding model name                                 |

@@ -397,8 +397,8 @@ func main() {
 			func(used, limit int) {
 				msg := fmt.Sprintf("Budget warning: %d/%d tokens used (%.0f%%). Approaching daily limit.", used, limit, float64(used)/float64(limit)*100)
 
-				if cfg.Heartbeat.ChatID != 0 {
-					notifyBot.Send(cfg.Heartbeat.ChatID, msg)
+				if cfg.Alert.ChatID != 0 {
+					notifyBot.Send(cfg.Alert.ChatID, msg)
 				}
 
 				logger.Warn("budget warning", "used", used, "limit", limit)
@@ -407,8 +407,8 @@ func main() {
 			func(used, limit int) {
 				msg := fmt.Sprintf("Budget exceeded: %d/%d tokens. Responses disabled until tomorrow.", used, limit)
 
-				if cfg.Heartbeat.ChatID != 0 {
-					notifyBot.Send(cfg.Heartbeat.ChatID, msg)
+				if cfg.Alert.ChatID != 0 {
+					notifyBot.Send(cfg.Alert.ChatID, msg)
 				}
 
 				logger.Error("budget exceeded", "used", used, "limit", limit)
@@ -429,15 +429,15 @@ func main() {
 		logger.Info("budget tracking enabled", "limit", cfg.Budget.DailyLimit, "warnAt", cfg.Budget.WarnAt)
 	}
 
-	if cfg.Heartbeat.ChatID != 0 {
+	if cfg.Alert.ChatID != 0 {
 		alerter := alerts.New(
 			func(message string) {
-				notifyBot.Send(cfg.Heartbeat.ChatID, message)
+				notifyBot.Send(cfg.Alert.ChatID, message)
 			},
 			time.Hour,
 		)
 		sheldon.SetAlerter(alerter)
-		logger.Info("error alerting enabled", "chatID", cfg.Heartbeat.ChatID)
+		logger.Info("error alerting enabled", "chatID", cfg.Alert.ChatID)
 	}
 
 	go func() {

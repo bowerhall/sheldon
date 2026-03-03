@@ -340,7 +340,7 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 		ctx = context.WithValue(ctx, tools.SafeModeKey, true)
 	}
 
-	response, err := a.runAgentLoop(ctx, sess)
+	response, err := a.runAgentLoop(ctx, sess, opts.OnProgress)
 	if err != nil {
 		logger.Error("agent loop failed", "error", err)
 		return "", err
@@ -464,7 +464,7 @@ var browserTools = map[string]bool{
 	"search_web":   true,
 }
 
-func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string, error) {
+func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session, onProgress ProgressFunc) (string, error) {
 	availableTools := a.tools.Tools()
 	toolFailures := make(map[string]int)     // track consecutive failures per tool
 	failedProviders := make(map[string]bool) // track providers that failed this request
@@ -532,6 +532,11 @@ func (a *Agent) runAgentLoop(ctx context.Context, sess *session.Session) (string
 
 		for _, tc := range resp.ToolCalls {
 			logger.Info("executing tool", "name", tc.Name, "isolatedMode", isolatedMode)
+
+			// notify progress if callback set
+			if onProgress != nil {
+				onProgress(toolProgressMessage(tc.Name))
+			}
 
 			var result string
 			var err error
@@ -677,7 +682,7 @@ func (a *Agent) ProcessSystemTrigger(ctx context.Context, sessionID string, trig
 	chatID := a.parseChatID(sessionID)
 	ctx = context.WithValue(ctx, tools.ChatIDKey, chatID)
 
-	response, err := a.runAgentLoop(ctx, sess)
+	response, err := a.runAgentLoop(ctx, sess, nil) // no progress callback for system triggers
 	if err != nil {
 		logger.Error("system trigger processing failed", "error", err)
 		return "", err
@@ -790,5 +795,33 @@ func (a *Agent) describeToolCall(toolName, args string) string {
 		return fmt.Sprintf("[Approval Required]\nTool: remove_app\nAction: Remove \"%s\" from production", name)
 	default:
 		return fmt.Sprintf("[Approval Required]\nTool: %s", toolName)
+	}
+}
+
+// toolProgressMessage returns a human-readable status message for tool execution
+func toolProgressMessage(toolName string) string {
+	switch toolName {
+	case "browse", "browse_click", "browse_fill":
+		return "Browsing..."
+	case "browse_session", "session_action":
+		return "Browsing (authenticated)..."
+	case "search_web":
+		return "Searching the web..."
+	case "recall_memory":
+		return "Remembering..."
+	case "save_memory":
+		return "Saving to memory..."
+	case "write_code":
+		return "Writing code..."
+	case "deploy_app":
+		return "Deploying..."
+	case "set_cron":
+		return "Setting reminder..."
+	case "upload_file":
+		return "Uploading file..."
+	case "open_pr":
+		return "Opening pull request..."
+	default:
+		return "Working..."
 	}
 }
