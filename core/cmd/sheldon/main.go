@@ -263,7 +263,7 @@ func main() {
 					tools.RegisterCoderStorageTools(sheldon.Registry(), coderBridge, storageClient)
 					logger.Info("coder storage tools enabled")
 				}
-				logger.Info("storage enabled", "endpoint", cfg.Storage.Endpoint)
+				logger.Info("storage enabled", "endpoint", cfg.Storage.Endpoint, "publicEndpoint", publicEndpoint, "publicSSL", publicUseSSL)
 			}
 			cancel()
 		}
