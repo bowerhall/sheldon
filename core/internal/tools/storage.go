@@ -239,7 +239,7 @@ func RegisterStorageTools(registry *Registry, client *storage.Client) {
 	// share link tool
 	shareTool := llm.Tool{
 		Name:        "share_link",
-		Description: "Generate a temporary shareable link for a file. The link expires after the specified duration.",
+		Description: "Generate a temporary shareable link for a file. Returns a presigned URL with authentication signatures in the query parameters - share the COMPLETE URL exactly as returned, do not remove or modify any query parameters.",
 		Parameters: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -289,7 +289,7 @@ func RegisterStorageTools(registry *Registry, client *storage.Client) {
 			return "", err
 		}
 
-		return fmt.Sprintf("shareable link (expires in %d hours):\n%s", int(expiry.Hours()), url), nil
+		return fmt.Sprintf("PRESIGNED URL (expires in %d hours) - share this EXACT link including all query parameters:\n%s\n\nIMPORTANT: The URL contains authentication signatures. Do NOT modify or simplify it.", int(expiry.Hours()), url), nil
 	})
 
 	// fetch URL tool
