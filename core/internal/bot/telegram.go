@@ -12,6 +12,7 @@ import (
 	"github.com/bowerhall/sheldon/internal/agent"
 	"github.com/bowerhall/sheldon/internal/llm"
 	"github.com/bowerhall/sheldon/internal/logger"
+	"github.com/bowerhall/sheldon/internal/transcribe"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -201,6 +202,20 @@ func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 
 		text = msg.Caption
 		logger.Info("PDF received", "session", sessionID, "from", msg.From.UserName, "filename", msg.Document.FileName, "caption", truncate(text, 50))
+	} else if msg.Voice != nil {
+		data, mimeType, err := t.downloadFile(msg.Voice.FileID)
+		if err != nil {
+			logger.Error("failed to download voice", "error", err)
+		} else {
+			transcription, err := transcribe.Transcribe(data, mimeType)
+			if err != nil {
+				logger.Error("failed to transcribe voice", "error", err)
+				text = "[Voice message - transcription failed]"
+			} else {
+				text = transcription
+				logger.Info("voice transcribed", "session", sessionID, "from", msg.From.UserName, "duration", msg.Voice.Duration, "chars", len(transcription))
+			}
+		}
 	} else {
 		text = msg.Text
 		logger.Info("message received", "session", sessionID, "from", msg.From.UserName, "text", truncate(text, 50))
