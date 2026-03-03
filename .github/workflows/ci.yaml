@@ -144,6 +144,7 @@ jobs:
           echo "BROWSER_SANDBOX_IMAGE=${{ steps.doppler.outputs.BROWSER_SANDBOX_IMAGE || secrets.BROWSER_SANDBOX_IMAGE }}" >> $GITHUB_OUTPUT
           echo "NVIDIA_API_KEY=${{ steps.doppler.outputs.NVIDIA_API_KEY || secrets.NVIDIA_API_KEY }}" >> $GITHUB_OUTPUT
           echo "KIMI_API_KEY=${{ steps.doppler.outputs.KIMI_API_KEY || secrets.KIMI_API_KEY }}" >> $GITHUB_OUTPUT
+          echo "OPENAI_API_KEY=${{ steps.doppler.outputs.OPENAI_API_KEY || secrets.OPENAI_API_KEY }}" >> $GITHUB_OUTPUT
           echo "GIT_TOKEN=${{ steps.doppler.outputs.GIT_TOKEN || secrets.GIT_TOKEN }}" >> $GITHUB_OUTPUT
           echo "GIT_USER_NAME=${{ steps.doppler.outputs.GIT_USER_NAME || secrets.GIT_USER_NAME }}" >> $GITHUB_OUTPUT
           echo "GIT_USER_EMAIL=${{ steps.doppler.outputs.GIT_USER_EMAIL || secrets.GIT_USER_EMAIL }}" >> $GITHUB_OUTPUT
@@ -229,6 +230,7 @@ jobs:
           BROWSER_SANDBOX_IMAGE=${{ steps.secrets.outputs.BROWSER_SANDBOX_IMAGE }}
           NVIDIA_API_KEY=${{ steps.secrets.outputs.NVIDIA_API_KEY }}
           KIMI_API_KEY=${{ steps.secrets.outputs.KIMI_API_KEY }}
+          OPENAI_API_KEY=${{ steps.secrets.outputs.OPENAI_API_KEY }}
           GIT_TOKEN=${{ steps.secrets.outputs.GIT_TOKEN }}
           GIT_USER_NAME=${{ steps.secrets.outputs.GIT_USER_NAME }}
           GIT_USER_EMAIL=${{ steps.secrets.outputs.GIT_USER_EMAIL }}
