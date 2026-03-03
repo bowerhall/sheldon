@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/bowerhall/sheldon/internal/agent"
@@ -238,76 +237,45 @@ func (d *discord) processMessage(s *discordgo.Session, m *discordgo.MessageCreat
 		logger.Info("message received", "session", sessionID, "from", m.Author.Username, "text", truncate(text, 50), "trusted", trusted)
 	}
 
-	// send initial "thinking" message for edit-in-place UX
-	initialMsg, sendErr := s.ChannelMessageSendReply(m.ChannelID, "Thinking...", m.Reference())
-	if sendErr != nil {
-		logger.Error("failed to send initial message", "error", sendErr)
-		// fall back to typing indicator
-		typingChatID, _ := strconv.ParseInt(m.ChannelID, 10, 64)
-		d.SendTyping(typingChatID)
-	}
-	var progressMsgID string
-	if sendErr == nil && initialMsg != nil {
-		progressMsgID = initialMsg.ID
-	}
-
-	// track last status to avoid redundant edits
-	var lastStatus string
-	var statusMu sync.Mutex
-
-	// progress callback updates the message in place
-	onProgress := func(status string) {
-		if progressMsgID == "" {
-			return
+	// send typing indicator while processing
+	chatIDInt, _ := strconv.ParseInt(m.ChannelID, 10, 64)
+	d.SendTyping(chatIDInt)
+	typingDone := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(4 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-typingDone:
+				return
+			case <-opCtx.Done():
+				return
+			case <-ticker.C:
+				d.SendTyping(chatIDInt)
+			}
 		}
-		statusMu.Lock()
-		if status == lastStatus {
-			statusMu.Unlock()
-			return
-		}
-		lastStatus = status
-		statusMu.Unlock()
-
-		if _, err := s.ChannelMessageEdit(m.ChannelID, progressMsgID, status); err != nil {
-			logger.Debug("progress edit failed", "error", err)
-		}
-	}
+	}()
 
 	userID, _ := strconv.ParseInt(m.Author.ID, 10, 64)
 	response, err := d.agent.ProcessWithOptions(opCtx, sessionID, text, agent.ProcessOptions{
-		Media:      media,
-		Trusted:    trusted,
-		UserID:     userID,
-		OnProgress: onProgress,
+		Media:   media,
+		Trusted: trusted,
+		UserID:  userID,
 	})
+	close(typingDone)
 	if err != nil {
 		if opCtx.Err() == context.Canceled {
 			logger.Info("operation was cancelled", "session", sessionID)
-			// edit the progress message to show cancelled
-			if progressMsgID != "" {
-				s.ChannelMessageEdit(m.ChannelID, progressMsgID, "Cancelled.")
-			}
 			return
 		}
 		logger.Error("agent failed", "error", err)
 		response = "Something went wrong."
 	}
 
-	// final edit with the complete response
-	if progressMsgID != "" {
-		if _, err := s.ChannelMessageEdit(m.ChannelID, progressMsgID, response); err != nil {
-			logger.Error("final edit failed", "error", err)
-			// fall back to sending a new message
-			s.ChannelMessageSendReply(m.ChannelID, response, m.Reference())
-		} else {
-			logger.Info("reply sent (edited)", "chars", len(response))
-		}
+	if _, err := s.ChannelMessageSendReply(m.ChannelID, response, m.Reference()); err != nil {
+		logger.Error("discord reply failed", "error", err)
 	} else {
-		if _, err := s.ChannelMessageSendReply(m.ChannelID, response, m.Reference()); err != nil {
-			logger.Error("discord reply failed", "error", err)
-		} else {
-			logger.Info("reply sent", "chars", len(response))
-		}
+		logger.Info("reply sent", "chars", len(response))
 	}
 }
 

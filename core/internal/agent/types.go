@@ -17,15 +17,11 @@ import (
 
 type NotifyFunc func(chatID int64, message string)
 
-// ProgressFunc is called with status updates during processing (for edit-in-place UX)
-type ProgressFunc func(status string)
-
 // ProcessOptions configures how a message is processed
 type ProcessOptions struct {
-	Media      []llm.MediaContent
-	Trusted    bool         // if true, sensitive facts are accessible; if false, SafeMode is enabled
-	UserID     int64        // ID of the user who sent the message (for approval verification)
-	OnProgress ProgressFunc // called with status updates during tool execution
+	Media   []llm.MediaContent
+	Trusted bool  // if true, sensitive facts are accessible; if false, SafeMode is enabled
+	UserID  int64 // ID of the user who sent the message (for approval verification)
 }
 
 // TriggerFunc processes a system trigger through the agent loop and returns the response
