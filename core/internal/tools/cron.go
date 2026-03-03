@@ -211,7 +211,7 @@ If unsure, ask the user to clarify.`,
 			"properties": map[string]any{
 				"keyword": map[string]any{
 					"type":        "string",
-					"description": "Keyword of the trigger to pause (e.g., 'heartbeat')",
+					"description": "Keyword of the trigger to pause (e.g., 'checkin')",
 				},
 				"until": map[string]any{
 					"type":        "string",

@@ -13,7 +13,7 @@ type Config struct {
 	Storage     StorageConfig
 	Bot         BotConfig
 	Bots        MultiBot
-	Heartbeat   HeartbeatConfig
+	Alert       AlertConfig
 	Budget      BudgetConfig
 }
 
@@ -97,11 +97,9 @@ type BotInstance struct {
 	TrustedChannel string // Discord: channel ID with full access (alternative to OwnerID)
 }
 
-// HeartbeatConfig is kept for backwards compatibility with env vars.
-// Only ChatID is used - for error alerts and budget warnings.
-// Scheduled check-ins are now handled by the cron system.
-type HeartbeatConfig struct {
-	ChatID int64 // telegram chat ID for alerts and notifications
+// AlertConfig specifies where to send system alerts (budget warnings, errors)
+type AlertConfig struct {
+	ChatID int64 // telegram chat ID for alerts
 }
 
 type BudgetConfig struct {

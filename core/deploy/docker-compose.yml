@@ -125,7 +125,7 @@ services:
       - GIT_ORG_URL=${GIT_ORG_URL:-}
 
       # Alert chat ID (optional) - for budget warnings and error alerts
-      - HEARTBEAT_CHAT_ID=${HEARTBEAT_CHAT_ID:-}
+      - ALERT_CHAT_ID=${ALERT_CHAT_ID:-${HEARTBEAT_CHAT_ID:-}}
 
       # Budget (daily token limit, default 10M)
       - BUDGET_DAILY_LIMIT=${BUDGET_DAILY_LIMIT:-10000000}

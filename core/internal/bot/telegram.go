@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/bowerhall/sheldon/internal/agent"
@@ -206,47 +207,85 @@ func (t *telegram) handleMessage(ctx context.Context, msg *tgbotapi.Message) {
 		logger.Info("message received", "session", sessionID, "from", msg.From.UserName, "text", truncate(text, 50))
 	}
 
-	// send typing indicator while processing
-	t.SendTyping(chatID)
-	typingDone := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(4 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-typingDone:
-				return
-			case <-opCtx.Done():
-				return
-			case <-ticker.C:
-				t.SendTyping(chatID)
-			}
+	// send initial "thinking" message for edit-in-place UX
+	initialMsg := tgbotapi.NewMessage(chatID, "Thinking...")
+	initialMsg.ReplyToMessageID = msg.MessageID
+	sent, sendErr := t.api.Send(initialMsg)
+	if sendErr != nil {
+		logger.Error("failed to send initial message", "error", sendErr)
+		// fall back to typing indicator
+		t.SendTyping(chatID)
+	}
+	var progressMsgID int
+	if sendErr == nil {
+		progressMsgID = sent.MessageID
+	}
+
+	// track last status to avoid redundant edits
+	var lastStatus string
+	var statusMu sync.Mutex
+
+	// progress callback updates the message in place
+	onProgress := func(status string) {
+		if progressMsgID == 0 {
+			return
 		}
-	}()
+		statusMu.Lock()
+		if status == lastStatus {
+			statusMu.Unlock()
+			return
+		}
+		lastStatus = status
+		statusMu.Unlock()
+
+		edit := tgbotapi.NewEditMessageText(chatID, progressMsgID, status)
+		if _, err := t.api.Send(edit); err != nil {
+			logger.Debug("progress edit failed", "error", err)
+		}
+	}
 
 	response, err := t.agent.ProcessWithOptions(opCtx, sessionID, text, agent.ProcessOptions{
-		Media:   media,
-		Trusted: true,
-		UserID:  msg.From.ID,
+		Media:      media,
+		Trusted:    true,
+		UserID:     msg.From.ID,
+		OnProgress: onProgress,
 	})
-	close(typingDone)
 	if err != nil {
 		if opCtx.Err() == context.Canceled {
 			logger.Info("operation was cancelled", "session", sessionID)
-			return // Don't send error message, user already got "Stopped."
+			// edit the progress message to show cancelled
+			if progressMsgID != 0 {
+				edit := tgbotapi.NewEditMessageText(chatID, progressMsgID, "Cancelled.")
+				t.api.Send(edit)
+			}
+			return
 		}
 		logger.Error("agent failed", "error", err)
 		response = "Something went wrong."
 	}
 
-	reply := tgbotapi.NewMessage(chatID, markdownToTelegramHTML(response))
-	reply.ReplyToMessageID = msg.MessageID
-	reply.ParseMode = tgbotapi.ModeHTML
-
-	if _, err := t.api.Send(reply); err != nil {
-		logger.Error("send failed", "error", err)
+	// final edit with the complete response
+	if progressMsgID != 0 {
+		edit := tgbotapi.NewEditMessageText(chatID, progressMsgID, markdownToTelegramHTML(response))
+		edit.ParseMode = tgbotapi.ModeHTML
+		if _, err := t.api.Send(edit); err != nil {
+			logger.Error("final edit failed", "error", err)
+			// fall back to sending a new message
+			reply := tgbotapi.NewMessage(chatID, markdownToTelegramHTML(response))
+			reply.ParseMode = tgbotapi.ModeHTML
+			t.api.Send(reply)
+		} else {
+			logger.Info("reply sent (edited)", "chars", len(response))
+		}
 	} else {
-		logger.Info("reply sent", "chars", len(response))
+		reply := tgbotapi.NewMessage(chatID, markdownToTelegramHTML(response))
+		reply.ReplyToMessageID = msg.MessageID
+		reply.ParseMode = tgbotapi.ModeHTML
+		if _, err := t.api.Send(reply); err != nil {
+			logger.Error("send failed", "error", err)
+		} else {
+			logger.Info("reply sent", "chars", len(response))
+		}
 	}
 }
 

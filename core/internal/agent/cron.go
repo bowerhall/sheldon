@@ -166,7 +166,7 @@ Current time: %s
 Recalled context:
 %s
 This is a scheduled trigger you set up earlier. Take appropriate action based on the keyword and context:
-- If keyword is "heartbeat" or "check-in": Send a brief, natural check-in message
+- If keyword is "checkin" or similar: Send a brief, natural check-in message
 - If keyword relates to a reminder (meds, water, stretch, etc.): Send a friendly reminder
 - If keyword relates to a task (build-*, deploy-*, etc.): Start working on the task and report progress
 
