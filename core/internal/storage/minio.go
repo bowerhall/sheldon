@@ -196,7 +196,6 @@ func (c *Client) PublicPresignedURL(ctx context.Context, bucket, name string, ex
 	if err != nil {
 		return "", fmt.Errorf("presign %s/%s: %w", bucket, name, err)
 	}
-	logger.Debug("presigned URL generated", "url", url.String(), "endpoint", c.mcPublic.EndpointURL().String())
 	return url.String(), nil
 }
 
