@@ -666,6 +666,10 @@ var disabledDuringIsolation = map[string]bool{
 	"start_container":   true,
 	"stop_container":    true,
 	"restart_container": true,
+
+	// potential exfiltration channels
+	"download_file": true,
+	"fetch_url":     true,
 }
 
 func filterIsolatedTools(tools []llm.Tool) []llm.Tool {
