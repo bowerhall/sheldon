@@ -289,7 +289,7 @@ func RegisterStorageTools(registry *Registry, client *storage.Client) {
 			return "", err
 		}
 
-		return fmt.Sprintf("PRESIGNED URL (expires in %d hours) - share this EXACT link including all query parameters:\n%s\n\nIMPORTANT: The URL contains authentication signatures. Do NOT modify or simplify it.", int(expiry.Hours()), url), nil
+		return fmt.Sprintf("PRESIGNED URL (expires in %d hours):\n\n```\n%s\n```\n\nCopy the URL exactly as shown (use code block to preserve special characters).", int(expiry.Hours()), url), nil
 	})
 
 	// fetch URL tool
