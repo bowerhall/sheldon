@@ -12,7 +12,7 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout
@@ -22,13 +22,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
-          cache-dependency-path: |
-            core/go.sum
-            pkg/sheldonmem/go.sum
+          cache: false
 
       - name: Test sheldonmem
         run: |
           cd pkg/sheldonmem
+          go mod download
           go test -v ./...
 
       - name: Test core
