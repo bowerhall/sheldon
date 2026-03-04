@@ -32,6 +32,7 @@ import (
 	"github.com/bowerhall/sheldon/internal/operational"
 	"github.com/bowerhall/sheldon/internal/pinchtab"
 	"github.com/bowerhall/sheldon/internal/storage"
+	"github.com/bowerhall/sheldon/internal/telemetry"
 	"github.com/bowerhall/sheldon/internal/tools"
 	"github.com/bowerhall/sheldonmem"
 	"github.com/joho/godotenv"
@@ -513,6 +514,9 @@ func main() {
 		"essence", cfg.EssencePath,
 		"memory", cfg.MemoryPath,
 	)
+
+	// Anonymous telemetry - disable with TELEMETRY_DISABLED=true
+	telemetry.Heartbeat("1.0.0", cfg.MemoryPath)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

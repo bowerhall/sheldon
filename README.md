@@ -478,6 +478,24 @@ Sheldon organizes memory across structured domains:
 | **Temporal** | Goals & Aspirations, Rhythms & Routines, Life Events        |
 | **Meta**     | Preferences & Tastes, Unconscious Patterns                  |
 
+## Telemetry
+
+Sheldon sends a single anonymous ping on startup to track active installs. This helps understand adoption and prioritize development.
+
+**What's sent:**
+- Anonymous install ID (SHA256 hash, not reversible)
+- Version number
+- Operating system
+
+**What's NOT sent:**
+- Any personal data, conversations, or memories
+- IP addresses are not logged server-side
+
+**Opt out:**
+```bash
+TELEMETRY_DISABLED=true
+```
+
 ## License
 
 [AGPL-3.0](LICENSE)
