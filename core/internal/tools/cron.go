@@ -283,16 +283,64 @@ If unsure, ask the user to clarify.`,
 	})
 }
 
-// parseExpiry converts human-readable duration to time
+// parseExpiry converts human-readable duration or datetime to time
 func parseExpiry(s string) *time.Time {
+	original := s
 	s = strings.ToLower(strings.TrimSpace(s))
 	if s == "" || s == "never" {
 		return nil
 	}
 
-	var duration time.Duration
+	now := time.Now()
 
-	// parse common patterns
+	// try absolute datetime formats first (use original case for parsing)
+	dateFormats := []string{
+		"2006-01-02 15:04",
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04",
+		"2006-01-02 15:04:05",
+		"Jan 2 2006 3:04 PM",
+		"Jan 2 3:04 PM",
+		"January 2 2006",
+		"January 2",
+	}
+	for _, format := range dateFormats {
+		if t, err := time.ParseInLocation(format, strings.TrimSpace(original), now.Location()); err == nil {
+			// if no year in format, use current year
+			if t.Year() == 0 {
+				t = t.AddDate(now.Year(), 0, 0)
+			}
+			return &t
+		}
+	}
+
+	// natural language: tomorrow, day names
+	if strings.HasPrefix(s, "tomorrow") {
+		t := now.AddDate(0, 0, 1)
+		t = adjustTimeOfDay(t, s)
+		return &t
+	}
+
+	// day names (monday, tuesday, etc)
+	weekdays := map[string]time.Weekday{
+		"sunday": time.Sunday, "monday": time.Monday, "tuesday": time.Tuesday,
+		"wednesday": time.Wednesday, "thursday": time.Thursday,
+		"friday": time.Friday, "saturday": time.Saturday,
+	}
+	for name, wd := range weekdays {
+		if strings.HasPrefix(s, name) {
+			daysUntil := int(wd) - int(now.Weekday())
+			if daysUntil <= 0 {
+				daysUntil += 7
+			}
+			t := now.AddDate(0, 0, daysUntil)
+			t = adjustTimeOfDay(t, s)
+			return &t
+		}
+	}
+
+	// duration patterns
+	var duration time.Duration
 	patterns := map[string]time.Duration{
 		"1 day":    24 * time.Hour,
 		"2 days":   2 * 24 * time.Hour,
@@ -336,6 +384,19 @@ func parseExpiry(s string) *time.Time {
 		return nil
 	}
 
-	t := time.Now().Add(duration)
+	t := now.Add(duration)
 	return &t
+}
+
+// adjustTimeOfDay sets morning/afternoon/evening time based on string
+func adjustTimeOfDay(t time.Time, s string) time.Time {
+	hour := 9 // default morning
+	if strings.Contains(s, "afternoon") {
+		hour = 14
+	} else if strings.Contains(s, "evening") {
+		hour = 18
+	} else if strings.Contains(s, "night") {
+		hour = 21
+	}
+	return time.Date(t.Year(), t.Month(), t.Day(), hour, 0, 0, 0, t.Location())
 }
