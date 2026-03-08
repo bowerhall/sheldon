@@ -328,24 +328,6 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
-  # Scheduled cleanup - prunes dead containers and unused images every 6 hours
-  docker-gc:
-    image: docker:cli
-    container_name: docker-gc
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        while true; do
-          echo "[docker-gc] Running cleanup at $$(date)"
-          docker container prune -f
-          docker image prune -f
-          echo "[docker-gc] Cleanup complete, sleeping 6 hours"
-          sleep 21600
-        done
-
 networks:
   sheldon-net:
     name: sheldon-net

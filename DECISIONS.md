@@ -4,6 +4,47 @@
 
 ---
 
+## 2026-03-08: Removed docker-gc Container
+
+### The Problem
+
+Sheldon went down after a deploy. Container was completely gone - not stopped, not exited, just removed.
+
+### Root Cause
+
+Race condition between docker-compose deploy and docker-gc:
+
+```
+10:40:54 - docker-compose: Container sheldon Recreated
+10:40:54 - docker-gc container also recreates, old gc process still running
+10:40:55 - docker-gc runs `docker container prune -f`
+10:40:55 - Prune deletes new sheldon container (created but not yet started)
+10:40:55 - docker-compose: "Error: No such container: 57886129dbdb..."
+```
+
+`docker container prune -f` removes all non-running containers, including ones freshly created but not yet started.
+
+### Decision
+
+**Removed docker-gc entirely.** Reasons:
+
+1. It caused production downtime solving a problem that barely exists
+2. docker-compose manages container lifecycle already
+3. Watchtower removes old images when updating
+4. Any filter-based fix (`--filter "label!=..."`) is still fragile
+
+### Replacement
+
+Simple weekly cron on the host (not in a container):
+
+```
+0 4 * * 0 root docker image prune -f >> /var/log/docker-prune.log 2>&1
+```
+
+Only prunes images, runs weekly, no race condition possible.
+
+---
+
 ## 2026-03-04: MinIO Presigned URL Debugging Journey
 
 ### The Problem
