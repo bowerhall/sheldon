@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bowerhall/sheldon/internal/llm"
 )
@@ -24,7 +25,7 @@ func (r *Registry) Tools() []llm.Tool {
 func (r *Registry) Execute(ctx context.Context, name, args string) (string, error) {
 	handler, ok := r.handlers[name]
 	if !ok {
-		return "", nil
+		return "", fmt.Errorf("unknown tool: %s", name)
 	}
 	return handler(ctx, args)
 }

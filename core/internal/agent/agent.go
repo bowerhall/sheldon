@@ -303,6 +303,15 @@ func (a *Agent) ProcessWithOptions(ctx context.Context, sessionID string, userMe
 				for _, m := range loaded {
 					sess.AddMessage(m.Role, m.Content, nil, "")
 				}
+
+				// detect if last conversation ended abruptly (crash/error/restart)
+				// if last message was from assistant with error indicators, or last was user
+				// (meaning we never replied), inject context so we acknowledge the interruption
+				last := loaded[len(loaded)-1]
+				if last.Role == "user" || strings.Contains(last.Content, "Something went wrong") || strings.Contains(last.Content, "temporarily unavailable") {
+					sess.AddMessage("system", "[Your previous session was interrupted (crash or restart). Briefly acknowledge this to the user and ask if they'd like to continue where you left off, rather than blindly resuming the previous task.]", nil, "")
+					logger.Info("injected crash recovery context", "session", sessionID)
+				}
 			}
 		} else {
 			logger.Debug("no recent messages found", "session", sessionID)

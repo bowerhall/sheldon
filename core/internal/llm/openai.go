@@ -189,14 +189,14 @@ func (o *openaiCompatible) ChatWithTools(ctx context.Context, systemPrompt strin
 		return nil, err
 	}
 
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("api error (status %d): %s", resp.StatusCode, string(body))
+	}
+
 	var oaiResp openaiResponse
 
 	if err := json.Unmarshal(body, &oaiResp); err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("api error (status %d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	if oaiResp.Error != nil {

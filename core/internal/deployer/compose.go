@@ -198,7 +198,16 @@ func (d *ComposeDeployer) autoDockerfile(appDir string) string {
 		}
 		dockerfile = fmt.Sprintf("FROM python:3-slim\nWORKDIR /app\nCOPY requirements.txt* ./\nRUN pip install --no-cache-dir -r requirements.txt 2>/dev/null || true\nCOPY . .\nEXPOSE 8080\nCMD [\"python\", \"%s\"]\n", entrypoint)
 	case hasHTML:
-		dockerfile = "FROM nginx:alpine\nCOPY . /usr/share/nginx/html\n"
+		// collect only web-servable files, skip build artifacts
+		var copyLines strings.Builder
+		for _, e := range entries {
+			name := e.Name()
+			if e.IsDir() || name == "Dockerfile" || name == "CONTEXT.md" || name == ".dockerignore" {
+				continue
+			}
+			fmt.Fprintf(&copyLines, "COPY %s /usr/share/nginx/html/%s\n", name, name)
+		}
+		dockerfile = "FROM nginx:alpine\n" + copyLines.String()
 	default:
 		return ""
 	}
@@ -443,7 +452,9 @@ func (d *ComposeDeployer) composeUp(ctx context.Context, service string) error {
 	buildCmd.Stderr = os.Stderr
 	buildCmd.Env = append(os.Environ(), "DOCKER_BUILDKIT=0", "COMPOSE_DOCKER_CLI_BUILD=0")
 
-	buildCmd.Run()
+	if err := buildCmd.Run(); err != nil {
+		return fmt.Errorf("docker build failed for %s: %w", service, err)
+	}
 
 	// start service
 	cmd := exec.CommandContext(ctx, "docker", "compose", "-f", composeFile, "up", "-d", service)
