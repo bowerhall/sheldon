@@ -322,6 +322,8 @@ func (b *Bridge) run(ctx context.Context, ws *Workspace, prompt string, maxTurns
 
 	logger.Debug("ollama launch claude command", "dir", ws.Path, "model", model)
 
+	const maxOutputBytes = 10 * 1024 * 1024 // 10MB output limit
+
 	var output strings.Builder
 	var stderrBuf strings.Builder
 
@@ -340,12 +342,16 @@ func (b *Bridge) run(ctx context.Context, ws *Workspace, prompt string, maxTurns
 	}
 
 	// capture stderr
+	stderrDone := make(chan struct{})
 	go func() {
+		defer close(stderrDone)
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
 			line := scanner.Text()
-			stderrBuf.WriteString(line)
-			stderrBuf.WriteString("\n")
+			if stderrBuf.Len() < maxOutputBytes {
+				stderrBuf.WriteString(line)
+				stderrBuf.WriteString("\n")
+			}
 			logger.Debug("claude stderr", "line", line)
 		}
 	}()
@@ -355,15 +361,18 @@ func (b *Bridge) run(ctx context.Context, ws *Workspace, prompt string, maxTurns
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		output.WriteString(line)
-		output.WriteString("\n")
+		if output.Len() < maxOutputBytes {
+			output.WriteString(line)
+			output.WriteString("\n")
+		}
 	}
+
+	<-stderrDone // wait for stderr goroutine to finish
 
 	if err := cmd.Wait(); err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return output.String(), fmt.Errorf("timeout exceeded")
 		}
-		// log stderr on error
 		if stderrBuf.Len() > 0 {
 			logger.Error("claude stderr output", "stderr", stderrBuf.String())
 		}
@@ -548,6 +557,8 @@ func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt stri
 
 	logger.Debug("ollama launch claude command (progress)", "dir", ws.Path, "model", model)
 
+	const maxOutputBytes = 10 * 1024 * 1024 // 10MB output limit
+
 	var output strings.Builder
 	var stderrBuf strings.Builder
 
@@ -566,12 +577,16 @@ func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt stri
 	}
 
 	// capture stderr in background
+	stderrDone := make(chan struct{})
 	go func() {
+		defer close(stderrDone)
 		stderrScanner := bufio.NewScanner(stderr)
 		for stderrScanner.Scan() {
 			line := stderrScanner.Text()
-			stderrBuf.WriteString(line)
-			stderrBuf.WriteString("\n")
+			if stderrBuf.Len() < maxOutputBytes {
+				stderrBuf.WriteString(line)
+				stderrBuf.WriteString("\n")
+			}
 		}
 	}()
 
@@ -595,9 +610,10 @@ func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt stri
 					for _, c := range content {
 						if block, ok := c.(map[string]any); ok {
 							if text, ok := block["text"].(string); ok {
-								output.WriteString(text)
+								if output.Len() < maxOutputBytes {
+									output.WriteString(text)
+								}
 							}
-							// detect tool use
 							if blockType, ok := block["type"].(string); ok && blockType == "tool_use" {
 								if toolName, ok := block["name"].(string); ok && onProgress != nil {
 									onProgress(StreamEvent{Type: "tool_use", Tool: toolName})
@@ -619,11 +635,12 @@ func (b *Bridge) runWithProgress(ctx context.Context, ws *Workspace, prompt stri
 		}
 	}
 
+	<-stderrDone // wait for stderr goroutine to finish
+
 	if err := cmd.Wait(); err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return output.String(), fmt.Errorf("timeout exceeded")
 		}
-		// log stderr on error
 		if stderrBuf.Len() > 0 {
 			logger.Error("claude stderr output", "stderr", stderrBuf.String())
 		}

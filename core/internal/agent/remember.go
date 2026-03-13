@@ -46,7 +46,7 @@ func (a *llmAdapter) Chat(ctx context.Context, systemPrompt string, messages []s
 
 func (a *Agent) getSheldonEntityID() int64 {
 	entity, err := a.memory.FindEntityByName("Sheldon")
-	if err != nil {
+	if err != nil || entity == nil {
 		logger.Error("failed to find Sheldon entity", "error", err)
 		return 0
 	}
@@ -61,12 +61,12 @@ func (a *Agent) getOrCreateUserEntity(sessionID string) int64 {
 	}
 
 	entity, err := a.memory.FindEntityByName(entityName)
-	if err == nil {
+	if err == nil && entity != nil {
 		return entity.ID
 	}
 
 	entity, err = a.memory.CreateEntity(entityName, "user", 1, "")
-	if err != nil {
+	if err != nil || entity == nil {
 		logger.Error("failed to create user entity", "error", err)
 		return 0
 	}
@@ -88,7 +88,7 @@ func (a *Agent) resolveEntityID(name, sessionID string, userID, sheldonID int64)
 
 func (a *Agent) getOrCreateNamedEntity(name, entityType string) int64 {
 	entity, err := a.memory.FindEntityByName(name)
-	if err == nil {
+	if err == nil && entity != nil {
 		return entity.ID
 	}
 
@@ -100,7 +100,7 @@ func (a *Agent) getOrCreateNamedEntity(name, entityType string) int64 {
 	}
 
 	entity, err = a.memory.CreateEntity(name, entityType, domainID, "")
-	if err != nil {
+	if err != nil || entity == nil {
 		logger.Error("failed to create entity", "error", err, "name", name)
 		return 0
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bowerhall/sheldon/internal/cron"
@@ -19,6 +20,7 @@ type CronRunner struct {
 	notify             NotifyFunc  // sends messages to chat
 	timezone           *time.Location
 	agent              *Agent    // for system crons
+	mu                 sync.Mutex
 	lastExtractionRun  time.Time // track last extraction run (every 6 hours)
 }
 
@@ -44,8 +46,12 @@ func (r *CronRunner) Run(ctx context.Context) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
-	// initial check after short delay
-	time.Sleep(5 * time.Second)
+	// initial check after short delay (context-aware)
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(5 * time.Second):
+	}
 	r.checkDueCrons(ctx)
 
 	for {
@@ -91,14 +97,20 @@ func (r *CronRunner) checkSystemCrons(ctx context.Context) {
 
 	now := time.Now()
 
+	r.mu.Lock()
+	shouldRun := now.Sub(r.lastExtractionRun) >= 6*time.Hour
+	if shouldRun {
+		r.lastExtractionRun = now
+	}
+	r.mu.Unlock()
+
 	// Memory extraction: runs every 6 hours, processes messages older than 6 hours
 	// Failsafe: if runs were missed, all unprocessed messages get caught up
-	if now.Sub(r.lastExtractionRun) >= 6*time.Hour {
+	if shouldRun {
 		logger.Info("running memory extraction")
-		r.lastExtractionRun = now
-
+		extractCtx := context.WithoutCancel(ctx)
 		go func() {
-			if err := r.agent.ProcessEndOfDay(ctx, false); err != nil {
+			if err := r.agent.ProcessEndOfDay(extractCtx, false); err != nil {
 				logger.Error("memory extraction failed", "error", err)
 			}
 		}()

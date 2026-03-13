@@ -40,8 +40,8 @@ func TestRegistryExecuteUnknownTool(t *testing.T) {
 	r := NewRegistry()
 
 	result, err := r.Execute(context.Background(), "nonexistent", "args")
-	if err != nil {
-		t.Errorf("expected no error for unknown tool, got: %v", err)
+	if err == nil {
+		t.Error("expected error for unknown tool, got nil")
 	}
 	if result != "" {
 		t.Errorf("expected empty result for unknown tool, got: %s", result)

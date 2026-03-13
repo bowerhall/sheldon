@@ -148,6 +148,8 @@ func (r *DockerRunner) RunJob(ctx context.Context, cfg JobConfig) (*Result, erro
 
 	cmd := exec.CommandContext(ctx, "docker", args...)
 
+	const maxOutputBytes = 10 * 1024 * 1024 // 10MB output limit
+
 	var output strings.Builder
 	var stderrBuf strings.Builder
 
@@ -166,12 +168,16 @@ func (r *DockerRunner) RunJob(ctx context.Context, cfg JobConfig) (*Result, erro
 	}
 
 	// capture stderr
+	stderrDone := make(chan struct{})
 	go func() {
+		defer close(stderrDone)
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
 			line := scanner.Text()
-			stderrBuf.WriteString(line)
-			stderrBuf.WriteString("\n")
+			if stderrBuf.Len() < maxOutputBytes {
+				stderrBuf.WriteString(line)
+				stderrBuf.WriteString("\n")
+			}
 			logger.Debug("coder stderr", "line", line)
 		}
 	}()
@@ -182,9 +188,13 @@ func (r *DockerRunner) RunJob(ctx context.Context, cfg JobConfig) (*Result, erro
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		output.WriteString(line)
-		output.WriteString("\n")
+		if output.Len() < maxOutputBytes {
+			output.WriteString(line)
+			output.WriteString("\n")
+		}
 	}
+
+	<-stderrDone // wait for stderr goroutine to finish
 
 	result := &Result{
 		Duration:      time.Since(start),

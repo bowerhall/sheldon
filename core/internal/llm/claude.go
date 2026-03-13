@@ -35,9 +35,14 @@ type rawMessage struct {
 }
 
 type rawContentBlock struct {
-	Type   string          `json:"type"`
-	Text   string          `json:"text,omitempty"`
-	Source *rawMediaSource `json:"source,omitempty"`
+	Type      string          `json:"type"`
+	Text      string          `json:"text,omitempty"`
+	ID        string          `json:"id,omitempty"`
+	Name      string          `json:"name,omitempty"`
+	Input     map[string]any  `json:"input,omitempty"`
+	ToolUseID string          `json:"tool_use_id,omitempty"`
+	Content   string          `json:"content,omitempty"`
+	Source    *rawMediaSource `json:"source,omitempty"`
 }
 
 type rawMediaSource struct {
@@ -151,7 +156,11 @@ func (c *claude) ChatWithTools(ctx context.Context, systemPrompt string, message
 		}
 		if attempt < maxRetries-1 {
 			delay := baseDelay * time.Duration(1<<attempt)
-			time.Sleep(delay)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay):
+			}
 		}
 	}
 	if err != nil {
@@ -228,7 +237,11 @@ func (c *claude) chatWithToolsRaw(ctx context.Context, systemPrompt string, mess
 		}
 		if attempt < maxRetries-1 {
 			delay := baseDelay * time.Duration(1<<attempt)
-			time.Sleep(delay)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay):
+			}
 		}
 	}
 
@@ -262,10 +275,15 @@ func (c *claude) convertMessagesRaw(messages []Message) []rawMessage {
 				}
 				for _, tc := range msg.ToolCalls {
 					var input map[string]any
-					json.Unmarshal([]byte(tc.Arguments), &input)
+					if err := json.Unmarshal([]byte(tc.Arguments), &input); err != nil {
+						input = map[string]any{}
+					}
+					toolID := sanitizeToolID(tc.ID)
 					blocks = append(blocks, rawContentBlock{
-						Type: "tool_use",
-						// Note: tool_use blocks have different structure, simplified here
+						Type:  "tool_use",
+						ID:    toolID,
+						Name:  tc.Name,
+						Input: input,
 					})
 				}
 			} else {
@@ -274,9 +292,11 @@ func (c *claude) convertMessagesRaw(messages []Message) []rawMessage {
 			result = append(result, rawMessage{Role: "assistant", Content: blocks})
 
 		case "tool":
+			toolID := sanitizeToolID(msg.ToolCallID)
 			blocks = append(blocks, rawContentBlock{
-				Type: "tool_result",
-				Text: msg.Content,
+				Type:      "tool_result",
+				ToolUseID: toolID,
+				Content:   msg.Content,
 			})
 			result = append(result, rawMessage{Role: "user", Content: blocks})
 
@@ -381,7 +401,9 @@ func (c *claude) convertMessages(messages []Message) []anthropic.MessageParam {
 				}
 				for _, tc := range msg.ToolCalls {
 					var input map[string]any
-					json.Unmarshal([]byte(tc.Arguments), &input)
+					if err := json.Unmarshal([]byte(tc.Arguments), &input); err != nil {
+						input = map[string]any{}
+					}
 					// sanitize tool ID to match Claude's required pattern
 					toolID := sanitizeToolID(tc.ID)
 					blocks = append(blocks, anthropic.ContentBlockParamOfRequestToolUseBlock(toolID, input, tc.Name))

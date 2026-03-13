@@ -460,6 +460,9 @@ func (a *Agent) loadSkill(name string) string {
 	skillPath := filepath.Join(a.skillsDir, strings.ToUpper(name)+".md")
 	content, err := os.ReadFile(skillPath)
 	if err != nil {
+		if !os.IsNotExist(err) {
+			logger.Error("failed to read skill file", "path", skillPath, "error", err)
+		}
 		return ""
 	}
 

@@ -438,7 +438,13 @@ func (d *ComposeDeployer) saveComposeFile(compose *ComposeFile) error {
 
 	// add header comment
 	header := "# Sheldon-Managed Apps\n# This file is managed by Sheldon. Do not edit manually.\n\n"
-	return os.WriteFile(d.appsFile, []byte(header+string(data)), 0644)
+
+	// atomic write: write to temp file then rename to prevent corruption
+	tmpFile := d.appsFile + ".tmp"
+	if err := os.WriteFile(tmpFile, []byte(header+string(data)), 0644); err != nil {
+		return err
+	}
+	return os.Rename(tmpFile, d.appsFile)
 }
 
 func (d *ComposeDeployer) composeUp(ctx context.Context, service string) error {
