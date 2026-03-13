@@ -104,13 +104,15 @@ func (o *openaiCompatible) ChatWithTools(ctx context.Context, systemPrompt strin
 		oaiMessages = append(oaiMessages, openaiMessage{Role: "system", Content: systemPrompt})
 	}
 
+	caps := o.Capabilities()
+
 	for _, msg := range messages {
 		oaiMsg := openaiMessage{
 			Role:       msg.Role,
 			ToolCallID: msg.ToolCallID,
 		}
 
-		if len(msg.Media) > 0 {
+		if len(msg.Media) > 0 && caps.Vision {
 			var parts []openaiContentPart
 			for _, media := range msg.Media {
 				dataURL := fmt.Sprintf("data:%s;base64,%s", media.MimeType, base64.StdEncoding.EncodeToString(media.Data))
@@ -126,7 +128,14 @@ func (o *openaiCompatible) ChatWithTools(ctx context.Context, systemPrompt strin
 			}
 			oaiMsg.Content = parts
 		} else {
-			oaiMsg.Content = msg.Content
+			// No media, or model doesn't support vision — send text only
+			content := msg.Content
+			if len(msg.Media) > 0 && !caps.Vision {
+				if content == "" {
+					content = "[image attached]"
+				}
+			}
+			oaiMsg.Content = content
 		}
 
 		for _, tc := range msg.ToolCalls {
