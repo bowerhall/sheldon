@@ -153,6 +153,65 @@ func (d *ComposeDeployer) findDockerfile(appDir string) string {
 	return ""
 }
 
+// autoDockerfile generates a Dockerfile when the coder didn't create one.
+// Detects the project type from files present and writes an appropriate Dockerfile.
+// Returns the directory containing the generated Dockerfile, or empty string if
+// the project type couldn't be determined.
+func (d *ComposeDeployer) autoDockerfile(appDir string) string {
+	entries, err := os.ReadDir(appDir)
+	if err != nil {
+		return ""
+	}
+
+	hasHTML := false
+	hasPackageJSON := false
+	hasRequirementsTxt := false
+	hasPythonApp := false
+	hasGoMod := false
+
+	for _, e := range entries {
+		name := e.Name()
+		switch {
+		case strings.HasSuffix(name, ".html"):
+			hasHTML = true
+		case name == "package.json":
+			hasPackageJSON = true
+		case name == "requirements.txt":
+			hasRequirementsTxt = true
+		case name == "app.py" || name == "main.py":
+			hasPythonApp = true
+		case name == "go.mod":
+			hasGoMod = true
+		}
+	}
+
+	var dockerfile string
+	switch {
+	case hasPackageJSON:
+		dockerfile = "FROM node:alpine\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install --production\nCOPY . .\nEXPOSE 3000\nCMD [\"npm\", \"start\"]\n"
+	case hasGoMod:
+		dockerfile = "FROM golang:alpine AS build\nWORKDIR /app\nCOPY go.* ./\nRUN go mod download\nCOPY . .\nRUN CGO_ENABLED=0 go build -o server .\nFROM alpine:latest\nCOPY --from=build /app/server /server\nEXPOSE 8080\nCMD [\"/server\"]\n"
+	case hasRequirementsTxt || hasPythonApp:
+		entrypoint := "app.py"
+		if !hasPythonApp {
+			entrypoint = "main.py"
+		}
+		dockerfile = fmt.Sprintf("FROM python:3-slim\nWORKDIR /app\nCOPY requirements.txt* ./\nRUN pip install --no-cache-dir -r requirements.txt 2>/dev/null || true\nCOPY . .\nEXPOSE 8080\nCMD [\"python\", \"%s\"]\n", entrypoint)
+	case hasHTML:
+		dockerfile = "FROM nginx:alpine\nCOPY . /usr/share/nginx/html\n"
+	default:
+		return ""
+	}
+
+	path := filepath.Join(appDir, "Dockerfile")
+	if err := os.WriteFile(path, []byte(dockerfile), 0644); err != nil {
+		logger.Error("failed to write auto-generated Dockerfile", "error", err)
+		return ""
+	}
+	logger.Info("auto-generated Dockerfile", "path", path, "dir", appDir)
+	return appDir
+}
+
 // Deploy adds a service to apps.yml and runs docker compose up
 func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string, domain string) (*DeployResult, error) {
 	// validate app name (alphanumeric + hyphens, max 63 chars, must start with alphanumeric)
@@ -184,12 +243,15 @@ func (d *ComposeDeployer) Deploy(ctx context.Context, appDir string, name string
 
 	// find Dockerfile - check root first, then immediate subdirectories
 	dockerfilePath := d.findDockerfile(appDir)
+	if dockerfilePath == "" {
+		// no Dockerfile found - try to auto-generate one based on project files
+		dockerfilePath = d.autoDockerfile(appDir)
+	}
 	if dockerfilePath != "" {
-		// use container path - compose CLI runs inside container and reads context from here
 		service.Build = dockerfilePath
 		logger.Debug("found Dockerfile", "path", dockerfilePath)
 	} else {
-		return nil, fmt.Errorf("no Dockerfile found in %s or its subdirectories", appDir)
+		return nil, fmt.Errorf("no Dockerfile found in %s or its subdirectories, and could not auto-detect project type", appDir)
 	}
 
 	// routing configuration depends on domain type
